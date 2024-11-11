@@ -73,7 +73,7 @@ repos:
     hooks:
       - id: pylint
         name: pylint
-        entry: bash -c 'pylint --disable=W,C,R,E -j 0 -rn -sn prowler/'
+        entry: bash -c 'pylint --disable=W,C,R,E -j 0 -rn -sn ai/'
         language: system
         files: '.*\.py'
 
@@ -89,7 +89,7 @@ repos:
       - id: bandit
         name: bandit
         description: "Bandit is a tool for finding common security issues in Python code"
-        entry: bash -c 'bandit -q -lll -x '*_test.py,./contrib/' -r .'
+        entry: bash -c 'bandit -q -lll -x './.venv/' -r .'
         language: system
         files: '.*\.py'
 
@@ -102,6 +102,6 @@ repos:
       - id: vulture
         name: vulture
         description: "Vulture finds unused code in Python programs."
-        entry: bash -c 'vulture --exclude "contrib" --min-confidence 100 .'
+        entry: bash -c 'vulture --ignore-names "cls" --exclude ".venv" --min-confidence 100 .'
         language: system
         files: '.*\.py'
