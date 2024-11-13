@@ -1,3 +1,5 @@
+import re
+
 from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
@@ -12,9 +14,7 @@ class ChecKreationWorkflow(Workflow):
     """Workflow to create new Prowler check based on user input."""
 
     @step
-    async def analyze_input(
-        self, ctx: Context, start_event: StartEvent
-    ) -> CheckMetadataInformation | StopEvent:
+    async def analyze_input(self, ctx: Context, start_event: StartEvent) -> StopEvent:
         """Analyze user input to create check.
 
         It is required to pass in the start event a valid user query, model provider and model reference.
@@ -44,7 +44,9 @@ class ChecKreationWorkflow(Workflow):
                     )
                 )
 
-                if str(security_reasoning).strip().lower() == "none":
+                if str(security_reasoning).strip().lower() == "none" or re.search(
+                    r"User prompt analysis:\nNONE", security_reasoning.text
+                ):
                     return StopEvent(
                         result="Sorry, your user query seems to not have enough information to create a new check. Please provide more context."
                     )

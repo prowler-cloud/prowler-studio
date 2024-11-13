@@ -1,6 +1,8 @@
 from os.path import exists
 
 from llama_index.core.llms.llm import LLM
+from llama_index.llms.gemini import Gemini
+from llama_index.llms.gemini.base import GEMINI_MODELS
 from llama_index.llms.llama_cpp import LlamaCPP
 
 from ai.src.utils.prompt_loader import SYSTEM_CONTEXT_PROMPT
@@ -35,6 +37,15 @@ def llm_chooser(model_provider: str, model_reference: str) -> LLM:
             )
         else:
             raise ValueError(f"LlamaCPP model {model_reference} not found.")
+    elif model_provider == "gemini":
+        if model_reference in GEMINI_MODELS:
+            llm = Gemini(
+                model=model_reference,
+            )
+        else:
+            raise ValueError(
+                f"Model {model_reference} not supported by Gemini. The supported models are: {GEMINI_MODELS}"
+            )
     else:
         raise ValueError(f"Model provider {model_provider} not supported.")
 
