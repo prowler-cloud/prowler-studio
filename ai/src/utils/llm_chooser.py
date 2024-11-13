@@ -44,7 +44,7 @@ def llm_chooser(model_provider: str, model_reference: str) -> LLM:
             )
         else:
             raise ValueError(
-                f"Model {model_reference} not supported by Gemini. The supported models are: {GEMINI_MODELS}"
+                f"Model {model_reference} not supported by Gemini. The supported models are: {", ".join([model for model in GEMINI_MODELS if model.startswith('models')])}."
             )
     else:
         raise ValueError(f"Model provider {model_provider} not supported.")
