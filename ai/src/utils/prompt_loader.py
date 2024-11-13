@@ -23,21 +23,22 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
 
     RAW_PROMPT_TEMPLATES = {
         "generic": {
-            Step.SECURITY_ANALYSIS: (
-                "Your task is to analyze the user prompt and detect if is related to cloud security. If it is related, you must extract the cloud security reasoning and steps behind the user prompt, think step by step how the security comprobation could be done.\n"
-                "In the case that the user prompt is not related to cloud security or does not provide enought context, you ONLY MUST return 'NONE'.\n"
+            Step.SECURITY_ANALYSIS: (  # TODO: Improve this template extracting the security requirements, best practices and how to check them step by step. Add more examples for different kind of answers and providers.
+                "Extract the cloud security reasoning and steps behind the user prompt, think step by step how the security comprobation could be done.\n"
                 "User prompt: make a check to ensure that the S3 bucket is not public.\n"
-                "User prompt analysis:\n"
+                "Security analysis: "
                 "The requested prompt is related to cloud security, specifically with AWS because S3 is an AWS for storage. This is a common security best practice to avoid unauthorized access to the bucket content.\nTo do this check you must verify at 4 levels: - Account level: verify that 'Block Public Access' is enabled for the account settings. - Bucket access permissions: verify each bucket has 'Block pulic access through ACLs' and 'Block public access through bucket policies' enabled. - Access control list (ACL): verify that the bucket does not have an ACL with 'AllUsers' or 'Authenticated Users' with 'List' or 'Write' permissions. - Bucket policy: verify that the bucket does not have a bucket policy that allows public access.\n"
-                "User prompt: what is the first day of the week?\n"
-                "User prompt analysis:\nNONE\n"
                 "User prompt: how can I ensure that my Entra policy is secure?\n"
-                "User prompt analysis: "
+                "Security analysis: "
                 "The requested prompt is related to cloud security, specifically with Azure because Entra is the Microsoft product for identity and access management. This is a common security best practice to ensure that the Entra policy is secure to avoid unauthorized access to the resources.\nTo do this check at least you must verify that the Security Defaults are enabled\n"
-                "User prompt: what is the best way to reduce the costs of my AKS cluster?\n"
-                "User prompt analysis:\nNONE\n"
+                "User prompt: create a check to ensure BigQuery datasets are encrypted with Customer-Managed Keys (CMKs).\n"
+                "Security analysis: "
+                "The requested prompt is related to cloud security, specifically with GCP because BigQuery is a GCP product for data analysis. This is a common security best practice to ensure that the BigQuery datasets are encrypted with Customer-Managed Keys (CMKs) to avoid unauthorized access to the data.\nTo do this check you must verify that the BigQuery datasets are encrypted with Customer-Managed Keys (CMKs).\n"
+                "User prompt: create a check to ensure that in my k8s cluster the secrets are not stored in the enviroment variables.\n"
+                "Security analysis: "
+                "The requested prompt is related to cloud security, specifically with Kubernetes because k8s is the short name for Kubernetes. This is a common security best practice to avoid storing secrets in the environment variables to avoid unauthorized access to the secrets.\nTo do this check you must verify that the secrets are not stored in the environment variables, instead the best practice mounting secrets as files for enhanced security."
                 f"User prompt: {kwargs.get('user_query', '')}\n"
-                "User prompt analysis:\n"
+                "Security analysis: "
             ),
             Step.SERVICE_PROVIDER_EXTRACTION: (
                 "Your task is to extract the service provider and service information from the user prompt.\n"
