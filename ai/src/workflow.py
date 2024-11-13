@@ -1,5 +1,3 @@
-import re
-
 from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
@@ -35,7 +33,9 @@ class ChecKreationWorkflow(Workflow):
                 await ctx.set("model_provider", start_event.get("model_provider"))
                 await ctx.set("model_reference", start_event.get("model_reference"))
 
-                # Start asking the model about the user query, extract if the user query is related to cloud security
+                # TODO: Add a step to check if the user query is related to cloud security
+
+                # If security-related, analyze security requirements and best practices
                 security_reasoning = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
                         step=Step.SECURITY_ANALYSIS,
@@ -43,13 +43,6 @@ class ChecKreationWorkflow(Workflow):
                         user_query=user_query,
                     )
                 )
-
-                if str(security_reasoning).strip().lower() == "none" or re.search(
-                    r"User prompt analysis:\nNONE", security_reasoning.text
-                ):
-                    return StopEvent(
-                        result="Sorry, your user query seems to not have enough information to create a new check. Please provide more context."
-                    )
 
                 # Extract structured information like the provider and service from the user query, keep asking until the user provides the information
                 check_basic_info = None
