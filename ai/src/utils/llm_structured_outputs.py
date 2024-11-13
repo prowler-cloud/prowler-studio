@@ -1,16 +1,15 @@
-from pydantic import BaseModel, field_validator
+from typing import Literal
+
+from pydantic import BaseModel, Field
 
 
-class ResultPromptAnalysis(BaseModel):
-    """Model to represent the prompt analysis event."""
+class CheckBasicInformation(BaseModel):
+    """Avaiable provider and service information for Prowler checks."""
 
-    security_logic: str
-    provider: str
-    service: str
-    check_name: str
-
-    @field_validator("provider")
-    def validate_provider(cls, value):
-        if value not in {"aws", "azure", "gcp", "kubernetes", "NONE"}:
-            raise ValueError("Provider must be one of: aws, azure, gcp, kubernetes")
-        return value
+    prowler_provider: Literal["aws", "azure", "gcp", "kubernetes"] = Field(
+        description="Prowler provider to use for the check creation"
+    )
+    service: str = Field(
+        description="Service of the provider to which the check is related"
+    )
+    check_name: str = Field(description="Name of the check to create")

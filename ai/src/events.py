@@ -12,6 +12,6 @@ class CheckMetadataInformation(Event):
     check_description: str = Field(
         description="Description of the check to create from a cloud cybersecurity perspective"
     )
-    cloud_provider: str = Field(
+    prowler_provider: str = Field(
         description="Cloud provider to use for the check creation"
     )
