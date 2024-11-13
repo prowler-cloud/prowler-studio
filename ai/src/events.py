@@ -1,3 +1,5 @@
+from typing import Literal
+
 from llama_index.core.workflow import Event
 from pydantic import Field
 
@@ -12,6 +14,6 @@ class CheckMetadataInformation(Event):
     check_description: str = Field(
         description="Description of the check to create from a cloud cybersecurity perspective"
     )
-    prowler_provider: str = Field(
+    prowler_provider: Literal["aws", "azure", "gcp", "kubernetes"] = Field(
         description="Cloud provider to use for the check creation"
     )
