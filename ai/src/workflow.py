@@ -4,7 +4,7 @@ from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, 
 
 from ai.src.events import CheckMetadataInformation
 from ai.src.utils.llm_chooser import llm_chooser
-from ai.src.utils.llm_structured_outputs import CheckBasicInformation
+from ai.src.utils.llm_structured_outputs import CheckBasicInformation, CheckMetadata
 from ai.src.utils.prompt_loader import Step, load_prompt_template
 
 
@@ -12,7 +12,9 @@ class ChecKreationWorkflow(Workflow):
     """Workflow to create new Prowler check based on user input."""
 
     @step
-    async def analyze_input(self, ctx: Context, start_event: StartEvent) -> StopEvent:
+    async def analyze_input(
+        self, ctx: Context, start_event: StartEvent
+    ) -> CheckMetadataInformation | StopEvent:
         """Analyze user input to create check.
 
         It is required to pass in the start event a valid user query, model provider and model reference.
@@ -80,6 +82,43 @@ class ChecKreationWorkflow(Workflow):
                 )
             else:
                 raise ValueError("The provided user query is empty.")
+
+        except ValueError as e:
+            return StopEvent(result=str(e))
+        except Exception as e:
+            return StopEvent(
+                result=f"{e.__class__.__name__}: [{e.__traceback__.tb_lineno}]: {e}"
+            )
+
+    @step
+    async def create_check_metadata(
+        self, ctx: Context, check_metadata_base_info: CheckMetadataInformation
+    ) -> StopEvent:
+        """Create the Prowler check based on the user input.
+
+        Args:
+            ctx (Context): Workflow context.
+            check_metadata (CheckMetadataInformation): Structured information extracted from the user query to create the check metadata.
+        """
+        try:
+            check_metadata = None
+
+            while not check_metadata:
+                try:
+                    check_metadata = await Settings.llm.astructured_predict(
+                        output_cls=CheckMetadata,
+                        prompt=PromptTemplate(
+                            template=load_prompt_template(
+                                step=Step.CHECK_METADATA_GENERATION,
+                                model_reference=await ctx.get("model_reference"),
+                                check_name=check_metadata_base_info.check_name,
+                                check_description=check_metadata_base_info.check_description,
+                                prowler_provider=check_metadata_base_info.prowler_provider,
+                            )
+                        ),
+                    )
+                except Exception:
+                    pass
 
         except ValueError as e:
             return StopEvent(result=str(e))
