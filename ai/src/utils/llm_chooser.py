@@ -5,8 +5,6 @@ from llama_index.llms.gemini import Gemini
 from llama_index.llms.gemini.base import GEMINI_MODELS
 from llama_index.llms.llama_cpp import LlamaCPP
 
-from ai.src.utils.prompt_loader import SYSTEM_CONTEXT_PROMPT
-
 
 def llm_chooser(model_provider: str, model_reference: str) -> LLM:
     """Choose the right LLM model based on the user input.
@@ -25,7 +23,6 @@ def llm_chooser(model_provider: str, model_reference: str) -> LLM:
                 model_path=None,
                 temperature=0.6,
                 verbose=False,
-                system_prompt=SYSTEM_CONTEXT_PROMPT,
             )
         elif exists(model_reference):
             llm = LlamaCPP(
@@ -33,7 +30,6 @@ def llm_chooser(model_provider: str, model_reference: str) -> LLM:
                 model_path=model_reference,
                 temperature=0.6,
                 verbose=False,
-                system_prompt=SYSTEM_CONTEXT_PROMPT,
             )
         else:
             raise ValueError(f"LlamaCPP model {model_reference} not found.")
