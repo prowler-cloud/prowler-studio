@@ -13,9 +13,6 @@ class Step(str, Enum):
     CHECK_CODE_GENERATION = "check_code_generation"
 
 
-SYSTEM_CONTEXT_PROMPT = "You are a security engineer specialized in cloud security and python developing working in a cloud security tool called Prowler. Mainly you work in all the parts of the proccess of check creation, a check is an automated security control that checks a specific security best practice in a cloud provider service.\n A check is composed by three parts: the Python code that checks the security best practice, the metadata that contains extra information like description, recommendations, etc. and the tests that set the base cases that the check should cover to ensure that the check is following the security best practice.\n When a check is executed by Prowler it generates a finding with a status (PASS, FAIL, INFO) that indicates if the security best practice is being followed or not, and other relevant information for the user like the ID of resource affected and a extended status to give more information about the finding.\n"
-
-
 def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
     """Load the prompt template for the given step.
 
@@ -24,6 +21,8 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
         model_reference (str): Reference to the LLM model, for very known models it can be used to load a specific prompt template.
         **kwargs: Additional keyword arguments to be included in the prompt template.
     """
+
+    SYSTEM_CONTEXT_PROMPT = "You are a security engineer specialized in cloud security and python developing working in a cloud security tool called Prowler. Mainly you work in all the parts of the proccess of check creation, a check is an automated security control that checks a specific security best practice in a cloud provider service.\n A check is composed by three parts: the Python code that checks the security best practice, the metadata that contains extra information like description, recommendations, etc. and the tests that set the base cases that the check should cover to ensure that the check is following the security best practice.\n When a check is executed by Prowler it generates a finding with a status (PASS, FAIL, INFO) that indicates if the security best practice is being followed or not, and other relevant information for the user like the ID of resource affected and a extended status to give more information about the finding.\n"
 
     EXAMPLE_USER_QUERIES = {
         "aws": ["make a check to ensure that the S3 bucket is not public."],
@@ -125,14 +124,42 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "Base cases study: (This is for internal reasoning, you don't need to complete this field)\n"
                 f"Check Tests: "
             ),
+            Step.CHECK_CODE_GENERATION: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Generate the Prowler check code that is going to ensure that best practices are followed.\n"
+                "The check is a Python class that inherits from the 'Check' class and has only one method called execute where is the code to generate the finding with the status and other relevant information.\n"
+                "You are going to be provided with all the tests cases that the code MUST cover and some extra information from metadata to have more context about the check.\n"
+                f"In the next lines you can see some examples of the task that you must do. Please, do not copy and paste the examples, you must extract the information from the user prompt.\n"
+                f"Check Metadata: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['check_metadata']}\n"
+                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['check_tests']}\n"
+                f"Check Code: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['check_code']}\n"
+                f"Check Metadata: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["azure"][0]]['check_metadata']}\n"
+                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["azure"][0]]['check_tests']}\n"
+                f"Check Code: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["azure"][0]]['check_code']}\n"
+                f"Check Metadata: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["gcp"][0]]['check_metadata']}\n"
+                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["gcp"][0]]['check_tests']}\n"
+                f"Check Code: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["gcp"][0]]['check_code']}\n"
+                f"Check Metadata: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["kubernetes"][0]]['check_metadata']}\n"
+                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["kubernetes"][0]]['check_tests']}\n"
+                f"Check Code: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["kubernetes"][0]]['check_code']}\n"
+                f"{15 * '-'}\n"
+                "Complete only the next task:\n"
+                f"Check Metadata: {kwargs.get('check_metadata', '')}\n"
+                f"Check Tests: {kwargs.get('check_tests', '')}\n"
+                "Check Code: "
+            ),
         }
     }
 
     prompt_template = ""
 
-    if model_reference not in RAW_PROMPT_TEMPLATES:
+    model_name = "generic"
+
+    if model_reference in RAW_PROMPT_TEMPLATES:
         # Use the generic one
-        prompt_template = RAW_PROMPT_TEMPLATES.get("generic", {}).get(step, "")
+        model_name = model_reference
+
+    prompt_template = RAW_PROMPT_TEMPLATES.get(model_name, {}).get(step, "")
 
     if prompt_template:
         return prompt_template
