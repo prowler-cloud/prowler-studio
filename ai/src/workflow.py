@@ -199,8 +199,24 @@ class ChecKreationWorkflow(Workflow):
             if check_information is None:
                 return None
             else:
+                # Generate the code for the check
+                check_code = None
+
+                while not check_code:
+                    try:
+                        check_code = await Settings.llm.acomplete(
+                            prompt=load_prompt_template(
+                                step=Step.CHECK_CODE_GENERATION,
+                                model_reference=await ctx.get("model_reference"),
+                                check_metadata=check_information[0].check_metadata,
+                                check_tests=check_information[1].check_tests,
+                            )
+                        )
+                    except Exception:
+                        pass
+
                 return StopEvent(
-                    result=f"Check metadata: {check_information[0].check_metadata}\n\nCheck tests: {check_information[1].check_tests}"
+                    result=f"Check metadata: {check_information[0].check_metadata}\n\nCheck tests: {check_information[1].check_tests}\n\nCheck code: {check_code.text}"
                 )
 
         except ValueError as e:
