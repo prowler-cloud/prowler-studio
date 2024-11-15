@@ -9,11 +9,11 @@ class Step(str, Enum):
     SECURITY_ANALYSIS = "security_analysis"
     SERVICE_PROVIDER_EXTRACTION = "service_provider_extraction"
     CHECK_METADATA_GENERATION = "check_metadata_generation"
-    CHKEC_TESTS_GENERATION = "check_tests_generation"
+    CHECK_TESTS_GENERATION = "check_tests_generation"
     CHECK_CODE_GENERATION = "check_code_generation"
 
 
-SYSTEM_CONTEXT_PROMPT = "You are a security engineer specialized in cloud security and python developing working in a cloud security tool called Prowler."
+SYSTEM_CONTEXT_PROMPT = "You are a security engineer specialized in cloud security and python developing working in a cloud security tool called Prowler. Mainly you work in all the parts of the proccess of check creation, a check is an automated security control that checks a specific security best practice in a cloud provider service.\n A check is composed by three parts: the Python code that checks the security best practice, the metadata that contains extra information like description, recommendations, etc. and the tests that set the base cases that the check should cover to ensure that the check is following the security best practice.\n When a check is executed by Prowler it generates a finding with a status (PASS, FAIL, INFO) that indicates if the security best practice is being followed or not, and other relevant information for the user like the ID of resource affected and a extended status to give more information about the finding.\n"
 
 
 def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
@@ -39,6 +39,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
     RAW_PROMPT_TEMPLATES = {
         "generic": {
             Step.SECURITY_ANALYSIS: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Extract the cloud security reasoning and steps behind the user prompt, think step by step how the security comprobation could be done.\n"
                 "In the next lines you can see some examples of the task that you must do. Please, do not copy and paste the examples, you must extract the information from the user prompt.\n"
                 f"User prompt: {EXAMPLE_USER_QUERIES["aws"][0]}\n"
@@ -55,6 +56,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "Security analysis: "
             ),
             Step.SERVICE_PROVIDER_EXTRACTION: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Extract the service provider and service information from the user prompt.\n"
                 "You MUST return a CheckBasicInformation object, ONLY one string per field.\n"
                 "You can query the security reasoning extracted from other Prowler engineer to help you to extract the service provider and service information. With this information you can design a check name, it should follow the Prowler check naming convention: service_check_description.\n"
@@ -81,8 +83,9 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
             Step.CHECK_METADATA_GENERATION: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Generate the Prowler check metadata based on a check description.\n"
-                "A Prowler check is a Python script that checks a specific security best practice in a cloud provider service. The metadata of the check is a 'CheckMetadata' object that contains extra the information about the check.\n"
+                "The metadata of the check is a 'CheckMetadata' object, at the end of this message you can see more information about the object schema, with all the fields and descriptions.\n"
                 "You MUST return a CheckMetadata object.\n"
                 "In the next lines you can see some examples of the task that you must do. Please, do not copy and paste the examples, you must extract the information from the user prompt.\n"
                 f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['security_analysis']}\n"
@@ -97,6 +100,30 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "Complete only the next task:\n"
                 f"Security analysis: {kwargs.get('check_description', '')}\n The CheckID MUST be: {kwargs.get('check_name', '')} and the Provider MUST be: {kwargs.get('prowler_provider', '')}\n"
                 "Check Metadata: "
+            ),
+            Step.CHECK_TESTS_GENERATION: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Generate the Prowler check tests based on a check description.\n"
+                "Tests will be the base case that the check should cover to ensure that the check is following the security best practice.\n"
+                "Please first extract from the security analysis the base cases that the check should cover and then generate the tests based on the base cases.\n"
+                "In the next lines you can see some examples of the task that you must do. Please, do not copy and paste the examples, you must extract the information from the user prompt.\n"
+                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['security_analysis']}\n"
+                f"Base cases study: {"\n".join(EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['base_case_scenarios'])}\n"
+                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['check_tests']}\n"
+                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["azure"][0]]['security_analysis']}\n"
+                f"Base cases study: {"\n".join(EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["azure"][0]]['base_case_scenarios'])}\n"
+                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["azure"][0]]['check_tests']}\n"
+                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["gcp"][0]]['security_analysis']}\n"
+                f"Base cases study: {"\n".join(EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["gcp"][0]]['base_case_scenarios'])}\n"
+                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["gcp"][0]]['check_tests']}\n"
+                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["kubernetes"][0]]['security_analysis']}\n"
+                f"Base cases study: {"\n".join(EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["kubernetes"][0]]['base_case_scenarios'])}\n"
+                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["kubernetes"][0]]['check_tests']}\n"
+                f"{15 * '-'}\n"
+                "Complete only the next task:\n"
+                f"Security analysis: {kwargs.get('check_description', '')}. The check name MUST be: {kwargs.get('check_name', '')} and the provider MUST be: {kwargs.get('prowler_provider', '')}\n"
+                "Base cases study: (This is for internal reasoning, you don't need to complete this field)\n"
+                f"Check Tests: "
             ),
         }
     }
