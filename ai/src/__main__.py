@@ -7,7 +7,7 @@ warnings.filterwarnings(
 import asyncio
 import sys
 
-from ai.src.workflow import ChecKreationWorkflow
+from workflow import ChecKreationWorkflow
 
 
 async def run_check_creation_workflow(
@@ -22,9 +22,6 @@ async def run_check_creation_workflow(
     )
     return result
 
-
-# The prompt analysis where did with this model: https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_0.gguf
-# Other interesting but with many fails: https://huggingface.co/QuantFactory/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct.Q4_0.gguf
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
