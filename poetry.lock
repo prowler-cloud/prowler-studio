@@ -630,6 +630,17 @@ testing = ["covdefaults (>=2.3)", "coverage (>=7.3)", "diff-cover (>=7.7)", "pyt
 typing = ["typing-extensions (>=4.7.1)"]
 
 [[package]]
+name = "filetype"
+version = "1.2.0"
+description = "Infer file type and MIME type of any file/buffer. No external dependencies."
+optional = false
+python-versions = "*"
+files = [
+    {file = "filetype-1.2.0-py2.py3-none-any.whl", hash = "sha256:7ce71b6880181241cf7ac8697a2f1eb6a8bd9b429f7ad6d27b8db9ba5f1c2d25"},
+    {file = "filetype-1.2.0.tar.gz", hash = "sha256:66b56cd6474bf41d8c54660347d37afcc3f7d1970648de365c102ef77548aadb"},
+]
+
+[[package]]
 name = "frozenlist"
 version = "1.5.0"
 description = "A list-like structure which implements collections.abc.MutableSequence"
@@ -1231,13 +1242,13 @@ test = ["fastapi (>=0.100.0)", "httpx (>=0.24.1)", "pydantic-settings (>=2.0.1)"
 
 [[package]]
 name = "llama-index-core"
-version = "0.11.22"
+version = "0.12.0"
 description = "Interface between LLMs and your data"
 optional = false
-python-versions = "<4.0,>=3.8.1"
+python-versions = "<4.0,>=3.9"
 files = [
-    {file = "llama_index_core-0.11.22-py3-none-any.whl", hash = "sha256:5c59d95dec9bb0727f25b03de89392c69076b2e4aaa6acbd8773de1f07502e9e"},
-    {file = "llama_index_core-0.11.22.tar.gz", hash = "sha256:ddc30b9c873495de40ad8278d0c894ba09f32f6aa7fc638012b1b22b74c32553"},
+    {file = "llama_index_core-0.12.0-py3-none-any.whl", hash = "sha256:dc2ac0ca04cad135f72cb5f8cc44dca3f1a74f214ee9f39647e1f7a723cae17a"},
+    {file = "llama_index_core-0.12.0.tar.gz", hash = "sha256:99bb6c953af2de225268f10c70b06e861df394184e9c13ee7c70107ff542439d"},
 ]
 
 [package.dependencies]
@@ -1245,12 +1256,13 @@ aiohttp = ">=3.8.6,<4.0.0"
 dataclasses-json = "*"
 deprecated = ">=1.2.9.3"
 dirtyjson = ">=1.0.8,<2.0.0"
+filetype = ">=1.2.0,<2.0.0"
 fsspec = ">=2023.5.0"
 httpx = "*"
 nest-asyncio = ">=1.5.8,<2.0.0"
 networkx = ">=3.0"
 nltk = ">3.8.1"
-numpy = "<2.0.0"
+numpy = "*"
 pillow = ">=9.0.0"
 pydantic = ">=2.7.0,<3.0.0"
 PyYAML = ">=6.0.1"
@@ -1265,34 +1277,34 @@ wrapt = "*"
 
 [[package]]
 name = "llama-index-llms-gemini"
-version = "0.3.7"
+version = "0.4.0"
 description = "llama-index llms gemini integration"
 optional = false
 python-versions = "<4.0,>=3.9"
 files = [
-    {file = "llama_index_llms_gemini-0.3.7-py3-none-any.whl", hash = "sha256:0bf069c4c844af384a3ba69b7dbc23c625c86a25c949f43c6b48ace806dca4e5"},
-    {file = "llama_index_llms_gemini-0.3.7.tar.gz", hash = "sha256:cf8bb02d8facb5fd6108903a68ebdbbb72764d3cad115889a97b245527488c48"},
+    {file = "llama_index_llms_gemini-0.4.0-py3-none-any.whl", hash = "sha256:b7369dfb979c136482c06b8b24c3cedaa74aa92210407491ae1fff761e1f85c0"},
+    {file = "llama_index_llms_gemini-0.4.0.tar.gz", hash = "sha256:a1fa5a38eddbbe5313dfa9528a8fb38698d05b2f5ab33ad09710ea61719d491e"},
 ]
 
 [package.dependencies]
 google-generativeai = ">=0.5.2,<0.6.0"
-llama-index-core = ">=0.11.0,<0.12.0"
+llama-index-core = ">=0.12.0,<0.13.0"
 pillow = ">=10.2.0,<11.0.0"
 
 [[package]]
 name = "llama-index-llms-llama-cpp"
-version = "0.2.3"
+version = "0.3.0"
 description = "llama-index llms llama cpp integration"
 optional = false
-python-versions = "<4.0,>=3.8.1"
+python-versions = "<4.0,>=3.9"
 files = [
-    {file = "llama_index_llms_llama_cpp-0.2.3-py3-none-any.whl", hash = "sha256:7e97d53c2b7ea4ae2e5afc770cceca28797e413129f3181249791eecb1261e7d"},
-    {file = "llama_index_llms_llama_cpp-0.2.3.tar.gz", hash = "sha256:60547d237ce79c0489ade4a3557560292220ecc2893ec430ecc1e508aff7ab02"},
+    {file = "llama_index_llms_llama_cpp-0.3.0-py3-none-any.whl", hash = "sha256:ea8655f41a4dd1e74ec0065e7021e1add2bc8e7c550df37b3dbfbdaee21a4d84"},
+    {file = "llama_index_llms_llama_cpp-0.3.0.tar.gz", hash = "sha256:d640e8515d07ffbd77cf007a486f3a6498a57d06476c6d0952ea160185fd42d7"},
 ]
 
 [package.dependencies]
 llama-cpp-python = ">=0.2.32,<0.3.0"
-llama-index-core = ">=0.11.0,<0.12.0"
+llama-index-core = ">=0.12.0,<0.13.0"
 
 [[package]]
 name = "markdown-it-py"
@@ -3004,4 +3016,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "c11c59463eaa44415500651a4adac670f32df8bfb663446f05f52274d6151137"
+content-hash = "531c58a6b67f52e540dec4f250ee250df996ef222772c82590be030057c3cfbe"
