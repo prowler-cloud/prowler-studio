@@ -1,6 +1,6 @@
 from enum import Enum
 
-from ai.src.utils.workflow_check_creation_examples import (
+from core.src.utils.workflow_check_creation_examples import (
     EXAMPLE_CHECK_CREATION_WORKFLOW,
 )
 

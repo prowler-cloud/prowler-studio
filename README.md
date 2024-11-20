@@ -19,5 +19,5 @@ poetry install
 ## Usage
 
 ```bash
-poetry run python ./ai/src/__main__.py "<prompt>"
+poetry run python __main__.py "<prompt>"
 ```
