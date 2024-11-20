@@ -2,15 +2,15 @@ from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
 
-from ai.src.events import (
+from core.src.events import (
     CheckMetadataInformation,
     CheckMetadataResult,
     CheckTestInformation,
     CheckTestsResult,
 )
-from ai.src.utils.llm_chooser import llm_chooser
-from ai.src.utils.llm_structured_outputs import CheckBasicInformation, CheckMetadata
-from ai.src.utils.prompt_loader import Step, load_prompt_template
+from core.src.utils.llm_chooser import llm_chooser
+from core.src.utils.llm_structured_outputs import CheckBasicInformation, CheckMetadata
+from core.src.utils.prompt_loader import Step, load_prompt_template
 
 
 class ChecKreationWorkflow(Workflow):
@@ -144,10 +144,10 @@ class ChecKreationWorkflow(Workflow):
             )
 
     @step
-    async def create_check_test(
+    async def create_check_tests(
         self, ctx: Context, check_test_info: CheckTestInformation
     ) -> CheckTestsResult:
-        """Create the Prowler check test based on the user input.
+        """Create the Prowler check tests based on the user input.
 
         Args:
             ctx (Context): Workflow context.
@@ -216,7 +216,7 @@ class ChecKreationWorkflow(Workflow):
                         pass
 
                 return StopEvent(
-                    result=f"Check metadata: {check_information[0].check_metadata}\n\nCheck tests: {check_information[1].check_tests}\n\nCheck code: {check_code.text}"
+                    result=f"Check metadata:\n{check_information[0].check_metadata}\n\nCheck tests:\n{check_information[1].check_tests}\n\nCheck code:\n{check_code.text}"
                 )
 
         except ValueError as e:

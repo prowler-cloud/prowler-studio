@@ -1,3 +1,4 @@
+# Description: This is the main entry point for the PoC. It will run the ChecKreationWorkflow with the user query and the model provider and reference.
 import warnings
 
 warnings.filterwarnings(
@@ -7,18 +8,18 @@ warnings.filterwarnings(
 import asyncio
 import sys
 
-from workflow import ChecKreationWorkflow
+from core.src.workflow import ChecKreationWorkflow
 
 
 async def run_check_creation_workflow(
     user_query: str, model_provider: str, model_reference: str
 ) -> dict:
-    workflow = ChecKreationWorkflow(timeout=60, verbose=False)
+    workflow = ChecKreationWorkflow(timeout=60, verbose=True)
     result = await workflow.run(
         user_query=user_query,
         model_provider=model_provider,
         model_reference=model_reference,
-        verbose=False,
+        verbose=True,
     )
     return result
 

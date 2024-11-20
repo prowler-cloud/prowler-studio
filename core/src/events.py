@@ -3,7 +3,7 @@ from typing import Literal
 from llama_index.core.workflow import Event
 from pydantic import Field
 
-from ai.src.utils.llm_structured_outputs import CheckMetadata
+from core.src.utils.llm_structured_outputs import CheckMetadata
 
 
 # TODO: Try to use CheckMetadataInformation and CheckTestInformation as the same event
