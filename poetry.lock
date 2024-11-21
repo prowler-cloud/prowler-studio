@@ -1297,6 +1297,21 @@ typing-inspect = ">=0.8.0"
 wrapt = "*"
 
 [[package]]
+name = "llama-index-embeddings-gemini"
+version = "0.3.0"
+description = "llama-index embeddings gemini integration"
+optional = false
+python-versions = "<4.0,>=3.9"
+files = [
+    {file = "llama_index_embeddings_gemini-0.3.0-py3-none-any.whl", hash = "sha256:f846cb12bb6fb20e7728a00d9138a9f696a58652452d4ad7d9abd69c87304a18"},
+    {file = "llama_index_embeddings_gemini-0.3.0.tar.gz", hash = "sha256:bf2b4a06fbcd55b5b51a9152f7ed32764c94aa28775141aeb11229efd84c8ed2"},
+]
+
+[package.dependencies]
+google-generativeai = ">=0.5.2,<0.6.0"
+llama-index-core = ">=0.12.0,<0.13.0"
+
+[[package]]
 name = "llama-index-llms-gemini"
 version = "0.4.0"
 description = "llama-index llms gemini integration"
@@ -3244,4 +3259,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "572e85949b185a1f7bf2053ea778effd1f25be0fa732f6234f00ad0fbd93c94e"
+content-hash = "7e027b98b5aafaf66e3f3d7dc900f91bea0c5cf7ffab36a94e4cdece6a21a1ec"
