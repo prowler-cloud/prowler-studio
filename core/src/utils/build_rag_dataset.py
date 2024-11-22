@@ -29,11 +29,11 @@ def extract_prowler_data_from_github(github_token: str) -> List[Document]:
         repo="prowler",
         verbose=True,
         filter_directories=(
-            ["docs/", "prowler/providers/", "tests/providers/"],
+            ["prowler/providers/"],
             GithubRepositoryReader.FilterType.INCLUDE,
         ),
         filter_file_extensions=(
-            [".md", ".py", ".metadata.json"],
+            [".json"],
             GithubRepositoryReader.FilterType.INCLUDE,
         ),
     )
