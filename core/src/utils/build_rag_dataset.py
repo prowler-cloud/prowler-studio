@@ -1,3 +1,5 @@
+import json
+from datetime import datetime
 from os.path import abspath, join
 from typing import List, Optional
 
@@ -65,4 +67,16 @@ def build_vector_store(
         documents=prowler_documents, show_progress=True
     )
     core_path = abspath(join(__file__, "../../../"))
-    index.storage_context.persist(join(core_path, "indexed_data_db"))
+    index_folder_name = "indexed_data_db"
+    index.storage_context.persist(join(core_path, index_folder_name))
+
+    metadata = {
+        "date_of_creation": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "model_provider": model_provider,
+        "model_reference": model_reference,
+    }
+
+    with open(
+        join(core_path, index_folder_name, "index_metadata.json"), "w"
+    ) as metadata_file:
+        json.dump(metadata, metadata_file)
