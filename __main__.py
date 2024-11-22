@@ -9,7 +9,7 @@ import asyncio
 import os
 import sys
 
-from core.src.utils.build_rag_dataset import build_rag_dataset
+from core.src.utils.build_rag_dataset import build_vector_store
 from core.src.workflow import ChecKreationWorkflow
 
 
@@ -40,10 +40,14 @@ if __name__ == "__main__":
             sys.exit(1)
 
         # Check if index data for RAG is avaiable
-        if not os.path.exists("core/indexed_data_db"):
+        if not os.path.exists(
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "core", "indexed_data_db"
+            )
+        ):
             # If not start with the process of extracting and indexing the data
             print(
-                "Gathering data from prowler repo to have better experience, this may take a while..."
+                "Gathering data from prowler repo to have better experience, this may take a while... (at least 20 minutes)"
             )
             # For extracting the data from the prowler repository is needed a Github token, check first if is set in GIT_TOKEN environment variable if not ask for it
             github_token = os.getenv("GITHUB_TOKEN")
@@ -52,8 +56,19 @@ if __name__ == "__main__":
                     "Please enter a GitHub token to be able to extract the corresponding information from the Prowler GitHub repository: "
                 )
 
+            gemini_api_key = os.getenv("GOOGLE_API_KEY")
+
+            if not gemini_api_key:
+                gemini_api_key = input(
+                    "Please enter a Google API key to be able to use the Gemini model: "
+                )
+
             # Extract and index the data
-            build_rag_dataset(github_token)
+            build_vector_store(
+                github_token, "gemini", "models/text-embedding-004", gemini_api_key
+            )
+
+            print("Data extracted and indexed successfully!")
 
         result = asyncio.run(
             run_check_creation_workflow(
