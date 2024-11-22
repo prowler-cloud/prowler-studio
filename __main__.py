@@ -6,8 +6,10 @@ warnings.filterwarnings(
 )  # Only for the PoC, it looks like LLamaCPP integration with LLamaIndex have some issues with the warnings and pydantic models
 
 import asyncio
+import os
 import sys
 
+from core.src.utils.build_rag_dataset import build_rag_dataset
 from core.src.workflow import ChecKreationWorkflow
 
 
@@ -25,13 +27,34 @@ async def run_check_creation_workflow(
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python __main__.py <user_query>")
-        sys.exit(1)
-
-    user_query = sys.argv[1]
-
     try:
+        if len(sys.argv) < 2:
+            print("Usage: python __main__.py <user_query>")
+            sys.exit(1)
+
+        user_query = sys.argv[1]
+
+        # Check if the user query is empty
+        if not user_query:
+            print("User query can't be empty")
+            sys.exit(1)
+
+        # Check if index data for RAG is avaiable
+        if not os.path.exists("core/indexed_data_db"):
+            # If not start with the process of extracting and indexing the data
+            print(
+                "Gathering data from prowler repo to have better experience, this may take a while..."
+            )
+            # For extracting the data from the prowler repository is needed a Github token, check first if is set in GIT_TOKEN environment variable if not ask for it
+            github_token = os.getenv("GITHUB_TOKEN")
+            if not github_token:
+                github_token = input(
+                    "Please enter a GitHub token to be able to extract the corresponding information from the Prowler GitHub repository: "
+                )
+
+            # Extract and index the data
+            build_rag_dataset(github_token)
+
         result = asyncio.run(
             run_check_creation_workflow(
                 user_query=user_query,
@@ -39,6 +62,6 @@ if __name__ == "__main__":
                 model_reference="models/gemini-1.5-flash",
             )
         )
-        print(f"Result: {result}")
+        print(f"Result:\n{result}")
     except Exception as e:
         print(f"Error: {e}")
