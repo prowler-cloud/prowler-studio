@@ -10,15 +10,15 @@ from llama_index.readers.github import GithubClient, GithubRepositoryReader
 from core.src.utils.llm_chooser import embedding_model_chooser
 
 
-def extract_prowler_data_from_github(github_token: str) -> List[Document]:
+def extract_prowler_metadata_from_github(github_token: str) -> List[Document]:
     """
-    Extracts data from the Prowler GitHub repository.
+    Extracts metadata from the Prowler GitHub repository.
     This function connects to the Prowler GitHub repository using the provided GitHub token,
-    reads the repository content, and filters the data to only include the relevant files (documentation and files directly related with checks).
+    reads the repository and extracts the metadata from all AWS, Azure, GCP, and Kubernetes services.
     Args:
         github_token (str): The GitHub token used for authentication. Must be fine grained to access the repository.
     Returns:
-        A list of Document objects containing the extracted data from the repository.
+        A list of Document objects containing the extracted metadata from the repository.
     """
 
     client = GithubClient(github_token=github_token)
@@ -27,9 +27,14 @@ def extract_prowler_data_from_github(github_token: str) -> List[Document]:
         github_client=client,
         owner="prowler-cloud",
         repo="prowler",
-        verbose=True,
+        verbose=False,
         filter_directories=(
-            ["prowler/providers/"],
+            [
+                "prowler/providers/aws/services/",
+                "prowler/providers/azure/services/",
+                "prowler/providers/gcp/services/",
+                "prowler/providers/kubernetes/services/",
+            ],
             GithubRepositoryReader.FilterType.INCLUDE,
         ),
         filter_file_extensions=(
@@ -57,7 +62,7 @@ def build_vector_store(
         model_reference: Reference to the LLM model, depending on the provider it can be a name, a path or a URL.
         api_key: API key to access the model. It is not a required parameter if the model provider does not require it.
     """
-    prowler_documents = extract_prowler_data_from_github(github_token)
+    prowler_documents = extract_prowler_metadata_from_github(github_token)
 
     Settings.embed_model = embedding_model_chooser(
         model_provider=model_provider, model_reference=model_reference, api_key=api_key
