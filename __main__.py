@@ -47,7 +47,7 @@ if __name__ == "__main__":
         ):
             # If not start with the process of extracting and indexing the data
             print(
-                "Gathering data from prowler repo to have better experience, this may take a while... (at least 20 minutes)"
+                "Gathering data from prowler repo to have better experience, this may take a while..."
             )
             # For extracting the data from the prowler repository is needed a Github token, check first if is set in GIT_TOKEN environment variable if not ask for it
             github_token = os.getenv("GITHUB_TOKEN")
