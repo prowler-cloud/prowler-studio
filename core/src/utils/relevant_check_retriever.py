@@ -6,7 +6,7 @@ from llama_index.core import StorageContext, load_index_from_storage
 from llama_index.core.postprocessor import SimilarityPostprocessor
 from llama_index.core.settings import Settings
 
-from core.src.utils.llm_chooser import embedding_model_chooser
+from core.src.utils.model_chooser import embedding_model_chooser
 
 
 def get_relevant_reference_checks(

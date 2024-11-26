@@ -7,7 +7,7 @@ from llama_index.core import Settings, VectorStoreIndex
 from llama_index.core.schema import Document
 from llama_index.readers.github import GithubClient, GithubRepositoryReader
 
-from core.src.utils.llm_chooser import embedding_model_chooser
+from core.src.utils.model_chooser import embedding_model_chooser
 
 
 def extract_prowler_metadata_from_github(github_token: str) -> List[Document]:
