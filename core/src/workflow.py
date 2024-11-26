@@ -12,6 +12,7 @@ from core.src.events import (
 from core.src.utils.llm_chooser import llm_chooser
 from core.src.utils.llm_structured_outputs import CheckBasicInformation, CheckMetadata
 from core.src.utils.prompt_loader import Step, load_prompt_template
+from core.src.utils.relevant_check_retriever import get_relevant_reference_checks
 
 
 class ChecKreationWorkflow(Workflow):
@@ -80,10 +81,6 @@ class ChecKreationWorkflow(Workflow):
 
                 # Set the structured information in the context to be usable in the next steps
                 await ctx.set("check_basic_info", check_basic_info)
-                # Extract more similar checks and load in the context
-                from core.src.utils.relevant_check_retriever import (
-                    get_relevant_reference_checks,
-                )
 
                 name_relevant_reference_checks = get_relevant_reference_checks(
                     security_analysis=security_reasoning.text.strip(),
@@ -152,7 +149,7 @@ class ChecKreationWorkflow(Workflow):
                                 check_name=check_metadata_base_info.check_name,
                                 check_description=check_metadata_base_info.check_description,
                                 prowler_provider=check_metadata_base_info.prowler_provider,
-                                relevant_checks=relevant_check_metadata,
+                                relevant_related_checks=relevant_check_metadata,
                             )
                         ),
                     )

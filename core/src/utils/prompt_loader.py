@@ -87,7 +87,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "The metadata of the check is a 'CheckMetadata' object, at the end of this message you can see more information about the object schema, with all the fields and descriptions.\n"
                 "You MUST return a CheckMetadata object.\n"
                 f"{15 * '-'}\n"
-                f"Here are some raw examples with check metadata more similar to the extracted security description that you can consult as reference: {kwargs.get('relevant_checks', '')}\n"
+                f"Here are some raw examples with check metadata more similar to the extracted security description that you can consult as reference: {kwargs.get('relevant_related_checks', '')}\n"
                 f"{15 * '-'}\n"
                 "In the next lines you can see some examples of the task that you must do. Please, do not copy and paste the examples, you must extract the information from the user prompt.\n"
                 f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['security_analysis']}\n"
