@@ -9,7 +9,7 @@ from llama_index.core.settings import Settings
 from core.src.utils.llm_chooser import embedding_model_chooser
 
 
-def get_relevant_referebce_checks(
+def get_relevant_reference_checks(
     security_analysis: str, check_provider: str, check_service: str
 ) -> List[str]:
     """Get relevant existing checks based on check description.

@@ -82,10 +82,10 @@ class ChecKreationWorkflow(Workflow):
                 await ctx.set("check_basic_info", check_basic_info)
                 # Extract more similar checks and load in the context
                 from core.src.utils.relevant_check_retriever import (
-                    get_relevant_referebce_checks,
+                    get_relevant_reference_checks,
                 )
 
-                name_relevant_reference_checks = get_relevant_referebce_checks(
+                name_relevant_reference_checks = get_relevant_reference_checks(
                     security_analysis=security_reasoning.text.strip(),
                     check_provider=check_basic_info.prowler_provider,
                     check_service=check_basic_info.service,
