@@ -1,3 +1,4 @@
+import requests
 from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
@@ -131,6 +132,15 @@ class ChecKreationWorkflow(Workflow):
         try:
             check_metadata = None
 
+            # Download the relevant check metadata from the Prowler repository to give as reference to the prompt
+            relevant_check_metadata = []
+
+            for check_name in await ctx.get("name_relevant_reference_checks"):
+                metadata = requests.get(
+                    f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_metadata_base_info.prowler_provider}/services/{check_name.split("_")[0]}/{check_name}/{check_name}.metadata.json"
+                )
+                relevant_check_metadata.append(metadata.text)
+
             while not check_metadata:
                 try:
                     check_metadata = await Settings.llm.astructured_predict(
@@ -142,6 +152,7 @@ class ChecKreationWorkflow(Workflow):
                                 check_name=check_metadata_base_info.check_name,
                                 check_description=check_metadata_base_info.check_description,
                                 prowler_provider=check_metadata_base_info.prowler_provider,
+                                relevant_checks=relevant_check_metadata,
                             )
                         ),
                     )
@@ -216,6 +227,14 @@ class ChecKreationWorkflow(Workflow):
                 # Generate the code for the check
                 check_code = None
 
+                relevant_related_checks = []
+
+                for check_name in await ctx.get("name_relevant_reference_checks"):
+                    code = requests.get(
+                        f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_information[0].check_metadata.Provider}/services/{check_name.split('_')[0]}/{check_name}/{check_name}.py"
+                    )
+                    relevant_related_checks.append(code.text)
+
                 while not check_code:
                     try:
                         check_code = await Settings.llm.acomplete(
@@ -224,6 +243,7 @@ class ChecKreationWorkflow(Workflow):
                                 model_reference=await ctx.get("model_reference"),
                                 check_metadata=check_information[0].check_metadata,
                                 check_tests=check_information[1].check_tests,
+                                relevant_related_checks=relevant_related_checks,
                             )
                         )
                     except Exception:
