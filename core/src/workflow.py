@@ -1,3 +1,4 @@
+import requests
 from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
@@ -11,6 +12,7 @@ from core.src.events import (
 from core.src.utils.llm_chooser import llm_chooser
 from core.src.utils.llm_structured_outputs import CheckBasicInformation, CheckMetadata
 from core.src.utils.prompt_loader import Step, load_prompt_template
+from core.src.utils.relevant_check_retriever import get_relevant_reference_checks
 
 
 class ChecKreationWorkflow(Workflow):
@@ -80,6 +82,16 @@ class ChecKreationWorkflow(Workflow):
                 # Set the structured information in the context to be usable in the next steps
                 await ctx.set("check_basic_info", check_basic_info)
 
+                name_relevant_reference_checks = get_relevant_reference_checks(
+                    security_analysis=security_reasoning.text.strip(),
+                    check_provider=check_basic_info.prowler_provider,
+                    check_service=check_basic_info.service,
+                )
+
+                await ctx.set(
+                    "name_relevant_reference_checks", name_relevant_reference_checks
+                )
+
                 ctx.send_event(
                     CheckMetadataInformation(
                         check_name=check_basic_info.check_name,
@@ -117,6 +129,15 @@ class ChecKreationWorkflow(Workflow):
         try:
             check_metadata = None
 
+            # Download the relevant check metadata from the Prowler repository to give as reference to the prompt
+            relevant_check_metadata = []
+
+            for check_name in await ctx.get("name_relevant_reference_checks"):
+                metadata = requests.get(
+                    f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_metadata_base_info.prowler_provider}/services/{check_name.split("_")[0]}/{check_name}/{check_name}.metadata.json"
+                )
+                relevant_check_metadata.append(metadata.text)
+
             while not check_metadata:
                 try:
                     check_metadata = await Settings.llm.astructured_predict(
@@ -128,6 +149,7 @@ class ChecKreationWorkflow(Workflow):
                                 check_name=check_metadata_base_info.check_name,
                                 check_description=check_metadata_base_info.check_description,
                                 prowler_provider=check_metadata_base_info.prowler_provider,
+                                relevant_related_checks=relevant_check_metadata,
                             )
                         ),
                     )
@@ -202,6 +224,14 @@ class ChecKreationWorkflow(Workflow):
                 # Generate the code for the check
                 check_code = None
 
+                relevant_related_checks = []
+
+                for check_name in await ctx.get("name_relevant_reference_checks"):
+                    code = requests.get(
+                        f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_information[0].check_metadata.Provider}/services/{check_name.split('_')[0]}/{check_name}/{check_name}.py"
+                    )
+                    relevant_related_checks.append(code.text)
+
                 while not check_code:
                     try:
                         check_code = await Settings.llm.acomplete(
@@ -210,6 +240,7 @@ class ChecKreationWorkflow(Workflow):
                                 model_reference=await ctx.get("model_reference"),
                                 check_metadata=check_information[0].check_metadata,
                                 check_tests=check_information[1].check_tests,
+                                relevant_related_checks=relevant_related_checks,
                             )
                         )
                     except Exception:
