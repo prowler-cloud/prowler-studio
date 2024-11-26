@@ -32,5 +32,5 @@ export GOOGLE_API_KEY="XXXXXXXX"
 Then you can run the program with:
 
 ```bash
-poetry run python __main__.py <prompt>
+poetry run python __main__.py "<prompt>"
 ```
