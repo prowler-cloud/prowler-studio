@@ -9,8 +9,8 @@ from core.src.events import (
     CheckTestInformation,
     CheckTestsResult,
 )
-from core.src.utils.llm_chooser import llm_chooser
 from core.src.utils.llm_structured_outputs import CheckBasicInformation, CheckMetadata
+from core.src.utils.model_chooser import llm_chooser
 from core.src.utils.prompt_loader import Step, load_prompt_template
 from core.src.utils.relevant_check_retriever import get_relevant_reference_checks
 

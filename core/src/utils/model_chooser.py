@@ -9,12 +9,17 @@ from llama_index.llms.gemini.base import GEMINI_MODELS
 from llama_index.llms.llama_cpp import LlamaCPP
 
 
-def llm_chooser(model_provider: str, model_reference: str) -> LLM:
+def llm_chooser(
+    model_provider: str, model_reference: str, api_key: Optional[str] = ""
+) -> LLM:
     """Choose the right LLM model based on the user input.
 
     Args:
-        model_provider (str): Provider of the LLM model.
-        model_reference (str): Reference to the LLM model, depending on the provider it can be a name, a path or a URL.
+        model_provider: Provider of the LLM model.
+        model_reference: Reference to the LLM model, depending on the provider it can be a name, a path or a URL.
+        api_key: API key to access the model. It is not a required parameter if the model provider does not require it.
+    Returns:
+        The LLM model to use for the passed model provider and reference.
     """
 
     llm = None
@@ -40,6 +45,7 @@ def llm_chooser(model_provider: str, model_reference: str) -> LLM:
         if model_reference in GEMINI_MODELS:
             llm = Gemini(
                 model=model_reference,
+                api_key=api_key,
             )
         else:
             raise ValueError(
