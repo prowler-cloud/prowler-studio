@@ -4,110 +4,169 @@ from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
 
 from core.src.events import (
+    CheckBasicInformation,
     CheckMetadataInformation,
     CheckMetadataResult,
     CheckTestInformation,
     CheckTestsResult,
 )
-from core.src.utils.llm_structured_outputs import CheckBasicInformation, CheckMetadata
+from core.src.utils.llm_structured_outputs import CheckMetadata
 from core.src.utils.model_chooser import llm_chooser
 from core.src.utils.prompt_loader import Step, load_prompt_template
+from core.src.utils.prowler_information import SUPPORTED_PROVIDERS, get_prowler_services
 from core.src.utils.relevant_check_retriever import get_relevant_reference_checks
+
+DEFAULT_ERROR_MESSAGE = "Sorry but I cannot create a Prowler check with that information, please try again introducing more context about the check that you want to create, thanks for using Prowler."
 
 
 class ChecKreationWorkflow(Workflow):
     """Workflow to create new Prowler check based on user input."""
 
     @step
-    async def analyze_input(
+    async def workflow_setup(
         self, ctx: Context, start_event: StartEvent
-    ) -> CheckMetadataInformation | CheckTestInformation | StopEvent:
-        """Analyze user input to create check.
-
-        It is required to pass in the start event a valid user query, model provider and model reference.
+    ) -> CheckBasicInformation | StopEvent:
+        """Setup the workflow and sanitize the user input for next steps.
 
         Args:
-            ctx (Context): Workflow context.
-            start_event (StartEvent): Event with the user query, model provider and model reference.
+            ctx: Workflow context.
+            user_query: User input to start the workflow.
         """
         try:
-            Settings.llm = llm_chooser(
-                model_provider=start_event.get("model_provider", ""),
-                model_reference=start_event.get("model_reference", ""),
-            )
             user_query = start_event.get("user_query", "")
 
             if user_query:
-                # Set the model provider and reference in the context to be usable in the next steps
+                await ctx.set("user_query", user_query)
+
+                Settings.llm = llm_chooser(
+                    model_provider=start_event.get("model_provider", ""),
+                    model_reference=start_event.get("model_reference", ""),
+                )
+
                 await ctx.set("model_provider", start_event.get("model_provider"))
                 await ctx.set("model_reference", start_event.get("model_reference"))
 
-                # TODO: Add a step to check if the user query is related to cloud security
-
-                # If security-related, analyze security requirements and best practices
-                security_reasoning = await Settings.llm.acomplete(
+                is_prowler_check = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
-                        step=Step.SECURITY_ANALYSIS,
+                        step=Step.BASIC_FILTER,
                         model_reference=start_event.get("model_reference"),
                         user_query=user_query,
                     )
                 )
 
-                # Extract structured information like the provider and service from the user query, keep asking until the user provides the information
-                check_basic_info = None
+                if is_prowler_check.text.strip().lower() != "yes":
+                    return StopEvent(result=DEFAULT_ERROR_MESSAGE)
 
-                while not check_basic_info:
-                    try:
-                        check_basic_info = await Settings.llm.astructured_predict(
-                            output_cls=CheckBasicInformation,
-                            prompt=PromptTemplate(
-                                template=load_prompt_template(
-                                    step=Step.SERVICE_PROVIDER_EXTRACTION,
-                                    model_reference=start_event.get("model_reference"),
-                                    user_query=user_query,
-                                    security_reasoning=security_reasoning.text,
-                                )
-                            ),
+                prowler_provider = (
+                    (
+                        await Settings.llm.acomplete(
+                            prompt=load_prompt_template(
+                                step=Step.PROVIDER_EXTRACTION,
+                                model_reference=start_event.get("model_reference"),
+                                user_query=user_query,
+                            )
                         )
-
-                        if (
-                            check_basic_info.service
-                            != check_basic_info.check_name.split("_")[0]
-                        ):
-                            check_basic_info = None
-
-                    except Exception:
-                        pass
-
-                # Set the structured information in the context to be usable in the next steps
-                await ctx.set("check_basic_info", check_basic_info)
-
-                name_relevant_reference_checks = get_relevant_reference_checks(
-                    security_analysis=security_reasoning.text.strip(),
-                    check_provider=check_basic_info.prowler_provider,
-                    check_service=check_basic_info.service,
-                )
-
-                await ctx.set(
-                    "name_relevant_reference_checks", name_relevant_reference_checks
-                )
-
-                ctx.send_event(
-                    CheckMetadataInformation(
-                        check_name=check_basic_info.check_name,
-                        check_description=security_reasoning.text.strip(),
-                        prowler_provider=check_basic_info.prowler_provider,
                     )
+                    .text.strip()
+                    .lower()
                 )
-                ctx.send_event(
-                    CheckTestInformation(
-                        check_name=check_basic_info.check_name,
-                        check_description=security_reasoning.text.strip(),
-                        prowler_provider=check_basic_info.prowler_provider,
+
+                if prowler_provider not in SUPPORTED_PROVIDERS:
+                    return StopEvent(result=DEFAULT_ERROR_MESSAGE)
+
+                check_service = (
+                    (
+                        await Settings.llm.acomplete(
+                            prompt=load_prompt_template(
+                                step=Step.SERVICE_EXTRACTION,
+                                model_reference=start_event.get("model_reference"),
+                                user_query=user_query,
+                                prowler_provider=prowler_provider,
+                                services=get_prowler_services(prowler_provider),
+                            )
+                        )
                     )
+                    .text.strip()
+                    .lower()
                 )
+
+                return CheckBasicInformation(
+                    prowler_provider=prowler_provider, service=check_service
+                )
+
             else:
                 raise ValueError("The provided user query is empty.")
+
+        except ValueError as e:
+            return StopEvent(result=str(e))
+        except Exception as e:
+            return StopEvent(
+                result=f"{e.__class__.__name__}: [{e.__traceback__.tb_lineno}]: {e}"
+            )
+
+    @step
+    async def security_analysis(
+        self, ctx: Context, check_basic_info: CheckBasicInformation
+    ) -> CheckMetadataInformation | CheckTestInformation | StopEvent:
+        """Analyze the user input to extract the security best practices, kind of resource to audit and base cases to cover.
+
+        Args:
+            ctx: Workflow context.
+            sanitized_user_input: Start event with the user input to analyze.
+        """
+        try:
+            best_practices = (
+                await Settings.llm.acomplete(
+                    prompt=load_prompt_template(
+                        step=Step.BEST_PRACTICE_EXTRACTION,
+                        model_reference=await ctx.get("model_reference"),
+                        user_query=await ctx.get("user_query"),
+                    )
+                )
+            ).text.strip()
+
+            reference_check_names = get_relevant_reference_checks(
+                security_analysis=best_practices,
+                check_provider=check_basic_info.prowler_provider,
+                check_service=check_basic_info.service,
+            )
+
+            await ctx.set("reference_check_names", reference_check_names)
+
+            check_name = (
+                (
+                    await Settings.llm.acomplete(
+                        prompt=load_prompt_template(
+                            step=Step.CHECK_NAME_DESIGN,
+                            model_reference=await ctx.get("model_reference"),
+                            user_query=await ctx.get("user_query"),
+                            service=check_basic_info.service,
+                            best_practices=best_practices,
+                            relevant_related_checks=reference_check_names,
+                        )
+                    )
+                )
+                .text.strip()
+                .lower()
+            )
+
+            if check_name.split("_")[0] != check_basic_info.service:
+                return StopEvent(result=DEFAULT_ERROR_MESSAGE)
+
+            ctx.send_event(
+                CheckMetadataInformation(
+                    check_name=check_name,
+                    check_description=best_practices,
+                    prowler_provider=check_basic_info.prowler_provider,
+                )
+            )
+            ctx.send_event(
+                CheckTestInformation(
+                    check_name=check_name,
+                    check_description=best_practices,
+                    prowler_provider=check_basic_info.prowler_provider,
+                )
+            )
 
         except ValueError as e:
             return StopEvent(result=str(e))
@@ -123,8 +182,8 @@ class ChecKreationWorkflow(Workflow):
         """Create the Prowler check based on the user input.
 
         Args:
-            ctx (Context): Workflow context.
-            check_metadata (CheckMetadataInformation): Structured information extracted from the user query to create the check metadata.
+            ctx: Workflow context.
+            check_metadata: Structured information extracted from the user query to create the check metadata.
         """
         try:
             check_metadata = None
@@ -132,7 +191,7 @@ class ChecKreationWorkflow(Workflow):
             # Download the relevant check metadata from the Prowler repository to give as reference to the prompt
             relevant_check_metadata = []
 
-            for check_name in await ctx.get("name_relevant_reference_checks"):
+            for check_name in await ctx.get("reference_check_names"):
                 metadata = requests.get(
                     f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_metadata_base_info.prowler_provider}/services/{check_name.split("_")[0]}/{check_name}/{check_name}.metadata.json"
                 )
@@ -172,8 +231,8 @@ class ChecKreationWorkflow(Workflow):
         """Create the Prowler check tests based on the user input.
 
         Args:
-            ctx (Context): Workflow context.
-            check_metadata (CheckMetadata): Structured information extracted from the user query to create the check metadata.
+            ctx: Workflow context.
+            check_metadata: Structured information extracted from the user query to create the check metadata.
         """
         try:
             check_tests = None
@@ -210,8 +269,8 @@ class ChecKreationWorkflow(Workflow):
         """Create the Prowler check code based on the user input.
 
         Args:
-            ctx (Context): Workflow context.
-            check_metadata (CheckMetadata): Structured information extracted from the user query to create the check metadata.
+            ctx: Workflow context.
+            check_metadata: Structured information extracted from the user query to create the check metadata.
         """
         try:
             check_information = ctx.collect_events(
@@ -226,7 +285,7 @@ class ChecKreationWorkflow(Workflow):
 
                 relevant_related_checks = []
 
-                for check_name in await ctx.get("name_relevant_reference_checks"):
+                for check_name in await ctx.get("reference_check_names"):
                     code = requests.get(
                         f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_information[0].check_metadata.Provider}/services/{check_name.split('_')[0]}/{check_name}/{check_name}.py"
                     )
