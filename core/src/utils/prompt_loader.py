@@ -80,23 +80,6 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"Here you can consult some examples of check names that are more similar to the extracted security description: {kwargs.get('relevant_related_checks', '')}\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
-            # Step.SECURITY_ANALYSIS: (
-            #     f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
-            #     "Extract the cloud security reasoning and steps behind the user prompt, think step by step how the security comprobation could be done.\n"
-            #     "In the next lines you can see some examples of the task that you must do. Please, do not copy and paste the examples, you must extract the information from the user prompt.\n"
-            #     f"User prompt: {EXAMPLE_USER_QUERIES["aws"][0]}\n"
-            #     f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['security_analysis']}\n"
-            #     f"User prompt: {EXAMPLE_USER_QUERIES["azure"][0]}\n"
-            #     f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["azure"][0]]['security_analysis']}\n"
-            #     f"User prompt: {EXAMPLE_USER_QUERIES["gcp"][0]}\n"
-            #     f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["gcp"][0]]['security_analysis']}\n"
-            #     f"User prompt: {EXAMPLE_USER_QUERIES["kubernetes"][0]}\n"
-            #     f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["kubernetes"][0]]['security_analysis']}\n"
-            #     f"{15 * '-'}\n"
-            #     "Complete only the next task:\n"
-            #     f"User prompt: {kwargs.get('user_query', '')}\n"
-            #     "Security analysis: "
-            # ),
             Step.CHECK_METADATA_GENERATION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Generate the Prowler check metadata based on a check description.\n"
