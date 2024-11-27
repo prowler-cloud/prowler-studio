@@ -6,7 +6,17 @@ from pydantic import Field
 from core.src.utils.llm_structured_outputs import CheckMetadata
 
 
-# TODO: Try to use CheckMetadataInformation and CheckTestInformation as the same event
+class CheckBasicInformation(Event):
+    """Event representing basic information for cloud security assessments after user input analysis."""
+
+    prowler_provider: Literal["aws", "azure", "gcp", "kubernetes"] = Field(
+        description="Prowler provider to use for the check creation"
+    )
+    service: str = Field(
+        description="Service of the provider to which the check is related"
+    )
+
+
 class CheckMetadataInformation(Event):
     """Event representing check information for cloud security assessments after user input analysis.
 
