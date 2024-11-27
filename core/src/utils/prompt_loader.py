@@ -6,8 +6,12 @@ from core.src.utils.workflow_check_creation_examples import (
 
 
 class Step(str, Enum):
-    SECURITY_ANALYSIS = "security_analysis"
-    SERVICE_PROVIDER_EXTRACTION = "service_provider_extraction"
+    BASIC_FILTER = "basic_filter"
+    PROVIDER_EXTRACTION = "provider_extraction"
+    SERVICE_EXTRACTION = "service_extraction"
+    BEST_PRACTICE_EXTRACTION = "best_practice_extraction"
+    CHECK_NAME_DESIGN = "check_name_design"
+    BASE_CASES_TO_COVER = "base_cases_to_cover"
     CHECK_METADATA_GENERATION = "check_metadata_generation"
     CHECK_TESTS_GENERATION = "check_tests_generation"
     CHECK_CODE_GENERATION = "check_code_generation"
@@ -37,50 +41,62 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
 
     RAW_PROMPT_TEMPLATES = {
         "generic": {
-            Step.SECURITY_ANALYSIS: (
+            Step.BASIC_FILTER: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
-                "Extract the cloud security reasoning and steps behind the user prompt, think step by step how the security comprobation could be done.\n"
-                "In the next lines you can see some examples of the task that you must do. Please, do not copy and paste the examples, you must extract the information from the user prompt.\n"
-                f"User prompt: {EXAMPLE_USER_QUERIES["aws"][0]}\n"
-                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['security_analysis']}\n"
-                f"User prompt: {EXAMPLE_USER_QUERIES["azure"][0]}\n"
-                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["azure"][0]]['security_analysis']}\n"
-                f"User prompt: {EXAMPLE_USER_QUERIES["gcp"][0]}\n"
-                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["gcp"][0]]['security_analysis']}\n"
-                f"User prompt: {EXAMPLE_USER_QUERIES["kubernetes"][0]}\n"
-                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["kubernetes"][0]]['security_analysis']}\n"
-                f"{15 * '-'}\n"
-                "Complete only the next task:\n"
-                f"User prompt: {kwargs.get('user_query', '')}\n"
-                "Security analysis: "
-            ),
-            Step.SERVICE_PROVIDER_EXTRACTION: (
-                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
-                "Extract the service provider and service information from the user prompt.\n"
-                "You MUST return a CheckBasicInformation object, ONLY one string per field.\n"
-                "You can query the security reasoning extracted from other Prowler engineer to help you to extract the service provider and service information. With this information you can design a check name, it should follow the Prowler check naming convention: service_check_description.\n"
-                f"Context: {kwargs.get('security_reasoning', '')}\n"
-                "In the next lines you can see some examples of the task that you must do. Please, do not copy and paste the examples, you must extract the information from the user prompt.\n"
-                f"User prompt: {EXAMPLE_USER_QUERIES['aws'][0]}\n"
-                f"prowler_provider: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['aws'][0]]['prowler_provider']}\n"
-                f"service: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['aws'][0]]['service']}\n"
-                f"check_name: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['aws'][0]]['check_name']}\n"
-                f"User prompt: {EXAMPLE_USER_QUERIES['azure'][0]}\n"
-                f"prowler_provider: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['azure'][0]]['prowler_provider']}\n"
-                f"service: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['azure'][0]]['service']}\n"
-                f"check_name: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['azure'][0]]['check_name']}\n"
-                f"User prompt: {EXAMPLE_USER_QUERIES['gcp'][0]}\n"
-                f"prowler_provider: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['gcp'][0]]['prowler_provider']}\n"
-                f"service: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['gcp'][0]]['service']}\n"
-                f"check_name: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['gcp'][0]]['check_name']}\n"
-                f"User prompt: {EXAMPLE_USER_QUERIES['kubernetes'][0]}\n"
-                f"prowler_provider: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['kubernetes'][0]]['prowler_provider']}\n"
-                f"service: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['kubernetes'][0]]['service']}\n"
-                f"check_name: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['kubernetes'][0]]['check_name']}\n"
-                f"{15 * '-'}\n"
-                "Complete only the next task:\n"
+                "Your main task is act as a filter, you should decide if the user prompt is a valid prompt to create a check or not.\n"
+                "You MUST return 'yes' if the user prompt is a valid prompt to create a check, 'no' otherwise.\n"
+                "A valid user prompt is a prompt that contains a security best practice for AWS, Azure, GCP or Kubernetes.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
+            Step.PROVIDER_EXTRACTION: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Your task is to extract the Prowler provider from the user prompt.\n"
+                "You MUST return a string with the Prowler provider. For now the only valid providers are: aws, azure, gcp and kubernetes.\n"
+                "If the user does not provide the provider explicitly, you can try to infer it from the user prompt service or requirements.\n"
+                "In the case that you can't infer the provider from the user query for any reason, you must return 'unknown'.\n"
+                f"User prompt: {kwargs.get('user_query', '')}\n"
+            ),
+            Step.SERVICE_EXTRACTION: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Extract the service from the user prompt.\n"
+                "You MUST return a string with the service name.\n"
+                f"For now the valid services for {kwargs.get('prowler_provider', '')} are:\n{[f'Prowler Service Name: {prowler_service_name}, Description: {description}\n' for prowler_service_name, description in kwargs.get('services', {}).items()]}\n"  # This line probably fails in older Python versions due to f-string
+                "If the user does not provide the service explicitly, you can try to infer it from the user prompt requirements.\n"
+                "In the case that you can't infer the service from the user query for any reason or is currently not supported, you must return 'unknown'.\n"
+                f"User prompt: {kwargs.get('user_query', '')}\n"
+            ),
+            Step.BEST_PRACTICE_EXTRACTION: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Extract the security best practice from the user prompt, explain in the most detailed way possible.\n"
+                f"User prompt: {kwargs.get('user_query', '')}\n"
+            ),
+            Step.CHECK_NAME_DESIGN: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Design the check name based on the user prompt. The check name should follow the Prowler check naming convention: <service>_<best_practice>.\n"
+                f"The service and best practices are already extracted from other Prowler engineer, so you only have to design the check name.\n"
+                f"Service: {kwargs.get('service', '')}\n"
+                f"Best Practice: {kwargs.get('best_practices', '')}\n"
+                "You MUST return a string ONLY with the check name.\n"
+                f"Here you can consult some examples of check names that are more similar to the extracted security description: {kwargs.get('relevant_related_checks', '')}\n"
+                f"User prompt: {kwargs.get('user_query', '')}\n"
+            ),
+            # Step.SECURITY_ANALYSIS: (
+            #     f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+            #     "Extract the cloud security reasoning and steps behind the user prompt, think step by step how the security comprobation could be done.\n"
+            #     "In the next lines you can see some examples of the task that you must do. Please, do not copy and paste the examples, you must extract the information from the user prompt.\n"
+            #     f"User prompt: {EXAMPLE_USER_QUERIES["aws"][0]}\n"
+            #     f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['security_analysis']}\n"
+            #     f"User prompt: {EXAMPLE_USER_QUERIES["azure"][0]}\n"
+            #     f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["azure"][0]]['security_analysis']}\n"
+            #     f"User prompt: {EXAMPLE_USER_QUERIES["gcp"][0]}\n"
+            #     f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["gcp"][0]]['security_analysis']}\n"
+            #     f"User prompt: {EXAMPLE_USER_QUERIES["kubernetes"][0]}\n"
+            #     f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["kubernetes"][0]]['security_analysis']}\n"
+            #     f"{15 * '-'}\n"
+            #     "Complete only the next task:\n"
+            #     f"User prompt: {kwargs.get('user_query', '')}\n"
+            #     "Security analysis: "
+            # ),
             Step.CHECK_METADATA_GENERATION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Generate the Prowler check metadata based on a check description.\n"
