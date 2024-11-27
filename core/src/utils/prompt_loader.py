@@ -11,7 +11,6 @@ class Step(str, Enum):
     SERVICE_EXTRACTION = "service_extraction"
     BEST_PRACTICE_EXTRACTION = "best_practice_extraction"
     CHECK_NAME_DESIGN = "check_name_design"
-    BASE_CASES_TO_COVER = "base_cases_to_cover"
     CHECK_METADATA_GENERATION = "check_metadata_generation"
     CHECK_TESTS_GENERATION = "check_tests_generation"
     CHECK_CODE_GENERATION = "check_code_generation"
