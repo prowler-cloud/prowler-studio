@@ -1,6 +1,6 @@
 import json
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from llama_index.core import StorageContext, load_index_from_storage
 from llama_index.core.postprocessor import SimilarityPostprocessor
@@ -20,8 +20,12 @@ class IndexedDataManager:
         self.index_metadata = self._load_metadata()
         self.storage_context = self._initialize_storage_context()
 
-    def _load_metadata(self) -> dict:
-        """Load metadata from the indexed data directory."""
+    def _load_metadata(self) -> Dict[str, str]:
+        """Load metadata from the indexed data directory.
+
+        Returns:
+            A dictionary containing the metadata of the indexed data.
+        """
         metadata_path = os.path.join(self.base_dir, "index_metadata.json")
         if not os.path.exists(metadata_path):
             raise ValueError("Indexed metadata file not found.")
@@ -29,7 +33,11 @@ class IndexedDataManager:
             return json.load(f)
 
     def _initialize_storage_context(self) -> StorageContext:
-        """Initialize and return the storage context."""
+        """Initialize and return the storage context.
+
+        Returns:
+            Default storage context for the indexed data.
+        """
         Settings.embed_model = embedding_model_chooser(
             model_provider=self.index_metadata.get("model_provider", ""),
             model_reference=self.index_metadata.get("model_reference", ""),
@@ -62,14 +70,22 @@ class CheckDataManager:
     def get_relevant_checks(
         self, security_analysis: str, check_provider: str, check_service: str
     ) -> List[str]:
-        """Retrieve relevant checks based on analysis, provider, and service."""
+        """Retrieve relevant checks based on analysis, provider, and service.
+
+        Args:
+            security_analysis: The security analysis context.
+            check_provider: The provider of the check.
+            check_service: The service of the check.
+        Returns:
+            A list of relevant check names.
+        """
         nodes = self.retriever.retrieve(security_analysis)
         filtered_nodes = SimilarityPostprocessor(
             similarity_cutoff=0.75
         ).postprocess_nodes(nodes)
 
         relevant_checks = []
-        # TODO: Make this provider/service a propper PostProcessor class and use it here and in the query engine
+        # TODO: Make this provider/service filter a propper PostProcessor class and use it here and in the query engine
         for node in filtered_nodes:
             node_provider = (
                 node.metadata.get("file_path", "").split("/")[2]
@@ -86,7 +102,13 @@ class CheckDataManager:
         return relevant_checks
 
     def check_exists(self, check_description: str) -> bool:
-        """Check if a check description exists, using retrieved nodes if available."""
+        """Check if a check description exists, using retrieved nodes if available.
+
+        Args:
+            check_description: The description of the check.
+        Returns:
+            True if the check exists, False otherwise.
+        """
 
         # Fallback to querying if no nodes are provided
         query_prompt = (
