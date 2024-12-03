@@ -13,7 +13,11 @@ from core.src.events import (
 from core.src.utils.llm_structured_outputs import CheckMetadata
 from core.src.utils.model_chooser import llm_chooser
 from core.src.utils.prompt_loader import Step, load_prompt_template
-from core.src.utils.prowler_information import SUPPORTED_PROVIDERS, get_prowler_services
+from core.src.utils.prowler_information import (
+    PROWLER_CHECKS,
+    SUPPORTED_PROVIDERS,
+    get_prowler_services,
+)
 from core.src.utils.rag import CheckDataManager, IndexedDataManager
 
 DEFAULT_ERROR_MESSAGE = "Sorry but I cannot create a Prowler check with that information, please try again introducing more context about the check that you want to create, thanks for using Prowler."
@@ -152,7 +156,16 @@ class ChecKreationWorkflow(Workflow):
 
                 return StopEvent(result=check_already_exists_message)
 
-            await ctx.set("reference_check_names", reference_check_names)
+            if not reference_check_names:
+                # Extract 5 checks from same provider and service
+                reference_check_names = PROWLER_CHECKS.get(
+                    check_basic_info.prowler_provider, {}
+                ).get(check_basic_info.service, [])[:5]
+
+            if reference_check_names:
+                await ctx.set("reference_check_names", reference_check_names)
+            else:
+                return StopEvent(result=DEFAULT_ERROR_MESSAGE)
 
             check_name = (
                 (
