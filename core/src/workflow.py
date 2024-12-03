@@ -14,7 +14,7 @@ from core.src.utils.llm_structured_outputs import CheckMetadata
 from core.src.utils.model_chooser import llm_chooser
 from core.src.utils.prompt_loader import Step, load_prompt_template
 from core.src.utils.prowler_information import SUPPORTED_PROVIDERS, get_prowler_services
-from core.src.utils.relevant_check_retriever import get_relevant_reference_checks
+from core.src.utils.rag import CheckDataManager, IndexedDataManager
 
 DEFAULT_ERROR_MESSAGE = "Sorry but I cannot create a Prowler check with that information, please try again introducing more context about the check that you want to create, thanks for using Prowler."
 
@@ -125,11 +125,32 @@ class ChecKreationWorkflow(Workflow):
                 )
             ).text.strip()
 
-            reference_check_names = get_relevant_reference_checks(
-                security_analysis=best_practices,
-                check_provider=check_basic_info.prowler_provider,
-                check_service=check_basic_info.service,
+            indexed_data_manager = IndexedDataManager()
+
+            check_manager = CheckDataManager(indexed_data_manager)
+
+            # Check if the check already exists in the index data
+
+            check_already_exists = check_manager.check_exists(best_practices)
+
+            # Get relevant reference checks from the security analysis
+
+            reference_check_names = check_manager.get_relevant_checks(
+                best_practices,
+                check_basic_info.prowler_provider,
+                check_basic_info.service,
             )
+
+            if check_already_exists:
+                check_already_exists_message = "Sorry but the check already exists in Prowler, so I cannot create a new one."
+
+                if reference_check_names:
+                    check_already_exists_message += (
+                        " Here is a list of related checks that you should check before creating a new one:\n"
+                        + "\n".join(f"- {check}" for check in reference_check_names)
+                    )
+
+                return StopEvent(result=check_already_exists_message)
 
             await ctx.set("reference_check_names", reference_check_names)
 
