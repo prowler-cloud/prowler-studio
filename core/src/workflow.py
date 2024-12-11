@@ -2,6 +2,7 @@ import requests
 from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
+from loguru import logger
 
 from core.src.events import (
     CheckBasicInformation,
@@ -36,6 +37,7 @@ class ChecKreationWorkflow(Workflow):
             ctx: Workflow context.
             user_query: User input to start the workflow.
         """
+        logger.info("Initializing...")
         try:
             user_query = start_event.get("user_query", "")
 
@@ -102,11 +104,9 @@ class ChecKreationWorkflow(Workflow):
                 raise ValueError("The provided user query is empty.")
 
         except ValueError as e:
-            return StopEvent(result=str(e))
+            logger.error(str(e))
         except Exception as e:
-            return StopEvent(
-                result=f"{e.__class__.__name__}: [{e.__traceback__.tb_lineno}]: {e}"
-            )
+            logger.exception(e)
 
     @step
     async def security_analysis(
@@ -118,6 +118,7 @@ class ChecKreationWorkflow(Workflow):
             ctx: Workflow context.
             sanitized_user_input: Start event with the user input to analyze.
         """
+        logger.info("Making security analysis...")
         try:
             best_practices = (
                 await Settings.llm.acomplete(
@@ -203,22 +204,21 @@ class ChecKreationWorkflow(Workflow):
             )
 
         except ValueError as e:
-            return StopEvent(result=str(e))
+            logger.error(str(e))
         except Exception as e:
-            return StopEvent(
-                result=f"{e.__class__.__name__}: [{e.__traceback__.tb_lineno}]: {e}"
-            )
+            logger.exception(e)
 
     @step
     async def create_check_metadata(
         self, ctx: Context, check_metadata_base_info: CheckMetadataInformation
-    ) -> CheckMetadataResult | StopEvent:
+    ) -> CheckMetadataResult:
         """Create the Prowler check based on the user input.
 
         Args:
             ctx: Workflow context.
             check_metadata: Structured information extracted from the user query to create the check metadata.
         """
+        logger.info("Creating check metadata...")
         try:
             check_metadata = None
 
@@ -252,11 +252,9 @@ class ChecKreationWorkflow(Workflow):
             return CheckMetadataResult(check_metadata=check_metadata)
 
         except ValueError as e:
-            return StopEvent(result=str(e))
+            logger.error(str(e))
         except Exception as e:
-            return StopEvent(
-                result=f"{e.__class__.__name__}: [{e.__traceback__.tb_lineno}]: {e}"
-            )
+            logger.exception(e)
 
     @step
     async def create_check_tests(
@@ -268,6 +266,7 @@ class ChecKreationWorkflow(Workflow):
             ctx: Workflow context.
             check_metadata: Structured information extracted from the user query to create the check metadata.
         """
+        logger.info("Creating check tests...")
         try:
             check_tests = None
 
@@ -290,11 +289,9 @@ class ChecKreationWorkflow(Workflow):
             return check_test_result
 
         except ValueError as e:
-            return StopEvent(result=str(e))
+            logger.error(str(e))
         except Exception as e:
-            return StopEvent(
-                result=f"{e.__class__.__name__}: [{e.__traceback__.tb_lineno}]: {e}"
-            )
+            logger.exception(e)
 
     @step
     async def create_check_code(
@@ -306,6 +303,7 @@ class ChecKreationWorkflow(Workflow):
             ctx: Workflow context.
             check_metadata: Structured information extracted from the user query to create the check metadata.
         """
+        logger.info("Creating check code...")
         try:
             check_information = ctx.collect_events(
                 trigger_events, [CheckMetadataResult, CheckTestsResult]
@@ -344,8 +342,6 @@ class ChecKreationWorkflow(Workflow):
                 )
 
         except ValueError as e:
-            return StopEvent(result=str(e))
+            logger.error(str(e))
         except Exception as e:
-            return StopEvent(
-                result=f"{e.__class__}: [{e.__traceback__.tb_lineno}]: {e}"
-            )
+            logger.exception(e)
