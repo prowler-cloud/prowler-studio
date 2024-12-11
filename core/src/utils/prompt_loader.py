@@ -124,6 +124,8 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "You are going to be provided with some extra information from metadata to have more context about the check to create.\n"
                 f"{15 * '-'}\n"
                 "Complete only the next task:\n"
+                f"Check Metadata: {kwargs.get('check_metadata', '')}\n"
+                f"Check Tests: {kwargs.get('check_tests', '')}\n"
                 "Check Code: "
             ),
         }
