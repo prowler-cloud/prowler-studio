@@ -106,8 +106,10 @@ class ChecKreationWorkflow(Workflow):
 
         except ValueError as e:
             logger.error(str(e))
+            return StopEvent()
         except Exception as e:
             logger.exception(e)
+            return StopEvent()
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=3))
     async def security_analysis(
@@ -312,18 +314,23 @@ class ChecKreationWorkflow(Workflow):
 
                 for check_name in await ctx.get("reference_check_names"):
                     code = requests.get(
-                        f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_information[0].check_metadata.Provider}/services/{check_name.split('_')[0]}/{check_name}/{check_name}.py"
+                        f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_information[0].check_metadata.Provider}/services/{check_information[0].check_metadata.ServiceName}/{check_name}/{check_name}.py"
                     )
                     relevant_related_checks.append(code.text)
+
+                service_class = requests.get(
+                    f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_information[0].check_metadata.Provider}/services/{check_information[0].check_metadata.ServiceName}/{check_information[0].check_metadata.ServiceName}_service.py"
+                ).text
 
                 check_code = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
                         step=Step.CHECK_CODE_GENERATION,
                         model_reference=await ctx.get("model_reference"),
-                        best_practices=await ctx.get("user_query"),
                         relevant_related_checks=relevant_related_checks,
-                        check_metadata=check_information[0].check_metadata,
-                        check_tests=check_information[1].check_tests,
+                        check_description=getattr(
+                            check_information[0].check_metadata, "Description", ""
+                        ),
+                        service_class=service_class,
                     )
                 )
 

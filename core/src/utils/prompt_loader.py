@@ -120,12 +120,13 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "Generate the Prowler check code that is going to ensure that best practices are followed.\n"
                 "The check is a Python class that inherits from the 'Check' class and has only one method called execute where is the code to generate the finding with the status and other relevant information.\n"
                 f"Here are some raw examples with check code more similar to the extracted security description that you can consult as reference: {kwargs.get('relevant_related_checks', '')}\n"
+                "Have in count that all the checks must have the same structure, the only thing that changes is the code inside the execute method.\n"
                 f"{15 * '-'}\n"
-                "You are going to be provided with some extra information from metadata to have more context about the check to create.\n"
+                "The client object is used to interact with the cloud provider, you MUST NOT make calls to the API directly from the check, it must be done in the service class, which is the class that belongs the service_client. For this check you must use the service client used in reference checks, the class code is the next:\n"
+                f"{kwargs.get('service_class', '')}\n"
+                "IMPORTANT NOTE: if the service client does not contain the attribute that you need you can make it up indicating with a comment that is a mockup and the service must be implemented to make the check work.\n"
                 f"{15 * '-'}\n"
-                "Complete only the next task:\n"
-                f"Check Metadata: {kwargs.get('check_metadata', '')}\n"
-                f"Check Tests: {kwargs.get('check_tests', '')}\n"
+                f"Here it is the description of the check that you must do: {kwargs.get('check_description', '')}\n"
                 "Check Code: "
             ),
         }
