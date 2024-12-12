@@ -79,6 +79,7 @@ if __name__ == "__main__":
                 model_reference="models/gemini-1.5-flash",
             )
         )
-        logger.success(f"Result:\n{result}")
+        if result:
+            logger.success(f"Result:\n{result}")
     except Exception as e:
         logger.exception(e)
