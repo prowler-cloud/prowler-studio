@@ -2,6 +2,7 @@ import requests
 from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
+from llama_index.core.workflow.retry_policy import ConstantDelayRetryPolicy
 from loguru import logger
 
 from core.src.events import (
@@ -27,7 +28,7 @@ DEFAULT_ERROR_MESSAGE = "Sorry but I cannot create a Prowler check with that inf
 class ChecKreationWorkflow(Workflow):
     """Workflow to create new Prowler check based on user input."""
 
-    @step
+    @step(retry_policy=ConstantDelayRetryPolicy(delay=10, maximum_attempts=3))
     async def workflow_setup(
         self, ctx: Context, start_event: StartEvent
     ) -> CheckBasicInformation | StopEvent:
@@ -108,7 +109,7 @@ class ChecKreationWorkflow(Workflow):
         except Exception as e:
             logger.exception(e)
 
-    @step
+    @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=3))
     async def security_analysis(
         self, ctx: Context, check_basic_info: CheckBasicInformation
     ) -> CheckMetadataInformation | CheckTestInformation | StopEvent:
@@ -147,7 +148,9 @@ class ChecKreationWorkflow(Workflow):
             )
 
             if check_already_exists:
-                check_already_exists_message = "Sorry but the check already exists in Prowler, so I cannot create a new one."
+                check_already_exists_message = (
+                    "This check seems to already exist in Prowler."
+                )
 
                 if reference_check_names:
                     check_already_exists_message += (
@@ -208,7 +211,7 @@ class ChecKreationWorkflow(Workflow):
         except Exception as e:
             logger.exception(e)
 
-    @step
+    @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=5))
     async def create_check_metadata(
         self, ctx: Context, check_metadata_base_info: CheckMetadataInformation
     ) -> CheckMetadataResult:
@@ -231,23 +234,19 @@ class ChecKreationWorkflow(Workflow):
                 )
                 relevant_check_metadata.append(metadata.text)
 
-            while not check_metadata:
-                try:
-                    check_metadata = await Settings.llm.astructured_predict(
-                        output_cls=CheckMetadata,
-                        prompt=PromptTemplate(
-                            template=load_prompt_template(
-                                step=Step.CHECK_METADATA_GENERATION,
-                                model_reference=await ctx.get("model_reference"),
-                                check_name=check_metadata_base_info.check_name,
-                                check_description=check_metadata_base_info.check_description,
-                                prowler_provider=check_metadata_base_info.prowler_provider,
-                                relevant_related_checks=relevant_check_metadata,
-                            )
-                        ),
+            check_metadata = await Settings.llm.astructured_predict(
+                output_cls=CheckMetadata,
+                prompt=PromptTemplate(
+                    template=load_prompt_template(
+                        step=Step.CHECK_METADATA_GENERATION,
+                        model_reference=await ctx.get("model_reference"),
+                        check_name=check_metadata_base_info.check_name,
+                        check_description=check_metadata_base_info.check_description,
+                        prowler_provider=check_metadata_base_info.prowler_provider,
+                        relevant_related_checks=relevant_check_metadata,
                     )
-                except Exception:
-                    pass
+                ),
+            )
 
             return CheckMetadataResult(check_metadata=check_metadata)
 
@@ -256,7 +255,7 @@ class ChecKreationWorkflow(Workflow):
         except Exception as e:
             logger.exception(e)
 
-    @step
+    @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=5))
     async def create_check_tests(
         self, ctx: Context, check_test_info: CheckTestInformation
     ) -> CheckTestsResult:
@@ -270,30 +269,24 @@ class ChecKreationWorkflow(Workflow):
         try:
             check_tests = None
 
-            while not check_tests:
-                try:
-                    check_tests = await Settings.llm.acomplete(
-                        prompt=load_prompt_template(
-                            step=Step.CHECK_TESTS_GENERATION,
-                            model_reference=await ctx.get("model_reference"),
-                            check_name=check_test_info.check_name,
-                            check_description=check_test_info.check_description,
-                            prowler_provider=check_test_info.prowler_provider,
-                        )
-                    )
-                except Exception:
-                    pass
+            check_tests = await Settings.llm.acomplete(
+                prompt=load_prompt_template(
+                    step=Step.CHECK_TESTS_GENERATION,
+                    model_reference=await ctx.get("model_reference"),
+                    check_name=check_test_info.check_name,
+                    check_description=check_test_info.check_description,
+                    prowler_provider=check_test_info.prowler_provider,
+                )
+            )
 
-            check_test_result = CheckTestsResult(check_tests=check_tests.text)
-
-            return check_test_result
+            return CheckTestsResult(check_tests=check_tests.text)
 
         except ValueError as e:
             logger.error(str(e))
         except Exception as e:
             logger.exception(e)
 
-    @step
+    @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=8))
     async def create_check_code(
         self, ctx: Context, trigger_events: CheckMetadataResult | CheckTestsResult
     ) -> StopEvent:
@@ -323,19 +316,16 @@ class ChecKreationWorkflow(Workflow):
                     )
                     relevant_related_checks.append(code.text)
 
-                while not check_code:
-                    try:
-                        check_code = await Settings.llm.acomplete(
-                            prompt=load_prompt_template(
-                                step=Step.CHECK_CODE_GENERATION,
-                                model_reference=await ctx.get("model_reference"),
-                                check_metadata=check_information[0].check_metadata,
-                                check_tests=check_information[1].check_tests,
-                                relevant_related_checks=relevant_related_checks,
-                            )
-                        )
-                    except Exception:
-                        pass
+                check_code = await Settings.llm.acomplete(
+                    prompt=load_prompt_template(
+                        step=Step.CHECK_CODE_GENERATION,
+                        model_reference=await ctx.get("model_reference"),
+                        best_practices=await ctx.get("user_query"),
+                        relevant_related_checks=relevant_related_checks,
+                        check_metadata=check_information[0].check_metadata,
+                        check_tests=check_information[1].check_tests,
+                    )
+                )
 
                 return StopEvent(
                     result=f"Check metadata:\n{check_information[0].check_metadata}\n\nCheck tests:\n{check_information[1].check_tests}\n\nCheck code:\n{check_code.text}"
