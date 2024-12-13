@@ -7,6 +7,8 @@ from loguru import logger
 
 from core.src.events import (
     CheckBasicInformation,
+    CheckCodeInformation,
+    CheckCodeResult,
     CheckMetadataInformation,
     CheckMetadataResult,
     CheckTestInformation,
@@ -79,7 +81,9 @@ class ChecKreationWorkflow(Workflow):
                 )
 
                 if prowler_provider not in SUPPORTED_PROVIDERS:
-                    return StopEvent(result=DEFAULT_ERROR_MESSAGE)
+                    return StopEvent(
+                        result=f"Sorry but I cannot create a Prowler check for that provider, please try again with a supported provider ({', '.join(SUPPORTED_PROVIDERS)})."
+                    )
 
                 check_service = (
                     (
@@ -114,21 +118,37 @@ class ChecKreationWorkflow(Workflow):
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=3))
     async def security_analysis(
         self, ctx: Context, check_basic_info: CheckBasicInformation
-    ) -> CheckMetadataInformation | CheckTestInformation | StopEvent:
+    ) -> (
+        CheckMetadataInformation
+        | CheckTestInformation
+        | CheckCodeInformation
+        | StopEvent
+    ):
         """Analyze the user input to extract the security best practices, kind of resource to audit and base cases to cover.
 
         Args:
             ctx: Workflow context.
-            sanitized_user_input: Start event with the user input to analyze.
+            check_basic_info: Basic information extracted from the user query to create the check
         """
         logger.info("Making security analysis...")
         try:
-            best_practices = (
+            base_cases_and_steps = (
                 await Settings.llm.acomplete(
                     prompt=load_prompt_template(
-                        step=Step.BEST_PRACTICE_EXTRACTION,
+                        step=Step.CHECK_BASE_CASES_AND_STEPS_EXTRACTION,
                         model_reference=await ctx.get("model_reference"),
                         user_query=await ctx.get("user_query"),
+                    )
+                )
+            ).text.strip()
+
+            check_description = (
+                await Settings.llm.acomplete(
+                    prompt=load_prompt_template(
+                        step=Step.CHECK_DESCRIPTION_GENERATION,
+                        model_reference=await ctx.get("model_reference"),
+                        user_query=await ctx.get("user_query"),
+                        base_cases_and_steps=base_cases_and_steps,
                     )
                 )
             ).text.strip()
@@ -139,14 +159,14 @@ class ChecKreationWorkflow(Workflow):
 
             # Check if the check already exists in the index data
 
-            check_already_exists = check_manager.check_exists(best_practices)
+            check_already_exists = check_manager.check_exists(check_description)
 
             # Get relevant reference checks from the security analysis
 
             reference_check_names = check_manager.get_relevant_checks(
-                best_practices,
-                check_basic_info.prowler_provider,
-                check_basic_info.service,
+                check_description=check_description,
+                check_provider=check_basic_info.prowler_provider,
+                check_service=check_basic_info.service,
             )
 
             if check_already_exists:
@@ -163,14 +183,12 @@ class ChecKreationWorkflow(Workflow):
                 return StopEvent(result=check_already_exists_message)
 
             if not reference_check_names:
-                # Extract 5 checks from same provider and service
+                # Extract the first 5 checks from the service
                 reference_check_names = PROWLER_CHECKS.get(
                     check_basic_info.prowler_provider, {}
                 ).get(check_basic_info.service, [])[:5]
 
-            if reference_check_names:
-                await ctx.set("reference_check_names", reference_check_names)
-            else:
+            if not reference_check_names:
                 return StopEvent(result=DEFAULT_ERROR_MESSAGE)
 
             check_name = (
@@ -181,7 +199,7 @@ class ChecKreationWorkflow(Workflow):
                             model_reference=await ctx.get("model_reference"),
                             user_query=await ctx.get("user_query"),
                             service=check_basic_info.service,
-                            best_practices=best_practices,
+                            check_description=check_description,
                             relevant_related_checks=reference_check_names,
                         )
                     )
@@ -196,14 +214,22 @@ class ChecKreationWorkflow(Workflow):
             ctx.send_event(
                 CheckMetadataInformation(
                     check_name=check_name,
-                    check_description=best_practices,
+                    check_description=check_description,
                     prowler_provider=check_basic_info.prowler_provider,
+                    related_check_names=reference_check_names,
                 )
             )
             ctx.send_event(
                 CheckTestInformation(
                     check_name=check_name,
-                    check_description=best_practices,
+                    base_cases_and_steps=base_cases_and_steps,
+                )
+            )
+            ctx.send_event(
+                CheckCodeInformation(
+                    check_name=check_name,
+                    base_cases_and_steps=base_cases_and_steps,
+                    related_check_names=reference_check_names,
                     prowler_provider=check_basic_info.prowler_provider,
                 )
             )
@@ -225,16 +251,14 @@ class ChecKreationWorkflow(Workflow):
         """
         logger.info("Creating check metadata...")
         try:
-            check_metadata = None
-
             # Download the relevant check metadata from the Prowler repository to give as reference to the prompt
-            relevant_check_metadata = []
+            relevant_checks_metadata = []
 
-            for check_name in await ctx.get("reference_check_names"):
+            for check_name in check_metadata_base_info.related_check_names:
                 metadata = requests.get(
                     f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_metadata_base_info.prowler_provider}/services/{check_name.split("_")[0]}/{check_name}/{check_name}.metadata.json"
                 )
-                relevant_check_metadata.append(metadata.text)
+                relevant_checks_metadata.append(metadata.text)
 
             check_metadata = await Settings.llm.astructured_predict(
                 output_cls=CheckMetadata,
@@ -245,7 +269,7 @@ class ChecKreationWorkflow(Workflow):
                         check_name=check_metadata_base_info.check_name,
                         check_description=check_metadata_base_info.check_description,
                         prowler_provider=check_metadata_base_info.prowler_provider,
-                        relevant_related_checks=relevant_check_metadata,
+                        relevant_related_checks_metadata=relevant_checks_metadata,
                     )
                 ),
             )
@@ -269,15 +293,12 @@ class ChecKreationWorkflow(Workflow):
         """
         logger.info("Creating check tests...")
         try:
-            check_tests = None
-
             check_tests = await Settings.llm.acomplete(
                 prompt=load_prompt_template(
                     step=Step.CHECK_TESTS_GENERATION,
                     model_reference=await ctx.get("model_reference"),
                     check_name=check_test_info.check_name,
-                    check_description=check_test_info.check_description,
-                    prowler_provider=check_test_info.prowler_provider,
+                    base_cases_and_steps=check_test_info.base_cases_and_steps,
                 )
             )
 
@@ -290,8 +311,8 @@ class ChecKreationWorkflow(Workflow):
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=8))
     async def create_check_code(
-        self, ctx: Context, trigger_events: CheckMetadataResult | CheckTestsResult
-    ) -> StopEvent:
+        self, ctx: Context, check_code_info: CheckCodeInformation
+    ) -> CheckCodeResult:
         """Create the Prowler check code based on the user input.
 
         Args:
@@ -300,45 +321,63 @@ class ChecKreationWorkflow(Workflow):
         """
         logger.info("Creating check code...")
         try:
-            check_information = ctx.collect_events(
-                trigger_events, [CheckMetadataResult, CheckTestsResult]
+            relevant_related_checks = []
+
+            for check_name in check_code_info.related_check_names:
+                code = requests.get(
+                    f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_code_info.prowler_provider}/services/{check_name.split("_")[0]}/{check_name}/{check_name}.py"
+                )
+                relevant_related_checks.append(code.text)
+
+            service_class_code = requests.get(
+                f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_code_info.prowler_provider}/services/{check_name.split("_")[0]}/{check_name.split("_")[0]}_service.py"
+            ).text
+
+            check_code = await Settings.llm.acomplete(
+                prompt=load_prompt_template(
+                    step=Step.CHECK_CODE_GENERATION,
+                    model_reference=await ctx.get("model_reference"),
+                    check_name=check_code_info.check_name,
+                    base_cases_and_steps=check_code_info.base_cases_and_steps,
+                    relevant_related_checks=relevant_related_checks,
+                    service_class_code=service_class_code,
+                )
             )
 
-            if check_information is None:
-                return None
-            else:
-                # Generate the code for the check
-                check_code = None
-
-                relevant_related_checks = []
-
-                for check_name in await ctx.get("reference_check_names"):
-                    code = requests.get(
-                        f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_information[0].check_metadata.Provider}/services/{check_information[0].check_metadata.ServiceName}/{check_name}/{check_name}.py"
-                    )
-                    relevant_related_checks.append(code.text)
-
-                service_class = requests.get(
-                    f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_information[0].check_metadata.Provider}/services/{check_information[0].check_metadata.ServiceName}/{check_information[0].check_metadata.ServiceName}_service.py"
-                ).text
-
-                check_code = await Settings.llm.acomplete(
-                    prompt=load_prompt_template(
-                        step=Step.CHECK_CODE_GENERATION,
-                        model_reference=await ctx.get("model_reference"),
-                        relevant_related_checks=relevant_related_checks,
-                        check_description=getattr(
-                            check_information[0].check_metadata, "Description", ""
-                        ),
-                        service_class=service_class,
-                    )
-                )
-
-                return StopEvent(
-                    result=f"Check metadata:\n{check_information[0].check_metadata}\n\nCheck tests:\n{check_information[1].check_tests}\n\nCheck code:\n{check_code.text}"
-                )
+            return CheckCodeResult(check_code=check_code.text)
 
         except ValueError as e:
             logger.error(str(e))
+        except Exception as e:
+            logger.exception(e)
+
+    @step
+    async def check_return(
+        self,
+        ctx: Context,
+        trigger_event: CheckMetadataResult | CheckTestsResult | CheckCodeResult,
+    ) -> StopEvent:
+        """Return full check to user and stop the workflow.
+
+        Args:
+            ctx: Workflow context.
+            trigger_event: Event that triggered the check return.
+        """
+        try:
+            check = ctx.collect_events(
+                trigger_event, [CheckMetadataResult, CheckTestsResult, CheckCodeResult]
+            )
+
+            if check is None:
+                return None
+            else:
+                return StopEvent(
+                    result={
+                        "metadata": check[0].check_metadata.dict(),
+                        "tests": check[1].check_tests,
+                        "code": check[2].check_code,
+                    }
+                )
+
         except Exception as e:
             logger.exception(e)
