@@ -79,7 +79,16 @@ if __name__ == "__main__":
                 model_reference="models/gemini-1.5-flash",
             )
         )
-        if result:
-            logger.success(f"Result:\n{result}")
+        if isinstance(result, dict):
+            logger.success("Check creation workflow finished successfully!")
+
+            # Print the result
+            print(f"Check Metadata: {result["metadata"]}")
+            print(f"Check Code: {result["code"]}")
+            print(f"Check Tests: {result["tests"]}")
+        else:
+            logger.error("Check creation workflow failed")
+            print(result)
+
     except Exception as e:
         logger.exception(e)
