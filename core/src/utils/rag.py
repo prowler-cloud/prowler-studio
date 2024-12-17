@@ -68,18 +68,18 @@ class CheckDataManager:
         )
 
     def get_relevant_checks(
-        self, security_analysis: str, check_provider: str, check_service: str
+        self, check_description: str, check_provider: str, check_service: str
     ) -> List[str]:
         """Retrieve relevant checks based on analysis, provider, and service.
 
         Args:
-            security_analysis: The security analysis context.
+            check_description: The description of the check.
             check_provider: The provider of the check.
             check_service: The service of the check.
         Returns:
             A list of relevant check names.
         """
-        nodes = self.retriever.retrieve(security_analysis)
+        nodes = self.retriever.retrieve(check_description)
         filtered_nodes = SimilarityPostprocessor(
             similarity_cutoff=0.75
         ).postprocess_nodes(nodes)
@@ -112,10 +112,9 @@ class CheckDataManager:
 
         # Fallback to querying if no nodes are provided
         query_prompt = (
-            f"SYSTEM CONTEXT: Prowler is an open-source CSPM tool. You have as context all checks metadata. "
-            f"A check metadata refers to the information related to a security automated control to ensure that best "
-            f"practices are followed, such as its description, provider, service, etc. With this information, please "
-            f"ensure if a check with the following description already exists in the indexed data. You MUST answer with 'yes' or 'no': {check_description}"
+            "SYSTEM CONTEXT: Prowler is an open-source CSPM tool. You have as context all checks metadata. A check metadata refers to the information related to a security automated control to ensure that best practices are followed, such as its description, provider, service, etc.\n"
+            "Based in all current Prowler checks ensure if one or more checks metadata are covering the following description. You MUST answer with 'yes' or 'no', if the answer is 'no' please indicate the reason why the check is not covered by other checks.\n"
+            f"Check description: {check_description}"
         )
         response = self.query_engine.query(query_prompt)
         return response.response.strip().lower() == "yes"
