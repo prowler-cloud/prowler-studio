@@ -50,6 +50,7 @@ class ChecKreationWorkflow(Workflow):
                 Settings.llm = llm_chooser(
                     model_provider=start_event.get("model_provider", ""),
                     model_reference=start_event.get("model_reference", ""),
+                    api_key=start_event.get("api_key", ""),
                 )
 
                 await ctx.set("model_provider", start_event.get("model_provider"))
