@@ -21,3 +21,6 @@ pylint = "^3.3.1"
 python = "^3.12"
 safety = "^3.2.10"
 vulture = "^2.13"
+
+[tool.poetry.group.cli.dependencies]
+typer = "^0.15.1"
