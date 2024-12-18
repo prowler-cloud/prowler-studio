@@ -132,7 +132,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"{30 * '-'}\n"
                 f"{kwargs.get('relevant_related_checks', '')}\n"
                 f"{30 * '-'}\n"
-                "NOTE: Try to not abuse of the INFO status, only use it when is strictly necessary"
+                "IMPORTANT NOTE: The ONLY status accepted is 'FAIL', 'PASS or 'INFO'. Please do not include any other status and if it is possible not use INFO status because it is not recommended.\n"
                 f"The client object used in the check is the ONLY way to interact with the cloud provider. You MUST NOT make calls to the API directly from the check, it must be done in the service class, which is the class that belongs the '{kwargs.get('check_name', '<service>').split('_')[0]}_client'. You MUST use the '{kwargs.get('check_name', '<service>').split('_')[0]}_client' that is also used in reference checks, the class code of this client is presented in the next code block delimited by dashes.\n"
                 f"IMPORTANT NOTE: if '{kwargs.get('check_name', '<service>').split('_')[0]}_client' does not contain the attribute that you need you can make it up indicating with a comment that is a mockup and the service must be implemented to make the check work.\n"
                 f"{30 * '-'}\n"
