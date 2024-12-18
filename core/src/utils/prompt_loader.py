@@ -104,6 +104,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "Generate the Prowler check tests based on the base cases.\n"
                 "Tests will be the base case that the check should cover to ensure that the check is following the security best practice.\n"
                 "Please first extract from the security analysis the base cases that the check should cover and then generate the tests based on the base cases.\n"
+                "IMPORTANT NOTES: - The ONLY status accepted is 'FAIL', 'PASS or 'INFO'. Please do not include any other status and if it is possible not use INFO status because it is not recommended.\n- All dependencies that you consider that is needed is already in Prowler so you do not need to worry about it.\n"
                 "In the next lines you can see some examples of the task that you must do.\n"
                 f"{30 * '-'}\n"
                 f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES["aws"][0]]['security_analysis']}\n"
