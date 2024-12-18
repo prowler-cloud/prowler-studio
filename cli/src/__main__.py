@@ -7,6 +7,7 @@ import typer
 from loguru import logger
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.prompt import Prompt
 from typing_extensions import Annotated
 
 from core.src.utils.build_rag_dataset import build_vector_store
@@ -79,9 +80,15 @@ def set_app_log_level(
     )  # TODO: Use a custom log handler object passed as an argument, https://loguru.readthedocs.io/en/stable/resources/recipes.html#capturing-standard-stdout-stderr-and-warnings. Probably cosole prints should be set in this custom handler class, it should be used as view in MVC pattern
 
 
+def get_user_prompt() -> str:
+    return Prompt.ask(
+        "\n[bold]What do you want to ask Prowler Studio? :robot:[/bold]\n╰┈➤"
+    )
+
+
 @app.command()
 def ask(
-    user_query: str,
+    user_query: Annotated[str, typer.Argument(default_factory=get_user_prompt)],
     llm_api_key: Annotated[
         str, typer.Argument(envvar="LLM_API_KEY")
     ] = "",  # Is optional because in a future it can support local models
@@ -135,7 +142,7 @@ def ask(
             raise ValueError("User query can't be empty")
     except Exception as e:
         console.print(f"[bold red]ERROR :cross_mark:: {e}[/bold red]")
-        sys.exit(1)
+        typer.Exit(code=1)
 
 
 @app.command()
@@ -171,4 +178,4 @@ def build_check_rag(
         console.print("[bold green]RAG dataset built successfully![/bold green]")
     except Exception as e:
         console.print(f"[bold red]ERROR: {e}[/bold red]")
-        sys.exit(1)
+        typer.Exit(code=1)
