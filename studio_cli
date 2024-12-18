@@ -1,0 +1,12 @@
+#!/usr/bin/env python3
+import sys
+import warnings
+
+warnings.filterwarnings(
+    action="ignore", category=UserWarning
+)  # It looks like LLamaCPP integration with LLamaIndex have some issues with the warnings and pydantic models
+
+from cli.src.__main__ import app
+
+if __name__ == "__main__":
+    sys.exit(app())
