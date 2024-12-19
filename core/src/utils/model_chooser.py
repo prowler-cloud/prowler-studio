@@ -8,6 +8,12 @@ from llama_index.llms.gemini import Gemini
 from llama_index.llms.gemini.base import GEMINI_MODELS
 from llama_index.llms.llama_cpp import LlamaCPP
 
+GEMINI_NORMALIZATION_NAMES = {
+    "1.5 Flash": "models/gemini-1.5-flash",
+}
+
+SUPPORTED_LLMS = {"gemini": list(GEMINI_NORMALIZATION_NAMES.keys())}
+
 
 def llm_chooser(
     model_provider: str, model_reference: str, api_key: Optional[str] = ""
@@ -42,9 +48,9 @@ def llm_chooser(
         else:
             raise ValueError(f"LlamaCPP model {model_reference} not found.")
     elif model_provider == "gemini":
-        if model_reference in GEMINI_MODELS:
+        if model_reference in SUPPORTED_LLMS[model_provider]:
             llm = Gemini(
-                model=model_reference,
+                model=GEMINI_NORMALIZATION_NAMES[model_reference],
                 api_key=api_key,
             )
         else:
