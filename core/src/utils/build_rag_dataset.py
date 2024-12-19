@@ -6,6 +6,7 @@ from typing import List, Optional
 from llama_index.core import Settings, VectorStoreIndex
 from llama_index.core.schema import Document
 from llama_index.readers.github import GithubClient, GithubRepositoryReader
+from loguru import logger
 
 from core.src.utils.model_chooser import embedding_model_chooser
 
@@ -20,30 +21,38 @@ def extract_prowler_metadata_from_github(github_token: str) -> List[Document]:
     Returns:
         A list of Document objects containing the extracted metadata from the repository.
     """
+    logger.info("Extracting metadata from the Prowler GitHub repository")
+    prowler_metadata = []
+    try:
+        client = GithubClient(github_token=github_token)
 
-    client = GithubClient(github_token=github_token)
+        reader = GithubRepositoryReader(
+            github_client=client,
+            owner="prowler-cloud",
+            repo="prowler",
+            verbose=False,
+            filter_directories=(
+                [
+                    "prowler/providers/aws/services/",
+                    "prowler/providers/azure/services/",
+                    "prowler/providers/gcp/services/",
+                    "prowler/providers/kubernetes/services/",
+                ],
+                GithubRepositoryReader.FilterType.INCLUDE,
+            ),
+            filter_file_extensions=(
+                [".json"],
+                GithubRepositoryReader.FilterType.INCLUDE,
+            ),
+        )
 
-    reader = GithubRepositoryReader(
-        github_client=client,
-        owner="prowler-cloud",
-        repo="prowler",
-        verbose=False,
-        filter_directories=(
-            [
-                "prowler/providers/aws/services/",
-                "prowler/providers/azure/services/",
-                "prowler/providers/gcp/services/",
-                "prowler/providers/kubernetes/services/",
-            ],
-            GithubRepositoryReader.FilterType.INCLUDE,
-        ),
-        filter_file_extensions=(
-            [".json"],
-            GithubRepositoryReader.FilterType.INCLUDE,
-        ),
-    )
-
-    return reader.load_data(branch="master")
+        prowler_metadata = reader.load_data(branch="master")
+    except Exception as e:
+        logger.exception(
+            f"An error occurred while extracting metadata from the Prowler GitHub repository: {e}"
+        )
+        raise e
+    return prowler_metadata
 
 
 def build_vector_store(
@@ -51,7 +60,8 @@ def build_vector_store(
     model_provider: str,
     model_reference: str,
     api_key: Optional[str] = "",
-):
+    vector_store_path: Optional[str] = abspath(join(__file__, "../../../")),
+) -> None:
     """
     Builds the RAG dataset.
     This function extracts the data from the Prowler GitHub repository, indexes it, and persists it.
@@ -61,27 +71,36 @@ def build_vector_store(
         model_provider: Provider of the LLM model.
         model_reference: Reference to the LLM model, depending on the provider it can be a name, a path or a URL.
         api_key: API key to access the model. It is not a required parameter if the model provider does not require it.
+        vector_store_path: Path to the indexed data storage.
     """
-    prowler_documents = extract_prowler_metadata_from_github(github_token)
+    logger.info("Building RAG dataset")
+    try:
+        Settings.embed_model = embedding_model_chooser(
+            model_provider=model_provider,
+            model_reference=model_reference,
+            api_key=api_key,
+        )
 
-    Settings.embed_model = embedding_model_chooser(
-        model_provider=model_provider, model_reference=model_reference, api_key=api_key
-    )
+        prowler_documents = extract_prowler_metadata_from_github(github_token)
 
-    index = VectorStoreIndex.from_documents(
-        documents=prowler_documents, show_progress=True
-    )
-    core_path = abspath(join(__file__, "../../../"))
-    index_folder_name = "indexed_data_db"
-    index.storage_context.persist(join(core_path, index_folder_name))
+        logger.info("Indexing the extracted metadata")
+        index = VectorStoreIndex.from_documents(
+            documents=prowler_documents, show_progress=True
+        )
+        logger.info("Persisting the indexed data in the vector store")
+        index_folder_name = "indexed_data_db"
+        index.storage_context.persist(join(vector_store_path, index_folder_name))
 
-    metadata = {
-        "date_of_creation": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "model_provider": model_provider,
-        "model_reference": model_reference,
-    }
+        metadata = {
+            "date_of_creation": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "model_provider": model_provider,
+            "model_reference": model_reference,
+        }
 
-    with open(
-        join(core_path, index_folder_name, "index_metadata.json"), "w"
-    ) as metadata_file:
-        json.dump(metadata, metadata_file)
+        with open(
+            join(vector_store_path, index_folder_name, "index_metadata.json"), "w"
+        ) as metadata_file:
+            json.dump(metadata, metadata_file)
+    except Exception as e:
+        logger.exception(f"An error occurred while building the RAG dataset: {e}")
+        raise e
