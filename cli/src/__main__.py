@@ -12,7 +12,7 @@ from simple_term_menu import TerminalMenu
 from typing_extensions import Annotated
 
 from core.src.utils.build_rag_dataset import build_vector_store
-from core.src.utils.model_chooser import SUPPORTED_LLMS
+from core.src.utils.model_chooser import SUPPORTED_EMBEDDING_MODELS, SUPPORTED_LLMS
 from core.src.workflow import ChecKreationWorkflow
 
 
@@ -82,7 +82,7 @@ def set_app_log_level(
     )  # TODO: Use a custom log handler object passed as an argument, https://loguru.readthedocs.io/en/stable/resources/recipes.html#capturing-standard-stdout-stderr-and-warnings. Probably cosole prints should be set in this custom handler class, it should be used as view in MVC pattern
 
 
-def get_model_provider() -> str:
+def get_llm_provider() -> str:
     provider_menu = TerminalMenu(
         title="Select the model provider",
         menu_entries=list(SUPPORTED_LLMS.keys()),
@@ -91,7 +91,7 @@ def get_model_provider() -> str:
     return list(SUPPORTED_LLMS.keys())[provider_index]
 
 
-def get_model_reference(provider: str) -> str:
+def get_llm_reference(provider: str) -> str:
     if provider == "gemini":
         model_menu = TerminalMenu(
             title="Select the model reference",
@@ -101,6 +101,27 @@ def get_model_reference(provider: str) -> str:
         raise ValueError(f"Model provider {provider} have not supported models yet")
     model_index = model_menu.show()
     return SUPPORTED_LLMS[provider][model_index]
+
+
+def get_embedding_model_provider() -> str:
+    provider_menu = TerminalMenu(
+        title="Select the embedding model provider",
+        menu_entries=list(SUPPORTED_EMBEDDING_MODELS.keys()),
+    )
+    provider_index = provider_menu.show()
+    return list(SUPPORTED_EMBEDDING_MODELS.keys())[provider_index]
+
+
+def get_embedding_model_reference(provider: str) -> str:
+    if provider == "gemini":
+        model_menu = TerminalMenu(
+            title="Select the embedding model reference",
+            menu_entries=SUPPORTED_EMBEDDING_MODELS[provider],
+        )
+    else:
+        raise ValueError(f"Model provider {provider} have not supported models yet")
+    model_index = model_menu.show()
+    return SUPPORTED_EMBEDDING_MODELS[provider][model_index]
 
 
 def get_user_prompt() -> str:
@@ -144,9 +165,9 @@ def ask(
     """
     try:
         if not model_provider:
-            model_provider = get_model_provider()
+            model_provider = get_llm_provider()
         if not model_reference:
-            model_reference = get_model_reference(model_provider)
+            model_reference = get_llm_reference(model_provider)
         if not user_query:
             user_query = get_user_prompt()
 
@@ -190,33 +211,52 @@ def ask(
 
 @app.command()
 def build_check_rag(
-    model_provider: str,
-    model_reference: str,
-    github_token: Annotated[str, typer.Argument(envvar="GITHUB_TOKEN")],
-    embedding_model_api_key: Annotated[
-        str, typer.Argument(envvar="EMBEDDING_MODEL_API_KEY")
-    ] = "",
-    rag_path: str = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "../../", "core", "indexed_data"
+    github_token: Annotated[
+        str,
+        typer.Option(
+            envvar="GITHUB_TOKEN",
+            help="GitHub token to extract data from Prowler repository. Needed to make more requests to the GitHub API",
+        ),
+    ],
+    rag_path: Annotated[
+        str, typer.Argument(help="Path to the indexed data storage")
+    ] = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        "core",
+        "indexed_data_db",
     ),
+    model_provider: Annotated[str, typer.Option(help="The model provider to use")] = "",
+    model_reference: Annotated[
+        str, typer.Option(help="The specific model to use")
+    ] = "",
+    embedding_model_api_key: Annotated[
+        str,
+        typer.Option(envvar="EMBEDDING_MODEL_API_KEY", help="Embedding model API key"),
+    ] = "",
 ):
     """Build RAG dataset
 
     Args:
-        llm_api_key (Annotated[str, typer.Argument(envvar="GOOGLE_API_KEY")]): Google API key
-        llm_api_url (Annotated[str, typer.Argument(envvar="GOOGLE_API_URL")]): Google API URL
+        github_token: GitHub token to extract data from Prowler repository
+        rag_path: Path to the indexed data storage
+        model_provider: The model provider to use
+        model_reference: The specific model reference to use
+        embedding_model_api_key: Embedding model API key
     """
     try:
         if os.path.exists(rag_path):
             raise FileExistsError(f"RAG dataset already exists in the path: {rag_path}")
         else:
-            console.print("[italic]Building RAG dataset...[/italic]")
+            if not model_provider:
+                model_provider = get_embedding_model_provider()
+            if not model_reference:
+                model_reference = get_embedding_model_reference(model_provider)
             build_vector_store(
                 github_token=github_token,
                 model_provider=model_provider,
                 model_reference=model_reference,
                 api_key=embedding_model_api_key,
-                # rag_path=rag_path,    TODO: implement this parameter in the function
+                vector_store_path=rag_path,
             )
         console.print("[bold green]RAG dataset built successfully![/bold green]")
     except Exception as e:

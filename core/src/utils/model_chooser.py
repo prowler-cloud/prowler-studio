@@ -8,11 +8,17 @@ from llama_index.llms.gemini import Gemini
 from llama_index.llms.gemini.base import GEMINI_MODELS
 from llama_index.llms.llama_cpp import LlamaCPP
 
-GEMINI_NORMALIZATION_NAMES = {
+GEMINI_MODEL_NAMES = {
     "1.5 Flash": "models/gemini-1.5-flash",
 }
 
-SUPPORTED_LLMS = {"gemini": list(GEMINI_NORMALIZATION_NAMES.keys())}
+SUPPORTED_LLMS = {"gemini": list(GEMINI_MODEL_NAMES.keys())}
+
+GEMINI_EMBEDDING_MODELS_NAMES = {
+    "text-embedding-004": "models/text-embedding-004",
+}
+
+SUPPORTED_EMBEDDING_MODELS = {"gemini": list(GEMINI_EMBEDDING_MODELS_NAMES.keys())}
 
 
 def llm_chooser(
@@ -50,7 +56,7 @@ def llm_chooser(
     elif model_provider == "gemini":
         if model_reference in SUPPORTED_LLMS[model_provider]:
             llm = Gemini(
-                model=GEMINI_NORMALIZATION_NAMES[model_reference],
+                model=GEMINI_MODEL_NAMES[model_reference],
                 api_key=api_key,
             )
         else:
@@ -80,7 +86,7 @@ def embedding_model_chooser(
 
     if model_provider == "gemini":
         embedding_model = GeminiEmbedding(
-            model_name=model_reference,
+            model_name=GEMINI_EMBEDDING_MODELS_NAMES[model_reference],
             api_key=api_key,
         )
     else:
