@@ -8,9 +8,11 @@ from loguru import logger
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.prompt import Prompt
+from simple_term_menu import TerminalMenu
 from typing_extensions import Annotated
 
 from core.src.utils.build_rag_dataset import build_vector_store
+from core.src.utils.model_chooser import SUPPORTED_LLMS
 from core.src.workflow import ChecKreationWorkflow
 
 
@@ -80,33 +82,74 @@ def set_app_log_level(
     )  # TODO: Use a custom log handler object passed as an argument, https://loguru.readthedocs.io/en/stable/resources/recipes.html#capturing-standard-stdout-stderr-and-warnings. Probably cosole prints should be set in this custom handler class, it should be used as view in MVC pattern
 
 
-def get_user_prompt() -> str:
-    return Prompt.ask(
-        "\n[bold]What do you want to ask Prowler Studio? :robot:[/bold]\n╰┈➤"
+def get_model_provider() -> str:
+    provider_menu = TerminalMenu(
+        title="Select the model provider",
+        menu_entries=list(SUPPORTED_LLMS.keys()),
     )
+    provider_index = provider_menu.show()
+    return list(SUPPORTED_LLMS.keys())[provider_index]
+
+
+def get_model_reference(provider: str) -> str:
+    if provider == "gemini":
+        model_menu = TerminalMenu(
+            title="Select the model reference",
+            menu_entries=SUPPORTED_LLMS[provider],
+        )
+    else:
+        raise ValueError(f"Model provider {provider} have not supported models yet")
+    model_index = model_menu.show()
+    return SUPPORTED_LLMS[provider][model_index]
+
+
+def get_user_prompt() -> str:
+    return Prompt.ask("\n[bold]Message Prowler Studio :robot:[/bold]\n╰┈➤")
 
 
 @app.command()
 def ask(
-    user_query: Annotated[str, typer.Argument(default_factory=get_user_prompt)],
+    user_query: Annotated[str, typer.Argument(help="User query")] = "",
+    model_provider: Annotated[
+        str,
+        typer.Option(help="The model provider to use"),
+    ] = "",
+    model_reference: Annotated[
+        str, typer.Option(help="The specific model reference to use")
+    ] = "",
     llm_api_key: Annotated[
-        str, typer.Argument(envvar="LLM_API_KEY")
-    ] = "",  # Is optional because in a future it can support local models
+        str, typer.Option(envvar="LLM_API_KEY", help="LLM API key")
+    ] = "",  # Is optional because in a future it can support local models that does not need an API key
     embedding_model_api_key: Annotated[
-        str, typer.Argument(envvar="EMBEDDING_MODEL_API_KEY")
+        str,
+        typer.Option(envvar="EMBEDDING_MODEL_API_KEY", help="Embedding model API key"),
     ] = "",  # TODO: review this because in a future it should support different keys for embedding models and LLM models
-    rag_path: str = os.path.join(
+    rag_path: Annotated[
+        str, typer.Option(help="Path to the indexed data storage", exists=True)
+    ] = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "../../", "core", "indexed_data_db"
     ),
-    log_level: str = "INFO",
+    log_level: Annotated[str, typer.Option(help="Set the log level")] = "INFO",
 ):
     """Ask a question to Prowler Studio
 
     Args:
-        user_query (str): User query
-        llm_api_key (Annotated[str, typer.Argument(envvar="GOOGLE_API_KEY")]): Google API key
+        user_query: User query
+        model_provider: The model provider to use
+        model_reference: The specific model reference to use
+        llm_api_key: LLM API key
+        embedding_model_api_key: Embedding model API key
+        rag_path: Path to the indexed data storage
+        log_level: Set the log level
     """
     try:
+        if not model_provider:
+            model_provider = get_model_provider()
+        if not model_reference:
+            model_reference = get_model_reference(model_provider)
+        if not user_query:
+            user_query = get_user_prompt()
+
         if user_query:
             if os.path.exists(rag_path):
                 set_app_log_level(log_level)
@@ -114,8 +157,8 @@ def ask(
                 result = asyncio.run(
                     run_check_creation_workflow(
                         user_query=user_query,
-                        model_provider="gemini",
-                        model_reference="models/gemini-1.5-flash",
+                        model_provider=model_provider,
+                        model_reference=model_reference,
                         api_key=llm_api_key,
                     )
                 )
