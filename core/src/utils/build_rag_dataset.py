@@ -94,7 +94,7 @@ def build_vector_store(
         metadata = {
             "date_of_creation": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "model_provider": model_provider,
-            "model_reference": model_reference,
+            "model_reference": model_reference,  # TODO: Change this to write the key of the model instead the value. Should be "text-embedding-004" instead of "models/text-embedding-004"
         }
 
         with open(
