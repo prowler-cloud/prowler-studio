@@ -22,6 +22,9 @@ python = "^3.12"
 safety = "^3.2.10"
 vulture = "^2.13"
 
+[tool.poetry.group.api.dependencies]
+llama-deploy = "^0.3.6"
+
 [tool.poetry.group.cli.dependencies]
 simple-term-menu = "^1.6.6"
 typer = "^0.15.1"
