@@ -1,0 +1,14 @@
+name: ChecKreationWorkflow
+
+control-plane:
+  port: 8000
+
+default-service: check_creation_workflow
+
+services:
+  check_creation_workflow:
+    name: Check Creation Workflow
+    source:
+      type: local
+      name: ./api/src/
+    path: workflow:check_kreation_workflow
