@@ -1,11 +1,25 @@
 import {RequestDetails} from 'deep-chat/dist/types/interceptors';
 import {DeepChat} from 'deep-chat-react';
+import {Response} from 'deep-chat/dist/types/response'
 import './App.css';
+import { parseCheckResponse } from './utils';
+import hljs from "highlight.js";
+import React from 'react';
+
+declare global {
+  interface Window {
+    hljs: typeof hljs;
+  }
+}
 
 function App() {
   const baseApiUrl: string = process.env.BASE_API_URL || 'http://localhost:4501';
 
-  console.log('baseApiUrl:', baseApiUrl);
+  React.useEffect(() => {
+    if (!window.hljs) {
+      window.hljs = hljs;
+    }
+  }, []);
 
   return (
     <div className="App">
@@ -26,10 +40,28 @@ function App() {
           }}
           requestBodyLimits={{maxMessages: -1}}
           requestInterceptor={(details: RequestDetails) => {
+            const latestMessage = details.body.messages[details.body.messages.length - 1].text;
+            details.body.input = `{"user_query": "${latestMessage}", "model_provider": "gemini", "model_reference": "1.5 Flash"}`;
             return details;
           }}
           responseInterceptor={(response: any) => {
-            return response;
+            let responseObject: Response;
+
+            const parsedResponse : any = parseCheckResponse(response);
+
+            if (parsedResponse.isCheck) {
+              console.log('parsedResponse:', parsedResponse);
+              responseObject = {
+                text: parsedResponse.text,
+              };
+            }
+            else {
+              responseObject = {
+                text: parsedResponse.text,
+              };
+            }
+
+            return responseObject;
           }}
         />
       </div>
