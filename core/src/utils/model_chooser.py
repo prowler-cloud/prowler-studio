@@ -6,7 +6,6 @@ from llama_index.core.llms.llm import LLM
 from llama_index.embeddings.gemini import GeminiEmbedding
 from llama_index.llms.gemini import Gemini
 from llama_index.llms.gemini.base import GEMINI_MODELS
-from llama_index.llms.llama_cpp import LlamaCPP
 
 GEMINI_MODEL_NAMES = {
     "1.5 Flash": "models/gemini-1.5-flash",
@@ -36,24 +35,7 @@ def llm_chooser(
 
     llm = None
 
-    if model_provider == "llama_cpp":
-        if model_reference.startswith("https://"):
-            llm = LlamaCPP(
-                model_url=model_reference,
-                model_path=None,
-                temperature=0.6,
-                verbose=False,
-            )
-        elif os.path.exists(model_reference):
-            llm = LlamaCPP(
-                model_url=None,
-                model_path=model_reference,
-                temperature=0.6,
-                verbose=False,
-            )
-        else:
-            raise ValueError(f"LlamaCPP model {model_reference} not found.")
-    elif model_provider == "gemini":
+    if model_provider == "gemini":
         if model_reference in SUPPORTED_LLMS[model_provider]:
 
             if not api_key:
