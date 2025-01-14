@@ -1,0 +1,18 @@
+services:
+  api:
+    hostname: "studio-api"
+    image: "prowler-studio-api"
+    env_file:
+      - path: ".env"
+        required: false
+    ports:
+      - "${API_PORT}-4501:${API_PORT}-4501"
+
+  ui:
+    hostname: "studio-ui"
+    image: "prowler-studio-ui"
+    env_file:
+      - path: ".env"
+        required: false
+    ports:
+      - "${UI_PORT}-80:${UI_PORT}-80"
