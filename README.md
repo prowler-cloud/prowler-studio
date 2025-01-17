@@ -3,6 +3,38 @@
 
 ## Installation
 
+### Studio App
+
+**Requirements:**
+- `git`
+- `docker`
+
+First of all is download the repository:
+
+```bash
+git clone git@github.com:prowler-cloud/studio.git
+```
+
+Then you can build the Docker image:
+
+```bash
+docker build -f ./api/Dockerfile -t prowler-studio-api:latest . # Build the API image
+cd ./ui
+docker build -f ./Dockerfile -t prowler-studio-ui:latest .  # Build the UI image
+```
+
+Now you can run the Docker containers using `docker-compose` from the root of the repository:
+
+> [!IMPORTANT]
+> In order to work some environment variables are needed. Use the `.env.templte` file as a template to create a `.env` file with the needed variables.
+> For now is only supported Gemini and Google embedding model, so the `GOOGLE_API_KEY` and `EMBEDDING_MODEL_API_KEY` should be the same.
+
+```bash
+docker compose up -d
+```
+
+Now you can access the UI from your browser at `http://localhost:80`.
+
 ### From Source (CLI only)
 
 **Requirements:**
@@ -41,6 +73,16 @@ Now from other terminal deploy the Workflow to get the answer from the AI model:
 
 ```bash
 poetry run llamactl deploy api/deployment.yml
+```
+
+#### UI
+
+**Requirements:**
+- `npm`
+
+```bash
+cd ui
+npm install
 ```
 
 ## Usage
