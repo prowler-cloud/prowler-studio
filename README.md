@@ -83,5 +83,5 @@ The API is a REST API that can be used for multiple purposes. To ask a question 
 curl --request POST \
   --url http://localhost:4501/deployments/ChecKreationWorkflow/tasks/run \
   --header 'content-type: application/json' \
-  --data '{"input": "{\"user_query\": \"<prompt>\", \"model_provider\": \"gemini\", \"model_reference\": \"1.5 Flash\", \"api_key\": \"XXXXXXXX\"}"}'
+  --data '{"input": "{\"user_query\": \"<prompt>\", \"model_provider\": \"gemini\", \"model_reference\": \"1.5 Flash\"}"}'
 ```

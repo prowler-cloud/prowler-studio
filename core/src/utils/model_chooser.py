@@ -1,4 +1,4 @@
-from os.path import exists
+import os
 from typing import Optional
 
 from llama_index.core.base.embeddings.base import BaseEmbedding
@@ -44,7 +44,7 @@ def llm_chooser(
                 temperature=0.6,
                 verbose=False,
             )
-        elif exists(model_reference):
+        elif os.path.exists(model_reference):
             llm = LlamaCPP(
                 model_url=None,
                 model_path=model_reference,
@@ -55,6 +55,10 @@ def llm_chooser(
             raise ValueError(f"LlamaCPP model {model_reference} not found.")
     elif model_provider == "gemini":
         if model_reference in SUPPORTED_LLMS[model_provider]:
+
+            if not api_key:
+                api_key = os.getenv("GOOGLE_API_KEY")
+
             llm = Gemini(
                 model=GEMINI_MODEL_NAMES[model_reference],
                 api_key=api_key,
