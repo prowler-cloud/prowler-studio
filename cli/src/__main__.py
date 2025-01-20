@@ -184,19 +184,10 @@ def ask(
                     )
                 )
 
-                if isinstance(result, dict):
-                    console.print("[bold green]Check Metadata:[/bold green]")
-                    console.print_json(data=result["metadata"])
-                    console.print(
-                        "[bold green]Check Code:[/bold green]\n",
-                        Markdown(result["code"]),
-                    )
-                    console.print(
-                        "[bold green]Check Tests:[/bold green]\n",
-                        Markdown(result["tests"]),
-                    )
-                else:
-                    console.print(f"[italic red]{result}[/italic red]")
+                console.print(
+                    "[bold green]Prowler Studio :robot: says:\n[/bold green]",
+                    Markdown(result),
+                )
 
             else:
                 raise FileNotFoundError(

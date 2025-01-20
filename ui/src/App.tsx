@@ -1,8 +1,6 @@
 import {RequestDetails} from 'deep-chat/dist/types/interceptors';
 import {DeepChat} from 'deep-chat-react';
-import {Response} from 'deep-chat/dist/types/response'
 import './App.css';
-import { parseCheckResponse } from './utils';
 import hljs from "highlight.js";
 import React from 'react';
 
@@ -45,23 +43,9 @@ function App() {
             return details;
           }}
           responseInterceptor={(response: any) => {
-            let responseObject: Response;
-
-            const parsedResponse : any = parseCheckResponse(response);
-
-            if (parsedResponse.isCheck) {
-              console.log('parsedResponse:', parsedResponse);
-              responseObject = {
-                text: parsedResponse.text,
-              };
+            return {
+              text: response
             }
-            else {
-              responseObject = {
-                text: parsedResponse.text,
-              };
-            }
-
-            return responseObject;
           }}
         />
       </div>
