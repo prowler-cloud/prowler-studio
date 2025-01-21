@@ -26,8 +26,9 @@ docker build -f ./Dockerfile -t prowler-studio-ui:latest .  # Build the UI image
 Now you can run the Docker containers using `docker-compose` from the root of the repository:
 
 > [!IMPORTANT]
-> In order to work some environment variables are needed. Use the `.env.templte` file as a template to create a `.env` file with the needed variables.
-> For now is only supported Gemini and Google embedding model, so the `GOOGLE_API_KEY` and `EMBEDDING_MODEL_API_KEY` should be the same.
+> In order to work some environment variables are needed. Use the `.env.template` file as a template to create a `.env` file with the needed variables.
+> For now is only supported Gemini and Google embedding model, so the `GOOGLE_API_KEY` and `EMBEDDING_MODEL_API_KEY` must be the same.
+> To get one go to [Gemini's documentation](https://ai.google.dev/gemini-api/docs/api-key) and follow the instructions to get one.
 
 ```bash
 docker compose up -d
