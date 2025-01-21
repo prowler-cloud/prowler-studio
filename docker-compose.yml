@@ -6,7 +6,7 @@ services:
       - path: ".env"
         required: false
     ports:
-      - "${API_PORT}-4501:${API_PORT}-4501"
+      - "${API_PORT:-4501}:${API_PORT:-4501}"
 
   ui:
     hostname: "studio-ui"
@@ -15,4 +15,4 @@ services:
       - path: ".env"
         required: false
     ports:
-      - "${UI_PORT}-80:${UI_PORT}-80"
+      - "${UI_PORT:-80}:${UI_PORT:-80}"
