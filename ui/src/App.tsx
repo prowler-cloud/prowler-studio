@@ -25,7 +25,7 @@ function App() {
       <p>DISCLAIMER: This chat has no memory and does not store any data. It is a simple chat interface to request new checks to Prowler Studio, so don't try to reference previous messages.</p>
       <div className="components">
         <DeepChat
-          style={{borderRadius: '10px', width: '96vw', height: 'calc(80vh - 100px)', paddingTop: '10px'}}
+          style={{borderRadius: '10px', width: '96vw', height: 'calc(95vh - 100px)', paddingTop: '10px'}}
           messageStyles={{default:{shared:{innerContainer:{fontSize: '1rem' }}}}}
           inputAreaStyle={{fontSize: '1rem'}}
           introMessage={{text: 'Request any new check to Prowler Studio by typing in the chat box below.'}}
