@@ -4,6 +4,7 @@ from typing import Annotated, Dict, Union
 
 import typer
 
+from cli.src.utils.config import get_config
 from cli.src.utils.file_io import is_prowler_repo, write_check
 from cli.src.utils.logging import set_app_log_level
 from cli.src.views.menus import get_llm_provider, get_llm_reference
@@ -85,10 +86,20 @@ def create_new_check(
         log_level: Log level to be used
     """
     try:
+        config = get_config()
+
         if not model_provider:
-            model_provider = get_llm_provider()
+            model_provider = (
+                get_llm_provider()
+                if not config.get("models", {}).get("llm_provider")
+                else config.get("models", {}).get("llm_provider")
+            )
         if not model_reference:
-            model_reference = get_llm_reference(model_provider)
+            model_reference = (
+                get_llm_reference(model_provider)
+                if not config.get("models", {}).get("llm_reference")
+                else config.get("models", {}).get("llm_reference")
+            )
         if not user_query:
             user_query = prompt_user_message()
 
@@ -115,8 +126,11 @@ def create_new_check(
                     save_check = confirm_save_check()
 
                     if save_check:
-                        # Ask for the prowler path repository
-                        prowler_path = ask_prowler_path()
+                        prowler_path = (
+                            ask_prowler_path()
+                            if not config.get("prowler_path", None)
+                            else config.get("prowler_path")
+                        )
                         # Ensure if the path exists
                         if os.path.exists(prowler_path) and is_prowler_repo(
                             prowler_path
