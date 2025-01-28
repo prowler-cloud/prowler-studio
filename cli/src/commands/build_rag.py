@@ -3,6 +3,7 @@ from typing import Annotated
 
 import typer
 
+from cli.src.utils.config import get_config
 from cli.src.views.menus import (
     get_embedding_model_provider,
     get_embedding_model_reference,
@@ -26,9 +27,11 @@ def build_check_rag(
         "core",
         "indexed_data_db",
     ),
-    model_provider: Annotated[str, typer.Option(help="The model provider to use")] = "",
+    model_provider: Annotated[
+        str, typer.Option(help="The embedding model provider")
+    ] = "",
     model_reference: Annotated[
-        str, typer.Option(help="The specific model to use")
+        str, typer.Option(help="The specific embedding model to use")
     ] = "",
     embedding_model_api_key: Annotated[
         str,
@@ -50,10 +53,20 @@ def build_check_rag(
         if os.path.exists(rag_path):
             raise FileExistsError(f"RAG dataset already exists in the path: {rag_path}")
         else:
+            config = get_config()
+
             if not model_provider:
-                model_provider = get_embedding_model_provider()
+                model_provider = (
+                    get_embedding_model_provider()
+                    if not config.get("models", {}).get("embedding_model_provider")
+                    else config.get("models", {}).get("embedding_model_provider")
+                )
             if not model_reference:
-                model_reference = get_embedding_model_reference(model_provider)
+                model_reference = (
+                    get_embedding_model_reference(model_provider)
+                    if not config.get("models", {}).get("embedding_model_reference")
+                    else config.get("models", {}).get("embedding_model_reference")
+                )
             build_vector_store(
                 github_token=github_token,
                 model_provider=model_provider,
