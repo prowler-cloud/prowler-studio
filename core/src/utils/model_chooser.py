@@ -37,7 +37,6 @@ def llm_chooser(
 
     if model_provider == "gemini":
         if model_reference in SUPPORTED_LLMS[model_provider]:
-
             if not api_key:
                 api_key = os.getenv("GOOGLE_API_KEY")
 
@@ -47,7 +46,7 @@ def llm_chooser(
             )
         else:
             raise ValueError(
-                f"Model {model_reference} not supported by Gemini. The supported models are: {", ".join([model for model in GEMINI_MODELS if model.startswith('models')])}."
+                f"Model {model_reference} not supported by Gemini. The supported models are: {', '.join([model for model in GEMINI_MODELS if model.startswith('models')])}."
             )
     else:
         raise ValueError(f"Model provider {model_provider} not supported.")
@@ -71,11 +70,19 @@ def embedding_model_chooser(
     embedding_model = None
 
     if model_provider == "gemini":
-        embedding_model = GeminiEmbedding(
-            model_name=GEMINI_EMBEDDING_MODELS_NAMES[model_reference],
-            api_key=api_key,
-        )
+        if model_reference in SUPPORTED_EMBEDDING_MODELS[model_provider]:
+            if not api_key:
+                api_key = os.getenv("GOOGLE_API_KEY")
+
+            embedding_model = GeminiEmbedding(
+                model_name=GEMINI_EMBEDDING_MODELS_NAMES[model_reference],
+                api_key=api_key,
+            )
+        else:
+            raise ValueError(
+                f"Embedding model {model_reference} not supported by Gemini. The supported models are: {', '.join([model for model in GEMINI_EMBEDDING_MODELS_NAMES])}."
+            )
     else:
-        raise ValueError(f"Model provider {model_provider} not supported.")
+        raise ValueError(f"Embedding model provider {model_provider} not supported.")
 
     return embedding_model
