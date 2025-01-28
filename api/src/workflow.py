@@ -29,7 +29,7 @@ class APIChecKreationWorkflow(ChecKreationWorkflow):
             if check is None:
                 return None
             else:
-                logger.info("Returning check to user...")
+                logger.info("Returning check...")
 
                 # Ask the LLM to pretify the final answer before returning it to the user
                 final_answer = await Settings.llm.acomplete(

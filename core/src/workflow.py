@@ -359,7 +359,6 @@ class ChecKreationWorkflow(Workflow):
             ctx: Workflow context.
             trigger_events: Event that triggered the check return.
         """
-        logger.info("Returning check to user...")
         try:
             check = ctx.collect_events(
                 trigger_events, [CheckMetadataResult, CheckCodeResult]
@@ -368,6 +367,7 @@ class ChecKreationWorkflow(Workflow):
             if check is None:
                 return None
             else:
+                logger.info("Returning check...")
                 # Ask the LLM to pretify the final answer before returning it to the user
                 final_answer = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
