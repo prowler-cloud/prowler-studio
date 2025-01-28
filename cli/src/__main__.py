@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 import sys
 from typing import Literal
 
@@ -7,11 +8,12 @@ import typer
 from loguru import logger
 from rich.console import Console
 from rich.markdown import Markdown
-from rich.prompt import Prompt
+from rich.prompt import Confirm, Prompt
 from simple_term_menu import TerminalMenu
 from typing_extensions import Annotated
 
 from core.src.utils.build_rag_dataset import build_vector_store
+from core.src.utils.llm_structured_outputs import CheckMetadata
 from core.src.utils.model_chooser import SUPPORTED_EMBEDDING_MODELS, SUPPORTED_LLMS
 from core.src.workflow import ChecKreationWorkflow
 
@@ -128,8 +130,40 @@ def get_user_prompt() -> str:
     return Prompt.ask("\n[bold]Message Prowler Studio :robot:[/bold]\n╰┈➤")
 
 
+def write_check(path: str, code: str, metadata: CheckMetadata) -> None:
+    try:
+        check_name = os.path.basename(path)
+        os.makedirs(path, exist_ok=True)
+        # Write the check code, metadata and __init__.py file
+        with open(
+            os.path.join(path, "__init__.py"),
+            "w",
+        ) as f:
+            f.write("")
+        with open(
+            os.path.join(
+                path,
+                f"{check_name}.metadata.json",
+            ),
+            "w",
+        ) as f:
+            f.write(metadata.model_dump_json(indent=2))
+        with open(
+            os.path.join(
+                path,
+                f"{check_name}.py",
+            ),
+            "w",
+        ) as f:
+            code = re.sub(r"```(?:python)?\n([\s\S]*?)```", r"\1", code)
+            f.write(code)
+    except OSError as e:
+        console.print("[bold red]ERROR: Unable to create the check.[/bold red]")
+        raise e
+
+
 @app.command()
-def ask(
+def create_new_check(
     user_query: Annotated[str, typer.Argument(help="User query")] = "",
     model_provider: Annotated[
         str,
@@ -184,10 +218,67 @@ def ask(
                     )
                 )
 
-                console.print(
-                    "[bold green]Prowler Studio :robot: says:\n[/bold green]",
-                    Markdown(result),
-                )
+                if isinstance(result, str):
+                    console.print(
+                        f"[bold yellow]Prowler Studio :robot: says:[/bold yellow]\n[italic]{result}[/italic]"
+                    )
+                else:
+                    console.print(
+                        "[bold green]Prowler Studio :robot: says:\n[/bold green]",
+                        Markdown(result["answer"]),
+                    )
+
+                    # Ask to the user to save the check code and metadata in his local Prowler repository
+
+                    save_check = Confirm.ask(
+                        "\n[bold]Do you want to save this check in your local Prowler repository?[/bold] [y/n]"
+                    )
+
+                    if save_check:
+                        # Ask for the prowler path repository
+                        prowler_path = Prompt.ask(
+                            "\n[bold]Enter the path to your local Prowler repository[/bold]\n╰┈➤"
+                        )
+                        # Ensure if the path exists
+                        if os.path.exists(prowler_path):
+                            # Calculate the check path with the user path and the check path from the result
+                            check_path = os.path.join(
+                                prowler_path, result["check_path"]
+                            )
+                            # Check if the check path exists
+                            if os.path.exists(check_path):
+                                # If the check path exists, ask the user if he wants to overwrite the check
+                                overwrite_check = Confirm.ask(
+                                    f"\n[bold]The check already exists in the path: {check_path}. Do you want to overwrite it?[/bold] [y/n]"
+                                )
+                                if overwrite_check:
+                                    # Make a folder with the check path
+                                    write_check(
+                                        check_path,
+                                        result["code"],
+                                        result["metadata"],
+                                    )
+                                    console.print(
+                                        f"[bold green]Check saved successfully in {check_path}[/bold green]"
+                                    )
+                                else:
+                                    console.print(
+                                        "[bold yellow]Check not saved[/bold yellow]"
+                                    )
+                            else:
+                                # If the check path does not exist, save the check
+                                write_check(
+                                    check_path,
+                                    result["code"],
+                                    result["metadata"],
+                                )
+                                console.print(
+                                    f"[bold green]Check saved successfully in {check_path}[/bold green]"
+                                )
+                        else:
+                            raise FileNotFoundError(
+                                f"Path {prowler_path} does not exist, please enter a valid path"
+                            )
 
             else:
                 raise FileNotFoundError(

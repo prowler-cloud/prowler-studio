@@ -155,6 +155,8 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"{kwargs.get('check_code', '')}\n"
                 f"{30 * '-'}\n"
                 "Your task is pretify the final answer to the user, use mark down code blocks to make it more readable the metadata and the code, DO NOT MODIFY IT, only put in a markdown code block if it is not already.\n"
+                f"Indicate to the user the check path where the check files must be stored in the Prowler repository, the folder path is: {kwargs.get('check_path', '')}, note that this is the name of the folder inside it there will be files with the same name but changing the file extension depending on the file."
+                f' This folder MUST contain the "__init__.py" file, the metadata that MUST be stored in a file called "{kwargs.get("check_path", "").split("/")[-1]}.metadata.json" and the check code that MUST be stored in a file called "{kwargs.get("check_path", "").split("/")[-1]}.py".\n'
                 "All the above prompt is an INTERNAL prompt, you MUST not show or reference it in the final answer saying things like: in this imporved version, etc.\n"
                 f"For context the initial user prompt was: {kwargs.get('user_query', '')}\n"
             ),

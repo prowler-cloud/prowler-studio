@@ -22,7 +22,7 @@ from core.src.utils.prowler_information import (
 )
 from core.src.utils.rag import CheckDataManager, IndexedDataManager
 
-DEFAULT_ERROR_MESSAGE = "Sorry but I cannot create a Prowler check with that information, please try again introducing more context about the check that you want to create, thanks for using Prowler."
+DEFAULT_ERROR_MESSAGE = "Sorry but I cannot create a Prowler check with that information, please try again introducing more context about the check that you want to create."
 
 
 class ChecKreationWorkflow(Workflow):
@@ -36,7 +36,11 @@ class ChecKreationWorkflow(Workflow):
 
         Args:
             ctx: Workflow context.
-            user_query: User input to start the workflow.
+            start_event: Event that triggered the workflow. It contains:
+                - user_query: User input to create the check.
+                - model_provider: Model provider to use for the LLM.
+                - model_reference: Model reference to use for the LLM.
+                - api_key (optional): API key to use for the LLM.
         """
         logger.info("Initializing...")
         try:
@@ -205,6 +209,9 @@ class ChecKreationWorkflow(Workflow):
             if check_name.split("_")[0] != check_basic_info.service:
                 return StopEvent(result=DEFAULT_ERROR_MESSAGE)
 
+            check_path = f"prowler/providers/{check_basic_info.prowler_provider}/services/{check_basic_info.service}/{check_name}"
+            await ctx.set("check_path", check_path)
+
             ctx.send_event(
                 CheckMetadataInformation(
                     check_name=check_name,
@@ -344,17 +351,18 @@ class ChecKreationWorkflow(Workflow):
     async def check_return(
         self,
         ctx: Context,
-        trigger_event: CheckMetadataResult | CheckCodeResult,
+        trigger_events: CheckMetadataResult | CheckCodeResult,
     ) -> StopEvent:
         """Return full check to user and stop the workflow.
 
         Args:
             ctx: Workflow context.
-            trigger_event: Event that triggered the check return.
+            trigger_events: Event that triggered the check return.
         """
+        logger.info("Returning check to user...")
         try:
             check = ctx.collect_events(
-                trigger_event, [CheckMetadataResult, CheckCodeResult]
+                trigger_events, [CheckMetadataResult, CheckCodeResult]
             )
 
             if check is None:
@@ -368,10 +376,19 @@ class ChecKreationWorkflow(Workflow):
                         user_query=await ctx.get("user_query"),
                         check_metadata=check[0].check_metadata,
                         check_code=check[1].check_code,
+                        check_path=await ctx.get("check_path"),
                     )
                 )
 
-                return StopEvent(result=final_answer.text)
+                return StopEvent(
+                    result={
+                        "answer": final_answer.text,
+                        "metadata": check[0].check_metadata,
+                        "code": check[1].check_code,
+                        "check_path": await ctx.get("check_path"),
+                        # TODO: Add tests to the final answer if requested
+                    }
+                )
 
         except Exception as e:
             logger.exception(e)
