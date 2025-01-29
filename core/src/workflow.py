@@ -88,6 +88,8 @@ class ChecKreationWorkflow(Workflow):
                         result=f"Sorry but I cannot create a Prowler check for that provider, please try again with a supported provider ({', '.join(SUPPORTED_PROVIDERS)})."
                     )
 
+                services_for_provider = get_prowler_services(prowler_provider)
+
                 check_service = (
                     (
                         await Settings.llm.acomplete(
@@ -96,13 +98,18 @@ class ChecKreationWorkflow(Workflow):
                                 model_reference=start_event.get("model_reference"),
                                 user_query=user_query,
                                 prowler_provider=prowler_provider,
-                                services=get_prowler_services(prowler_provider),
+                                services=services_for_provider,
                             )
                         )
                     )
                     .text.strip()
                     .lower()
                 )
+
+                if check_service not in services_for_provider:
+                    return StopEvent(
+                        result=f"Sorry but the check service that you are trying to create is not supported in {prowler_provider} provider, please try again with a supported service: {', '.join(services_for_provider)}."
+                    )
 
                 return CheckBasicInformation(
                     prowler_provider=prowler_provider, service=check_service
@@ -113,10 +120,14 @@ class ChecKreationWorkflow(Workflow):
 
         except ValueError as e:
             logger.error(str(e))
-            return StopEvent()
+            return StopEvent(
+                result="An error occurred while processing the user input. Please try again., if the error persists, please contact the support team."
+            )
         except Exception as e:
             logger.exception(e)
-            return StopEvent()
+            return StopEvent(
+                result="An error occurred while processing the user input. Please try again., if the error persists, please contact the support team."
+            )
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=3))
     async def security_analysis(
@@ -187,7 +198,10 @@ class ChecKreationWorkflow(Workflow):
                 ).get(check_basic_info.service, [])[:5]
 
             if not reference_check_names:
-                return StopEvent(result=DEFAULT_ERROR_MESSAGE)
+                # TODO: Add a way to create a new check from scratch or searching other checks from other services
+                return StopEvent(
+                    result="It seems that there are no checks available for this service in Prowler, sorry but I cannot create a new check for you."
+                )
 
             check_name = (
                 (
