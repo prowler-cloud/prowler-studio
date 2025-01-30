@@ -1,9 +1,33 @@
 
 # Prowler Studio
 
-## Installation
+Prowler Studio is an AI assistant that helps you to create checks for Prowler. It can be used as a CLI tool or as a web application.
 
-### Studio App
+## LLM Configuration
+
+For now only as model is only supported Gemini Flash 1.5 model and text-embedding-004 from Google.
+So for the usage you will need an API key for Gemini. Gemini has a
+[free API key pricing](https://ai.google.dev/pricing#1_5flash) that can be
+used to test the model. In order to get one go to [Gemini's documentation](https://ai.google.dev/gemini-api/docs/api-key)
+and follow the instructions to get one. Once you have the API key, you have to set it as an environment variable:
+
+```bash
+export GOOGLE_API_KEY="XXXXXXXX"
+export EMBEDDING_MODEL_API_KEY="XXXXXXXX"
+```
+
+## Studio App
+
+The Studio App is a web application that allows you to ask questions to the AI model and get the answer in a more user-friendly way.
+
+### Features
+
+- Get the answer in a more user-friendly way
+- API powered by LlamaDeploy
+
+### Installation
+
+#### Docker
 
 **Requirements:**
 - `git`
@@ -36,22 +60,9 @@ docker compose up -d
 
 Now you can access the UI from your browser at `http://localhost:80`.
 
-### From Source (CLI only)
+#### Local
 
-**Requirements:**
-- `git`
-- `poetry`
-- At least Python 3.12
-
-```bash
-git clone git@github.com:prowler-cloud/studio.git
-cd studio
-poetry install --with cli # Install the CLI dependencies to use from the terminal in a easy way
-```
-
-### From Source (GUI)
-
-#### API
+##### API
 
 **Requirements:**
 - `git`
@@ -76,7 +87,7 @@ Now from other terminal deploy the Workflow to get the answer from the AI model:
 poetry run llamactl deploy api/deployment.yml
 ```
 
-#### UI
+##### UI
 
 **Requirements:**
 - `npm`
@@ -86,45 +97,92 @@ cd ui
 npm install
 ```
 
-## Usage
-
-### CLI
-
-For now only as model is only supported Gemini Flash 1.5 model and text-embedding-004.
-So for the usage you will need an API key for Gemini. Gemini has a
-[free API key pricing](https://ai.google.dev/pricing#1_5flash) that can be
-used to test the model. In order to get one go to [Gemini's documentation](https://ai.google.dev/gemini-api/docs/api-key)
-and follow the instructions to get one. Once you have the API key, you have to set it as an environment variable:
+To start the UI server run:
 
 ```bash
-export LLM_API_KEY="XXXXXXXX"
+npm run start
 ```
 
-Then you can run the program with:
+Now you can access the UI from your browser at `http://localhost:3000`.
+
+### Usage
+
+Just type your check creation request in the input field and press "Enter"!
+
+
+![Prowler Studio Check Creation](docs/img/prowler_studio_web_interface.png)
+
+## CLI
+
+The CLI is a command-line tool that allows you to ask questions to the AI model and get the answer in a more programmatic way.
+
+### Features
+
+- Ask questions to the AI system
+- RAG dataset creation
+- Configurable
+- Save checks in your Prowler local repository!
+
+### Installation
+
+#### Local
+
+**Requirements:**
+- `git`
+- `poetry`
+- At least Python 3.12
 
 ```bash
-poetry run ./studio_cli --help
+git clone git@github.com:prowler-cloud/studio.git
+cd studio
+poetry install --with cli # Install the CLI dependencies to use from the terminal in a easy way
 ```
 
-### Ask to create a new check
+### Usage
+
+To use the CLI you can consult the help message:
 
 ```bash
-poetry run ./studio_cli ask "<prompt>"
+poetry run ./prowler-studio --help
 ```
 
-To run in the interactive mode:
+#### Aviable commands
+
+- `create-check`: Create a check.
+- `build-check-rag`: Build a RAG dataset updated with master (the RAG dataset is already in the repository, this command is to update it with new possible checks).
+
+##### Check creation examples
+
+To create a check you can use the `create-check` command:
 
 ```bash
-poetry run ./studio_cli ask
+# AWS
+poetry run ./prowler-studio create-check "Checks for Amazon EC2 security groups with inbound rules allowing unrestricted ICMP access."
+# Azure
+poetry run ./prowler-studio create-check "Ensure that Azure App has a backup retention policy configured."
+# GCP
+poetry run ./prowler-studio create-check "Ensure that Compute Engine restarts instances automatically when terminated due to non-user reasons."
 ```
 
-### API
-
-The API is a REST API that can be used for multiple purposes. To ask a question to the AI model you can use the following command:
+You can also run in the interactive mode just running the command without arguments:
 
 ```bash
-curl --request POST \
-  --url http://localhost:4501/deployments/ChecKreationWorkflow/tasks/run \
-  --header 'content-type: application/json' \
-  --data '{"input": "{\"user_query\": \"<prompt>\", \"model_provider\": \"gemini\", \"model_reference\": \"1.5 Flash\"}"}'
+poetry run ./prowler-studio create-check
 ```
+
+#### Configuration
+
+The CLI can be configured using the `cli/config/config.yml` file. The file is already created in the repository and you can change the values to fit your needs.
+The supported values for the configuration are:
+
+- `llm_provider`: The LLM provider to use. The supported values are:
+  - `gemini`
+- `llm_reference`: How the model is named in the provided provider. The supported values depend on the provider:
+  - For `gemini` provider:
+    - `1.5 Flash`: The Gemini Flash 1.5 model.
+- `embedding_model_provider`: The embedding model provider to use, it only affects on the `build-check-rag` command. The supported values are:
+  - `gemini`
+- `embedding_model_reference`: How the model is named in the provided provider, it only affects on the `build-check-rag` command. The supported values depend on the provider:
+  - For `gemini` provider:
+    - `text-embedding-004`: The Google text-embedding-004 model.
+- `prowler_repo_path`: The path to the Prowler repository in your local machine. It is used to save the checks in the repository.
