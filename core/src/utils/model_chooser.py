@@ -5,19 +5,10 @@ from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.llms.llm import LLM
 from llama_index.embeddings.gemini import GeminiEmbedding
 from llama_index.llms.gemini import Gemini
-from llama_index.llms.gemini.base import GEMINI_MODELS
 
-GEMINI_MODEL_NAMES = {
-    "1.5 Flash": "models/gemini-1.5-flash",
-}
+SUPPORTED_LLMS = {"gemini": ["models/gemini-1.5-flash"]}
 
-SUPPORTED_LLMS = {"gemini": list(GEMINI_MODEL_NAMES.keys())}
-
-GEMINI_EMBEDDING_MODELS_NAMES = {
-    "text-embedding-004": "models/text-embedding-004",
-}
-
-SUPPORTED_EMBEDDING_MODELS = {"gemini": list(GEMINI_EMBEDDING_MODELS_NAMES.keys())}
+SUPPORTED_EMBEDDING_MODELS = {"gemini": ["models/text-embedding-004"]}
 
 
 def llm_chooser(
@@ -37,17 +28,16 @@ def llm_chooser(
 
     if model_provider == "gemini":
         if model_reference in SUPPORTED_LLMS[model_provider]:
-
             if not api_key:
                 api_key = os.getenv("GOOGLE_API_KEY")
 
             llm = Gemini(
-                model=GEMINI_MODEL_NAMES[model_reference],
+                model=model_reference,
                 api_key=api_key,
             )
         else:
             raise ValueError(
-                f"Model {model_reference} not supported by Gemini. The supported models are: {", ".join([model for model in GEMINI_MODELS if model.startswith('models')])}."
+                f"Model {model_reference} not supported by Gemini. The supported models are: {SUPPORTED_LLMS[model_provider]}"
             )
     else:
         raise ValueError(f"Model provider {model_provider} not supported.")
@@ -71,10 +61,14 @@ def embedding_model_chooser(
     embedding_model = None
 
     if model_provider == "gemini":
-        embedding_model = GeminiEmbedding(
-            model_name=GEMINI_EMBEDDING_MODELS_NAMES[model_reference],
-            api_key=api_key,
-        )
+        if model_reference in SUPPORTED_EMBEDDING_MODELS[model_provider]:
+            if not api_key:
+                api_key = os.getenv("GOOGLE_API_KEY")
+
+            embedding_model = GeminiEmbedding(
+                model_name=model_reference,
+                api_key=api_key,
+            )
     else:
         raise ValueError(f"Model provider {model_provider} not supported.")
 
