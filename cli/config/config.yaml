@@ -4,4 +4,4 @@ models:
   embedding_model_provider: ""
   embedding_model_reference: ""
 
-prowler_folder: "/Users/puchy/prowler"
+prowler_folder: ""
