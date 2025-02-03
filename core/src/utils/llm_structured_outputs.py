@@ -6,9 +6,9 @@ from pydantic import BaseModel, Field
 class CodeModel(BaseModel):
     """Represents the remediation code using IaC like CloudFormation, Terraform or the native CLI."""
 
-    NativeIaC: str = Field(description="Native IaC code")
-    Terraform: str = Field(description="Terraform code")
-    CLI: str = Field(description="CLI code")
+    NativeIaC: str = Field(description="Native IaC code to fix the issue")
+    Terraform: str = Field(description="Terraform code to fix the issue")
+    CLI: str = Field(description="CLI command to fix the issue")
     Other: str = Field(description="Other code")
 
 
@@ -38,25 +38,25 @@ class CheckMetadata(BaseModel):
     )
     CheckID: str = Field(description="ID of the check")
     CheckTitle: str = Field(description="Title of the check")
-    CheckType: List[str] = Field(description="For now this will be an empty str")
+    CheckType: List[str] = Field(description="For now this must be an empty str")
     ServiceName: str = Field(
         description="Name of the service that the check belongs to"
     )
-    SubServiceName: str = Field(description="For now this will be an empty str")
+    SubServiceName: str = Field(description="For now this must be an empty str")
     ResourceIdTemplate: str = Field(
         description="Template of the resource ID that the check will audit mainly"
     )
     Severity: Literal["critical", "high", "medium", "low"] = Field(
         description="Security severity of the check"
     )
-    ResourceType: str = Field(description="For now this will be an empty str")
+    ResourceType: str = Field(description="For now this must be an empty str")
     Description: str = Field(description="Description of the check")
     Risk: str = Field(description="Security risk asociated with the check")
-    RelatedUrl: str = Field(description="For now this will be an empty str")
+    RelatedUrl: str = Field(description="For now this must be an empty str")
     Remediation: RemediationModel = Field(
         description="The remediation action for the check"
     )
-    Categories: List[str] = Field(description="For now this will be an empty List")
-    DependsOn: List[str] = Field(description="For now this will be an empty List")
-    RelatedTo: List[str] = Field(description="For now this will be an empty List")
+    Categories: List[str] = Field(description="For now this must be an empty list")
+    DependsOn: List[str] = Field(description="For now this must be an empty list")
+    RelatedTo: List[str] = Field(description="For now this must be an empty list")
     Notes: str = Field(description="Additional notes for the check")
