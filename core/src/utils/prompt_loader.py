@@ -167,7 +167,10 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
 
     model_name = "generic"
 
-    if model_reference in RAW_PROMPT_TEMPLATES:
+    if (
+        model_reference in RAW_PROMPT_TEMPLATES
+        and step in RAW_PROMPT_TEMPLATES[model_reference]
+    ):
         # Use the generic one
         model_name = model_reference
 

@@ -4,6 +4,7 @@ from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
 from llama_index.core.workflow.retry_policy import ConstantDelayRetryPolicy
 from loguru import logger
+from pydantic import ValidationError
 
 from core.src.events import (
     CheckBasicInformation,
@@ -104,6 +105,11 @@ class ChecKreationWorkflow(Workflow):
                     )
                     .text.strip()
                     .lower()
+                )
+
+                # Ensure only alphanumeric characters in the service name
+                check_service = "".join(
+                    [char for char in check_service if char.isalnum()]
                 )
 
                 if check_service not in services_for_provider:
@@ -251,7 +257,7 @@ class ChecKreationWorkflow(Workflow):
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=5))
     async def create_check_metadata(
         self, ctx: Context, check_metadata_base_info: CheckMetadataInformation
-    ) -> CheckMetadataResult:
+    ) -> CheckMetadataResult | StopEvent:
         """Create the Prowler check based on the user input.
 
         Args:
@@ -285,10 +291,17 @@ class ChecKreationWorkflow(Workflow):
 
             return CheckMetadataResult(check_metadata=check_metadata)
 
+        except ValidationError as e:
+            logger.error(f"Validation error: {e}")
+            return StopEvent(
+                result="Sorry but there was a validation error while creating the check metadata, please try again later or change the input to see if it is valid for the model."
+            )
         except ValueError as e:
             logger.error(str(e))
+            return StopEvent(result=DEFAULT_ERROR_MESSAGE)
         except Exception as e:
             logger.exception(e)
+            return StopEvent(result=DEFAULT_ERROR_MESSAGE)
 
     # FOR NOW THIS IS NOT GONNA BE USED
     # @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=5))
