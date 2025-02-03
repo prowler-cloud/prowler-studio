@@ -15,7 +15,7 @@ def confirm_save_check() -> bool:
     )
 
 
-def ask_prowler_path() -> str:
+def ask_prowler_folder() -> str:
     while True:
         path = Prompt.ask(
             "\n[bold]Enter the path to your local Prowler repository (or type 'skip' to cancel)[/bold]\n╰┈➤"

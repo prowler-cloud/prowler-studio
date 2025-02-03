@@ -15,7 +15,7 @@ from cli.src.views.output import (
     display_warning,
 )
 from cli.src.views.prompts import (
-    ask_prowler_path,
+    ask_prowler_folder,
     confirm_overwrite,
     confirm_save_check,
     prompt_user_message,
@@ -126,18 +126,18 @@ def create_new_check(
                     save_check = confirm_save_check()
 
                     if save_check:
-                        prowler_path = (
-                            ask_prowler_path()
-                            if not config.get("prowler_path", None)
-                            else config.get("prowler_path")
+                        prowler_folder = (
+                            ask_prowler_folder()
+                            if not config.get("prowler_folder", None)
+                            else config.get("prowler_folder")
                         )
                         # Ensure if the path exists
-                        if os.path.exists(prowler_path) and is_prowler_repo(
-                            prowler_path
+                        if os.path.exists(prowler_folder) and is_prowler_repo(
+                            prowler_folder
                         ):
                             # Calculate the check path with the user path and the check path from the result
                             check_path = os.path.join(
-                                prowler_path, result["check_path"]
+                                prowler_folder, result["check_path"]
                             )
                             # Check if the check path exists
                             if os.path.exists(check_path):
@@ -167,7 +167,7 @@ def create_new_check(
                                 )
                         else:
                             raise FileNotFoundError(
-                                f"Invalid Prowler repository path: {prowler_path}"
+                                f"Invalid Prowler repository path: {prowler_folder}"
                             )
             else:
                 raise FileNotFoundError(
