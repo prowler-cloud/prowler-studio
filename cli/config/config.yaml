@@ -1,6 +1,6 @@
 models:
-  llm_provider: "gemini"
-  llm_reference: "models/gemini-1.5-flash"
+  llm_provider: ""
+  llm_reference: ""
   embedding_model_provider: ""
   embedding_model_reference: ""
 

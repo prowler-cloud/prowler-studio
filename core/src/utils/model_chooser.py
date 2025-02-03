@@ -5,8 +5,12 @@ from llama_index.core.base.embeddings.base import BaseEmbedding
 from llama_index.core.llms.llm import LLM
 from llama_index.embeddings.gemini import GeminiEmbedding
 from llama_index.llms.gemini import Gemini
+from llama_index.llms.openai import OpenAI
 
-SUPPORTED_LLMS = {"gemini": ["models/gemini-1.5-flash"]}
+SUPPORTED_LLMS = {
+    "gemini": ["models/gemini-1.5-flash"],
+    "openai": ["gpt-4o", "gpt-4o-mini"],
+}
 
 SUPPORTED_EMBEDDING_MODELS = {"gemini": ["models/text-embedding-004"]}
 
@@ -38,6 +42,19 @@ def llm_chooser(
         else:
             raise ValueError(
                 f"Model {model_reference} not supported by Gemini. The supported models are: {SUPPORTED_LLMS[model_provider]}"
+            )
+    elif model_provider == "openai":
+        if model_reference in SUPPORTED_LLMS[model_provider]:
+            if not api_key:
+                api_key = os.getenv("OPENAI_API_KEY")
+
+            llm = OpenAI(
+                model=model_reference,
+                api_key=api_key,
+            )
+        else:
+            raise ValueError(
+                f"Model {model_reference} not supported by OpenAI. The supported models are: {SUPPORTED_LLMS[model_provider]}"
             )
     else:
         raise ValueError(f"Model provider {model_provider} not supported.")

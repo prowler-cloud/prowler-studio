@@ -13,7 +13,7 @@ def get_llm_provider() -> str:
 
 
 def get_llm_reference(provider: str) -> str:
-    if provider == "gemini":
+    if provider in SUPPORTED_LLMS:
         model_menu = TerminalMenu(
             title="Select the model reference",
             menu_entries=SUPPORTED_LLMS[provider],
@@ -34,7 +34,7 @@ def get_embedding_model_provider() -> str:
 
 
 def get_embedding_model_reference(provider: str) -> str:
-    if provider == "gemini":
+    if provider in SUPPORTED_EMBEDDING_MODELS:
         model_menu = TerminalMenu(
             title="Select the embedding model reference",
             menu_entries=SUPPORTED_EMBEDDING_MODELS[provider],
