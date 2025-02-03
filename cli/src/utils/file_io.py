@@ -44,17 +44,3 @@ def write_check(path: str, code: str, metadata: CheckMetadata) -> None:
     except OSError as e:
         display_error("ERROR: Unable to create the check.")
         raise e
-
-
-def is_prowler_repo(path: str) -> bool:
-    """Check if the specified path is the main Prowler repository.
-
-    Args:
-        path: The path to check.
-    """
-    pyproject_path = os.path.join(path, "pyproject.toml")
-    if not os.path.exists(pyproject_path):
-        return False
-    with open(pyproject_path, "r") as f:
-        content = f.read()
-    return 'name = "prowler"' in content
