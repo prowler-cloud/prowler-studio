@@ -77,8 +77,8 @@ The CLI is a command-line tool that allows you to ask questions to the AI model 
 
 ```bash
 git clone git@github.com:prowler-cloud/prowler-studio.git
-cd studio
-poetry install
+cd prowler-studio
+poetry install --no-root
 ```
 
 Next set the environment variables for the LLM provider that you want to use. The easiest way is to set the environment variables in the `.env` file:
@@ -122,11 +122,6 @@ The supported values for the configuration are:
 - `embedding_model_reference`: How the model is named in the provided provider, it only affects on the `build-check-rag` command. The supported values depend on the provider:
   - For `gemini` provider:
     - `text-embedding-004`
-- `prowler_folder`: The path to Prowler in your local machine. It is used to save the checks in your local Prowler installation. In cases like `pip` or `pipx` installation you can find the path using the following command:
-  ```bash
-  find / -type f -name "__main__.py" -exec grep -H "def prowler():" {} + 2>/dev/null
-  ```
-  If you have multiple Prowler installations set the folder path to the one that you want to use.
 
 ### Usage
 

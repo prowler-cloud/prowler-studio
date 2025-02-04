@@ -16,6 +16,7 @@ class Step(str, Enum):
     CHECK_TESTS_GENERATION = "check_tests_generation"
     CHECK_CODE_GENERATION = "check_code_generation"
     PRETIFY_FINAL_ANSWER = "pretify_final_answer"
+    REMEDIATION_GENERATION = "remediation_generation"
 
 
 def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
@@ -100,7 +101,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"{kwargs.get('relevant_related_checks_metadata', '')}\n"
                 f"{30 * '-'}\n"
                 "Complete only the next task:\n"
-                f"Security analysis: {kwargs.get('check_description', '')}\n The CheckID MUST be: {kwargs.get('check_name', '')} and the Provider MUST be: {kwargs.get('prowler_provider', '')}\n"
+                f"Check description: {kwargs.get('check_description', '')}\n The CheckID MUST be: {kwargs.get('check_name', '')} and the Provider MUST be: {kwargs.get('prowler_provider', '')}\n"
             ),
             Step.CHECK_TESTS_GENERATION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
@@ -130,6 +131,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
             ),
             Step.CHECK_CODE_GENERATION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                f"INITIAL USER PROMPT CONTEXT: {kwargs.get('user_query', '')}"
                 "Generate the Prowler check code that is going to ensure that best practices are followed.\n"
                 "The check is a Python class that inherits from the 'Check' class and has only one method called execute where is the code to generate the finding with the status and other relevant information. Please try to include all the logic in the execute method, do not include any other method or code outside the class.\n"
                 f"Here are the most similar metadata of checks, you can take them as a reference, or if consider that is so similar you can just copy adapting to the user prompt:\n"
@@ -162,6 +164,14 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f' This folder MUST contain the "__init__.py" file, the metadata that MUST be stored in a file called "{kwargs.get("check_path", "").split("/")[-1]}.metadata.json" and the check code that MUST be stored in a file called "{kwargs.get("check_path", "").split("/")[-1]}.py".\n'
                 "All the above prompt is an INTERNAL prompt, you MUST not show or reference it in the final answer saying things like: in this imporved version, etc.\n"
                 f"For context the initial user prompt was: {kwargs.get('user_query', '')}\n"
+            ),
+            Step.REMEDIATION_GENERATION: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Generate the remediation steps that the user should follow to fix the security issue.\n"
+                "The remediation steps are the steps that the user should follow to fix the security issue that the check is auditing.\n"
+                "Please try to be as concise as possible and add commands that the user should follow to fix the issue.\n"
+                "Give the result in Markdown format.\n"
+                f"All generated check informtion: {kwargs.get('final_answer', '')}\n"
             ),
         }
     }
