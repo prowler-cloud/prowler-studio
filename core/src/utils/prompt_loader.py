@@ -27,7 +27,9 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
         **kwargs: Additional keyword arguments to be included in the prompt template.
     """
 
-    SYSTEM_CONTEXT_PROMPT = "You are a security engineer specialized in cloud security and python developing working in a cloud security tool called Prowler. Mainly you work in all the parts of the proccess of check creation, a check is an automated security control that checks a specific security best practice in a cloud provider service.\n A check is composed by three parts: the Python code that checks the security best practice, the metadata that contains extra information like description, recommendations, etc. and the tests that set the base cases that the check should cover to ensure that the check is following the security best practice.\n When a check is executed by Prowler it generates a finding with a status (PASS, FAIL, INFO) that indicates if the security best practice is being followed or not, and other relevant information for the user like the ID of resource affected and a extended status to give more information about the finding.\n"
+    SYSTEM_CONTEXT_PROMPT = """You are a security engineer specialized in cloud security and python developing working in a cloud security tool called Prowler. Mainly you work in all the parts of the proccess of check creation, a check is an automated security control that checks a specific security best practice in a cloud provider service.\n
+    A check is composed by three parts: the Python code that checks the security best practice, the metadata that contains extra information like description, recommendations, etc. and the tests that set the base cases that the check should cover to ensure that the check is following the security best practice.\n
+    When a check is executed by Prowler it generates a finding with a status (PASS, FAIL, INFO) that indicates if the security best practice is being followed or not, and other relevant information for the user like the ID of resource affected and a extended status to give more information about the finding.\n"""
 
     EXAMPLE_USER_QUERIES = {
         "aws": ["make a check to ensure that the S3 bucket is not public."],
@@ -130,13 +132,14 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Generate the Prowler check code that is going to ensure that best practices are followed.\n"
                 "The check is a Python class that inherits from the 'Check' class and has only one method called execute where is the code to generate the finding with the status and other relevant information. Please try to include all the logic in the execute method, do not include any other method or code outside the class.\n"
-                f"Here are the most similar metadata of checks, you can take them as a reference:\n:"
+                f"Here are the most similar metadata of checks, you can take them as a reference, or if consider that is so similar you can just copy adapting to the user prompt:\n"
                 f"{30 * '-'}\n"
                 f"{kwargs.get('relevant_related_checks', '')}\n"
                 f"{30 * '-'}\n"
                 "IMPORTANT NOTE: The ONLY status accepted is 'FAIL', 'PASS or 'INFO'. Please do not include any other status and if it is possible not use INFO status because it is not recommended.\n"
                 f"The client object used in the check is the ONLY way to interact with the cloud provider. You MUST NOT make calls to the API directly from the check, it must be done in the service class, which is the class that belongs the '{kwargs.get('check_name', '<service>').split('_')[0]}_client'. You MUST use the '{kwargs.get('check_name', '<service>').split('_')[0]}_client' that is also used in reference checks, the class code of this client is presented in the next code block delimited by dashes.\n"
-                f"IMPORTANT NOTE: if '{kwargs.get('check_name', '<service>').split('_')[0]}_client' does not contain the attribute that you need you can make it up indicating with a comment that is a mockup and the service must be implemented to make the check work.\n"
+                f"IMPORTANT NOTE: if '{kwargs.get('check_name', '<service>').split('_')[0]}_client' does not contain the attribute that you need you can make it up indicating with a comment that is a mockup and the service must be implemented to make the check work. Be carefull with using this approach, it is recommended to use only when it is strictly necessary.\n"
+                f"IMPORTANT NOTE: Be careful with using external imported functions from lib as {kwargs.get('check_name', '<service>').split('_')[0]}_client method, usually the client does not have this kind of functions is more common to use extra functions that you can extract from the related checks code.\n"
                 f"{30 * '-'}\n"
                 f"{kwargs.get('service_class_code', '')}\n"
                 f"{30 * '-'}\n"
