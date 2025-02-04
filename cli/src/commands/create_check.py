@@ -16,7 +16,6 @@ from cli.src.views.output import (
     display_warning,
 )
 from cli.src.views.prompts import (
-    ask_output_directory,
     confirm_overwrite,
     confirm_save_check,
     prompt_user_message,
@@ -38,7 +37,7 @@ async def run_check_creation_workflow(
     Returns:
         The result of the check creation workflow.
     """
-    workflow = ChecKreationWorkflow(timeout=120, verbose=False)
+    workflow = ChecKreationWorkflow(timeout=300, verbose=False)
     result = await workflow.run(
         user_query=user_query,
         model_provider=model_provider,
@@ -77,9 +76,16 @@ def create_new_check(
     output_directory: Annotated[
         Path,
         typer.Option(
-            help="Output directory to save the check, code and metadata will be saved in a directory with the check name. By default is the current directory in generated_checks folder"
+            help="Output directory to save the check, code and metadata will be saved in a directory with the check name. By default is the root of the project, in the generated_checks folder."
         ),
-    ] = None,
+    ] = Path(
+        os.path.join(
+            os.path.abspath(os.path.dirname(__file__)), "../../../generated_checks"
+        )
+    ),
+    save_check: Annotated[
+        bool, typer.Option(help="Save the check in the output directory")
+    ] = False,
 ) -> None:
     """Create a new check
 
@@ -130,21 +136,15 @@ def create_new_check(
 
                     # Ask to the user to save the check code and metadata in his local Prowler repository
 
-                    save_check = confirm_save_check()
+                    save_check = confirm_save_check() if not save_check else save_check
 
                     if save_check:
-                        if output_directory is None:
-                            output_directory = ask_output_directory()
-
                         output_directory = Path(
                             output_directory, result["check_path"].split("/")[-1]
                         )
 
                         # Check if the check path exists
-                        if (
-                            isinstance(output_directory, Path)
-                            and output_directory.exists()
-                        ):
+                        if output_directory.exists():
                             # If the check path exists, ask the user if he wants to overwrite the check
                             save_check = confirm_overwrite()
 
@@ -156,7 +156,7 @@ def create_new_check(
                                 metadata=result["metadata"],
                             )
                             display_success(
-                                f"Check saved successfully in {os.path.abspath(output_directory)}. Now you can run it with Prowler using the command:\nprowler {result['check_path'].split('/')[2]} --checks-folder {os.path.abspath(output_directory.parent)} -c {result['check_path'].split('/')[-1]}"
+                                f"Check saved successfully in {output_directory.resolve()}. Now you can run it with Prowler using the command:\nprowler {result['check_path'].split('/')[2]} --checks-folder {output_directory.parent.resolve()} -c {result['check_path'].split('/')[-1]}"
                             )
                         else:
                             display_warning("Check not saved.")
