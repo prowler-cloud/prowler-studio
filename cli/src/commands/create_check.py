@@ -1,5 +1,6 @@
 import asyncio
 import os
+import subprocess
 from pathlib import Path
 from typing import Annotated, Dict, Union
 
@@ -16,6 +17,7 @@ from cli.src.views.output import (
     display_warning,
 )
 from cli.src.views.prompts import (
+    ask_execute_new_check,
     confirm_overwrite,
     confirm_save_check,
     prompt_user_message,
@@ -128,6 +130,8 @@ def create_new_check(
                         api_key=llm_api_key,
                     )
                 )
+                check_name = result["check_path"].split("/")[-1]
+                check_provider = result["check_path"].split("/")[2]
 
                 if isinstance(result, str):
                     display_warning(result)
@@ -136,12 +140,14 @@ def create_new_check(
 
                     # Ask to the user to save the check code and metadata in his local Prowler repository
 
-                    save_check = confirm_save_check() if not save_check else save_check
+                    save_check = (
+                        confirm_save_check(output_directory.resolve())
+                        if not save_check
+                        else save_check
+                    )
 
                     if save_check:
-                        output_directory = Path(
-                            output_directory, result["check_path"].split("/")[-1]
-                        )
+                        output_directory = Path(output_directory, check_name)
 
                         # Check if the check path exists
                         if output_directory.exists():
@@ -155,9 +161,27 @@ def create_new_check(
                                 code=result["code"],
                                 metadata=result["metadata"],
                             )
+
+                            prowler_command = [
+                                "prowler",
+                                check_provider,
+                                "--checks-folder",
+                                output_directory.parent.resolve(),
+                                "-c",
+                                check_name,
+                                "--output-directory",
+                                Path(output_directory.resolve(), "output").resolve(),
+                            ]
+
                             display_success(
-                                f"Check saved successfully in {output_directory.resolve()}. Now you can run it with Prowler using the command:\nprowler {result['check_path'].split('/')[2]} --checks-folder {output_directory.parent.resolve()} -c {result['check_path'].split('/')[-1]}"
+                                f"Check saved successfully in {output_directory.resolve()}. Now you can run it with Prowler using the command:\n{subprocess.list2cmdline(prowler_command)}"
                             )
+
+                            # Ask the user if he wants to execute the new check
+
+                            if check_provider == "aws" and ask_execute_new_check():
+                                subprocess.run(prowler_command)
+
                         else:
                             display_warning("Check not saved.")
             else:
