@@ -180,7 +180,19 @@ def create_new_check(
                             # Ask the user if he wants to execute the new check
 
                             if check_provider == "aws" and ask_execute_new_check():
-                                subprocess.run(prowler_command)
+                                execution_status_code = subprocess.run(
+                                    prowler_command, check=False
+                                )
+
+                                if execution_status_code.returncode == 0:
+                                    display_success(
+                                        "It seems that your cloud is secure!"
+                                    )
+                                elif execution_status_code.returncode == 3:
+                                    display_warning(
+                                        "It seems that your cloud is not secure! My recommendations to remediate the issues are:"
+                                    )
+                                    display_markdown(result["remediation"])
 
                         else:
                             display_warning("Check not saved.")

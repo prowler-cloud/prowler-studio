@@ -1,3 +1,5 @@
+from time import sleep
+
 import requests
 from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
@@ -170,7 +172,9 @@ class ChecKreationWorkflow(Workflow):
 
             indexed_data_manager = IndexedDataManager()
 
-            check_manager = CheckDataManager(indexed_data_manager)
+            check_manager = CheckDataManager(
+                indexed_data_manager=indexed_data_manager, similarity_top_k=10
+            )
 
             # Check if the check already exists in the index data
 
@@ -206,7 +210,7 @@ class ChecKreationWorkflow(Workflow):
             if not reference_check_names:
                 # TODO: Add a way to create a new check from scratch or searching other checks from other services
                 return StopEvent(
-                    result="It seems that there are no checks available for this service in Prowler, sorry but I cannot create a new check for you."
+                    result="\nIt seems that there are no checks available for this service in Prowler, sorry but I cannot create a new check for you."
                 )
 
             check_name = (
@@ -269,25 +273,34 @@ class ChecKreationWorkflow(Workflow):
             # Download the relevant check metadata from the Prowler repository to give as reference to the prompt
             relevant_checks_metadata = []
 
+            MAX_STRUCTURED_ATTEMPS = 5
+
             for check_name in check_metadata_base_info.related_check_names:
                 metadata = requests.get(
                     f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_metadata_base_info.prowler_provider}/services/{check_name.split('_')[0]}/{check_name}/{check_name}.metadata.json"
                 )
                 relevant_checks_metadata.append(metadata.text)
 
-            check_metadata = await Settings.llm.astructured_predict(
-                output_cls=CheckMetadata,
-                prompt=PromptTemplate(
-                    template=load_prompt_template(
-                        step=Step.CHECK_METADATA_GENERATION,
-                        model_reference=await ctx.get("model_reference"),
-                        check_name=check_metadata_base_info.check_name,
-                        check_description=check_metadata_base_info.check_description,
-                        prowler_provider=check_metadata_base_info.prowler_provider,
-                        relevant_related_checks_metadata=relevant_checks_metadata,
+            for i in range(MAX_STRUCTURED_ATTEMPS):
+                try:
+                    check_metadata = await Settings.llm.astructured_predict(
+                        output_cls=CheckMetadata,
+                        prompt=PromptTemplate(
+                            template=load_prompt_template(
+                                step=Step.CHECK_METADATA_GENERATION,
+                                model_reference=await ctx.get("model_reference"),
+                                check_name=check_metadata_base_info.check_name,
+                                check_description=check_metadata_base_info.check_description,
+                                prowler_provider=check_metadata_base_info.prowler_provider,
+                                relevant_related_checks_metadata=relevant_checks_metadata,
+                            )
+                        ),
                     )
-                ),
-            )
+                    break
+                except Exception as e:
+                    sleep(5)
+                    if i == MAX_STRUCTURED_ATTEMPS - 1:
+                        raise e
 
             return CheckMetadataResult(check_metadata=check_metadata)
 
@@ -366,6 +379,7 @@ class ChecKreationWorkflow(Workflow):
                     base_cases_and_steps=check_code_info.base_cases_and_steps,
                     relevant_related_checks=relevant_related_checks,
                     service_class_code=service_class_code,
+                    user_query=await ctx.get("user_query"),
                 )
             )
 
@@ -409,12 +423,22 @@ class ChecKreationWorkflow(Workflow):
                     )
                 )
 
+                # Give some posible remediation steps based on the final answer
+                remediation = await Settings.llm.acomplete(
+                    prompt=load_prompt_template(
+                        step=Step.REMEDIATION_GENERATION,
+                        model_reference=await ctx.get("model_reference"),
+                        final_answer=final_answer.text,
+                    )
+                )
+
                 return StopEvent(
                     result={
                         "answer": final_answer.text,
                         "metadata": check[0].check_metadata,
                         "code": check[1].check_code,
                         "check_path": await ctx.get("check_path"),
+                        "remediation": remediation.text,
                         # TODO: Add tests to the final answer if requested
                     }
                 )
