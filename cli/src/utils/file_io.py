@@ -34,8 +34,9 @@ def write_check(path: Path, code: str, metadata: CheckMetadata) -> None:
             path.joinpath(f"{check_name}.py"),
             "w",
         ) as f:
-            code = re.sub(r"```(?:python)?\n([\s\S]*?)```", r"\1", code)
-            f.write(code)
+            matches = re.findall(r"```(?:python)?\n([\s\S]*?)```", code)
+            code_result = "\n".join([m.strip() for m in matches])
+            f.write(code_result)
     except OSError as e:
         display_error("ERROR: Unable to create the check.")
         raise e
