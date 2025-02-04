@@ -356,6 +356,8 @@ class ChecKreationWorkflow(Workflow):
                 f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_code_info.prowler_provider}/services/{check_name.split('_')[0]}/{check_name.split('_')[0]}_service.py"
             ).text
 
+            relevant_related_checks = "\n\n--------\n\n".join(relevant_related_checks)
+
             check_code = await Settings.llm.acomplete(
                 prompt=load_prompt_template(
                     step=Step.CHECK_CODE_GENERATION,
