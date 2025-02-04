@@ -1,11 +1,12 @@
 import asyncio
 import os
+from pathlib import Path
 from typing import Annotated, Dict, Union
 
 import typer
 
 from cli.src.utils.config import get_config
-from cli.src.utils.file_io import is_prowler_repo, write_check
+from cli.src.utils.file_io import write_check
 from cli.src.utils.logging import set_app_log_level
 from cli.src.views.menus import get_llm_provider, get_llm_reference
 from cli.src.views.output import (
@@ -15,7 +16,6 @@ from cli.src.views.output import (
     display_warning,
 )
 from cli.src.views.prompts import (
-    ask_prowler_folder,
     confirm_overwrite,
     confirm_save_check,
     prompt_user_message,
@@ -37,7 +37,7 @@ async def run_check_creation_workflow(
     Returns:
         The result of the check creation workflow.
     """
-    workflow = ChecKreationWorkflow(timeout=60, verbose=False)
+    workflow = ChecKreationWorkflow(timeout=300, verbose=False)
     result = await workflow.run(
         user_query=user_query,
         model_provider=model_provider,
@@ -73,6 +73,19 @@ def create_new_check(
         "indexed_data_db",
     ),
     log_level: Annotated[str, typer.Option(help="Log level to be used")] = "INFO",
+    output_directory: Annotated[
+        Path,
+        typer.Option(
+            help="Output directory to save the check, code and metadata will be saved in a directory with the check name. By default is the root of the project, in the generated_checks folder."
+        ),
+    ] = Path(
+        os.path.join(
+            os.path.abspath(os.path.dirname(__file__)), "../../../generated_checks"
+        )
+    ),
+    save_check: Annotated[
+        bool, typer.Option(help="Save the check in the output directory")
+    ] = False,
 ) -> None:
     """Create a new check
 
@@ -123,52 +136,30 @@ def create_new_check(
 
                     # Ask to the user to save the check code and metadata in his local Prowler repository
 
-                    save_check = confirm_save_check()
+                    save_check = confirm_save_check() if not save_check else save_check
 
                     if save_check:
-                        prowler_folder = (
-                            ask_prowler_folder()
-                            if not config.get("prowler_folder", None)
-                            else config.get("prowler_folder")
+                        output_directory = Path(
+                            output_directory, result["check_path"].split("/")[-1]
                         )
-                        # Ensure if the path exists
-                        if os.path.exists(prowler_folder) and is_prowler_repo(
-                            prowler_folder
-                        ):
-                            # Calculate the check path with the user path and the check path from the result
-                            check_path = os.path.join(
-                                prowler_folder, result["check_path"]
+
+                        # Check if the check path exists
+                        if output_directory.exists():
+                            # If the check path exists, ask the user if he wants to overwrite the check
+                            save_check = confirm_overwrite()
+
+                        if save_check:
+                            # If the check path does not exist, save the check
+                            write_check(
+                                path=output_directory,
+                                code=result["code"],
+                                metadata=result["metadata"],
                             )
-                            # Check if the check path exists
-                            if os.path.exists(check_path):
-                                # If the check path exists, ask the user if he wants to overwrite the check
-                                overwrite_check = confirm_overwrite(check_path)
-                                if overwrite_check:
-                                    # Make a folder with the check path
-                                    write_check(
-                                        path=check_path,
-                                        code=result["code"],
-                                        metadata=result["metadata"],
-                                    )
-                                    display_success(
-                                        f"Check saved successfully in {check_path}."
-                                    )
-                                else:
-                                    display_warning("The check was not saved.")
-                            else:
-                                # If the check path does not exist, save the check
-                                write_check(
-                                    path=check_path,
-                                    code=result["code"],
-                                    metadata=result["metadata"],
-                                )
-                                display_success(
-                                    f"Check saved successfully in {check_path}."
-                                )
+                            display_success(
+                                f"Check saved successfully in {output_directory.resolve()}. Now you can run it with Prowler using the command:\nprowler {result['check_path'].split('/')[2]} --checks-folder {output_directory.parent.resolve()} -c {result['check_path'].split('/')[-1]}"
+                            )
                         else:
-                            raise FileNotFoundError(
-                                f"Invalid Prowler repository path: {prowler_folder}"
-                            )
+                            display_warning("Check not saved.")
             else:
                 raise FileNotFoundError(
                     "RAG dataset not found, you can build it using `build_check_rag` command"
