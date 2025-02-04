@@ -169,7 +169,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Generate the remediation steps that the user should follow to fix the security issue.\n"
                 "The remediation steps are the steps that the user should follow to fix the security issue that the check is auditing.\n"
-                "Please try to be as concise as possible and add commands that the user should follow to fix the issue.\n"
+                "Please try to be as concise as possible and you MUST add commands that the user should follow to fix the issue.\n"
                 "Give the result in Markdown format.\n"
                 f"All generated check informtion: {kwargs.get('final_answer', '')}\n"
             ),
