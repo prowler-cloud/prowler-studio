@@ -171,10 +171,15 @@ def create_new_check(
                                 check_name,
                                 "--output-directory",
                                 Path(output_directory.resolve(), "output").resolve(),
+                                "--verbose",
                             ]
 
+                            formated_command = " \\\n".join(
+                                [f"    {param}" for param in prowler_command]
+                            )
+
                             display_success(
-                                f"Check saved successfully in {output_directory.resolve()}. Now you can run it with Prowler using the command:\n{subprocess.list2cmdline(prowler_command)}"
+                                f"Check saved successfully in {output_directory.resolve()}. Now you can run it with Prowler using the command:\n\n{formated_command}"
                             )
 
                             # Ask the user if he wants to execute the new check
