@@ -1,4 +1,4 @@
-FROM python:3.13-alpine3.20
+FROM python:3.12.8-alpine3.20
 
 LABEL maintainer="https://github.com/prowler-cloud/"
 
@@ -17,7 +17,7 @@ COPY ./cli/ ./cli/
 COPY ./prowler-studio ./prowler-studio
 
 RUN pip install --no-cache-dir --upgrade --ignore-installed pip && \
-    pip install --no-cache-dir poetry
+    pip install --no-cache-dir poetry prowler
 
 ENV PATH="/home/prowler_studio/.local/bin/:$PATH"
 
