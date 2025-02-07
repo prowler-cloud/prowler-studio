@@ -147,7 +147,7 @@ def create_new_check(
                     )
 
                     if save_check:
-                        output_directory = Path(output_directory, check_name)
+                        output_directory = Path(output_directory, check_name).resolve()
 
                         # Check if the check path exists
                         if output_directory.exists():
@@ -166,7 +166,7 @@ def create_new_check(
                                 "prowler",
                                 check_provider,
                                 "--checks-folder",
-                                output_directory.parent.resolve(),
+                                output_directory.parent,
                                 "-c",
                                 check_name,
                                 "--output-directory",
@@ -185,19 +185,24 @@ def create_new_check(
                             # Ask the user if he wants to execute the new check
 
                             if check_provider == "aws" and ask_execute_new_check():
-                                execution_status_code = subprocess.run(
-                                    prowler_command, check=False
-                                )
+                                try:
+                                    execution_status_code = subprocess.run(
+                                        prowler_command, check=False
+                                    )
 
-                                if execution_status_code.returncode == 0:
-                                    display_success(
-                                        "It seems that your cloud is secure!"
+                                    if execution_status_code.returncode == 0:
+                                        display_success(
+                                            "It seems that your cloud is secure!"
+                                        )
+                                    elif execution_status_code.returncode == 3:
+                                        display_warning(
+                                            "It seems that your cloud is not secure! My recommendations to remediate the issues are:"
+                                        )
+                                        display_markdown(result["remediation"])
+                                except FileNotFoundError:
+                                    display_error(
+                                        "Prowler command not found. Please ensure Prowler is installed and available in your PATH."
                                     )
-                                elif execution_status_code.returncode == 3:
-                                    display_warning(
-                                        "It seems that your cloud is not secure! My recommendations to remediate the issues are:"
-                                    )
-                                    display_markdown(result["remediation"])
 
                         else:
                             display_warning("Check not saved.")

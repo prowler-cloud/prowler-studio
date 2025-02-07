@@ -70,6 +70,36 @@ The CLI is a command-line tool that allows you to ask questions to the AI model 
 
 ### Installation
 
+#### From Docker
+
+**Requirements:**
+- `git`
+- `docker`
+
+```bash
+git clone git@github.com:prowler-cloud/prowler-studio.git
+cd prowler-studio
+docker build -f ./cli/Dockerfile -t prowler-studio-cli:latest .
+```
+
+To use it just run the Docker container:
+
+```bash
+docker run --rm -it --env-file .env prowler-studio-cli create-check
+```
+
+If you want to save the generated checks in your local Prowler installation you can mount the Prowler repository in the container:
+
+```bash
+docker run --rm -it --env-file .env -v ./generated_checks:/home/prowler_studio/generated_checks prowler-studio-cli create-check
+```
+
+> [!WARNING]
+> If you have problems with the permissions of the generated checks folder add write permissions to write in the folder by other users.
+> You can do it with the following command: `chmod o+w ./generated_checks`
+
+#### From Source
+
 **Requirements:**
 - `git`
 - `poetry`
