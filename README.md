@@ -68,7 +68,7 @@ The CLI is a command-line tool that allows you to ask questions to the AI model 
 - Configurable
 - Save checks in your Prowler local installation
 
-### Demo
+### Demo time!
 
 ![Prowler Studio CLI](docs/img/prowler_studio_cli_demo.gif)
 
@@ -203,6 +203,10 @@ The Prowler Studio Chatbot is a web application that allows you to generate chec
 
 - Get the answer in a more user-friendly way
 - API powered by LlamaDeploy
+
+### Demo time!
+
+![Prowler Studio Chatbot](docs/img/prowler_studio_chatbot_demo.gif)
 
 ### Installation
 
