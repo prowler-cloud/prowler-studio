@@ -68,6 +68,35 @@ The CLI is a command-line tool that allows you to ask questions to the AI model 
 - Configurable
 - Save checks in your Prowler local installation
 
+### Demo time!
+
+![Prowler Studio CLI](docs/img/prowler_studio_cli_demo.gif)
+
+#### Prompt examples
+
+```bash
+# AWS checks
+poetry run ./prowler-studio create-check "Create a new AWS check to ensure EC2 security groups with inbound rules allowing unrestricted ICMP access are not present."
+poetry run ./prowler-studio create-check "Create a new AWS check to ensure ACM certificates for specific domain names are used over wildcard certificates to adhere to best security practices, providing unique private keys for each domain/subdomain."
+poetry run ./prowler-studio create-check "Create a new AWS check to ensure that each Amazon SQS queue is configured to use a Dead-Letter Queue (DLQ) in order to help maintain the queue flow and avoid losing data by detecting and mitigating failures and service disruptions on time."
+poetry run ./prowler-studio create-check "Create a new AWS check to detect EC2 instances with TCP port 9000 open to the Internet."
+
+# Azure checks
+poetry run ./prowler-studio create-check "Create a new Azure check to ensure that all my clusters from AKS (Azure Kubernetes Service) has the latest Kubernetes API Version."
+poetry run ./prowler-studio create-check "Create a new Azure check to ensure that all my Azure Web Apps has a backup retention policy configured."
+poetry run ./prowler-studio create-check "Please, could create an Azure check for storage service to ensure that lifecycle management is enabled for blob storage accounts?"
+poetry run ./prowler-studio create-check "Create a new Azure check to ensure that all my Azure VNets have DDoS protection enabled."
+
+# GCP checks
+poetry run ./prowler-studio create-check "Create a check fot GCP to ensure that my Dataproc cluster instances are not accessible from the Internet."
+poetry run ./prowler-studio create-check "Ensure for all backups for Google Kubernetes Engine (GKE) clusters have a backup configured."
+poetry run ./prowler-studio create-check "To improve reliability, ensure that Google Cloud Compute Engine service restarts automatically your virtual machine instances when they are terminated due to non-user initiated reasons such as maintenance events, hardware, and software failures."
+
+# K8s checks
+poetry run ./prowler-studio create-check "Create a new Kubernetes check to ensure that default service accounts are not actively used."
+poetry run ./prowler-studio create-check "Create a new Kubernetes check to ensure that all my pods are running with a non-root user."
+```
+
 ### Installation
 
 #### From Docker
@@ -163,36 +192,21 @@ poetry run ./prowler-studio --help
 
 #### Aviable commands
 
-- `create-check`: Create a check.
+- `create-check`: Create a new check.
 - `build-check-rag`: Build a RAG dataset updated with master (the RAG dataset is already in the repository, this command is to update it with new possible checks).
-
-##### Check creation examples
-
-To create a check you can use the `create-check` command:
-
-```bash
-# AWS
-poetry run ./prowler-studio create-check "Checks for Amazon EC2 security groups with inbound rules allowing unrestricted ICMP access."
-# Azure
-poetry run ./prowler-studio create-check "Ensure that Azure App has a backup retention policy configured."
-# GCP
-poetry run ./prowler-studio create-check "Ensure that Compute Engine restarts instances automatically when terminated due to non-user reasons."
-```
-
-You can also run in the interactive mode just running the command without arguments:
-
-```bash
-poetry run ./prowler-studio create-check
-```
 
 ## Prowler Studio Chatbot
 
-The Prowler Studio Chatbot is a web application that allows you to ask questions to the AI model and get the answers in a more user-friendly way.
+The Prowler Studio Chatbot is a web application that allows you to generate checks for Prowler in a more user-friendly way.
 
 ### Features
 
 - Get the answer in a more user-friendly way
 - API powered by LlamaDeploy
+
+### Demo time!
+
+![Prowler Studio Chatbot](docs/img/prowler_studio_chatbot_demo.gif)
 
 ### Installation
 
