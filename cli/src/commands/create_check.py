@@ -130,10 +130,10 @@ def create_new_check(
                         api_key=llm_api_key,
                     )
                 )
-                check_name = result["check_path"].split("/")[-1]
-                check_provider = result["check_path"].split("/")[2]
 
-                if isinstance(result, str):
+                if isinstance(
+                    result, str
+                ):  # TODO: Implement a generic dict with the possible return values of the workflow
                     display_warning(result)
                 else:
                     display_markdown(result["answer"])
@@ -147,6 +147,9 @@ def create_new_check(
                     )
 
                     if save_check:
+                        check_name = result["check_path"].split("/")[-1]
+                        check_provider = result["check_path"].split("/")[2]
+
                         output_directory = Path(output_directory, check_name).resolve()
 
                         # Check if the check path exists
