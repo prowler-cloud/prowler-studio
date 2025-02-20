@@ -63,7 +63,7 @@ def llm_chooser(
 
 
 def embedding_model_chooser(
-    model_provider: str, model_reference: str, api_key: Optional[str] = ""
+    model_provider: str, model_reference: str, api_key: Optional[str] = None
 ) -> BaseEmbedding:
     """Choose the right embedding model based on the user input.
 
