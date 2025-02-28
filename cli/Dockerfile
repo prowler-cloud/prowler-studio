@@ -2,7 +2,7 @@ FROM python:3.12.8-alpine3.20
 
 LABEL maintainer="https://github.com/prowler-cloud/"
 
-RUN apk add --no-cache gcc=13.2.1_git20240309-r0 python3-dev=3.12.8-r1 musl-dev=1.2.5-r0 linux-headers=6.6-r0 ncurses=6.4_p20240420-r2
+RUN apk add --no-cache gcc g++ python3-dev musl-dev linux-headers ncurses rust cargo
 
 RUN addgroup -g 1000 prowler_studio && \
     adduser -u 1000 -G prowler_studio -D prowler_studio
@@ -21,8 +21,9 @@ RUN pip install --no-cache-dir --upgrade --ignore-installed pip && \
 
 ENV PATH="/home/prowler_studio/.local/bin/:$PATH"
 
-RUN poetry config virtualenvs.in-project true && \
-    poetry install --no-root && \
-    rm -rf /home/prowler_studio/.cache/pip
+RUN poetry config virtualenvs.in-project true
+RUN poetry install --no-root -vvv
+RUN rm -rf /home/prowler_studio/.cache/pip
+
 
 ENTRYPOINT ["poetry", "run", "./prowler-studio"]
