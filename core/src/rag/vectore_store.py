@@ -13,16 +13,17 @@ from core.src.utils.model_chooser import embedding_model_chooser
 class CheckMetadataVectorStore:
     def __init__(
         self,
-        model_provider: Optional[str] = None,
-        model_reference: Optional[str] = None,
+        embedding_model_provider: Optional[str] = None,
+        embedding_model_reference: Optional[str] = None,
         model_api_key: Optional[str] = None,
     ):
         """
         Initializes the CheckMetadataVectorStore object.
 
         Args:
-            model_provider: Name of the embedding model provider.
-            model_reference: Reference of the embedding model.
+            embedding_model_provider: Name of the embedding model provider.
+            embedding_model_reference: Reference of the embedding model.
+            model_api_key: API key to access the embedding model.
         """
         # Should contain a BaseIndex object
         self._index = None
@@ -44,8 +45,8 @@ class CheckMetadataVectorStore:
             ) as metadata_file:
                 store_index_metadata = json.load(metadata_file)
                 self._initialize_embedding_model(
-                    model_provider=store_index_metadata["model_provider"],
-                    model_reference=store_index_metadata["model_reference"],
+                    embedding_model_provider=store_index_metadata["model_provider"],
+                    embedding_model_reference=store_index_metadata["model_reference"],
                     model_api_key=model_api_key,
                 )
                 self._check_inventory = store_index_metadata["check_inventory"]
@@ -56,19 +57,22 @@ class CheckMetadataVectorStore:
                 )
         else:
             # If not, check if the user provided the model_provider and model_reference
-            if not model_provider or not model_reference:
+            if not embedding_model_provider or not embedding_model_reference:
                 raise ValueError(
                     "Please provide a model provider and reference to initialize the CheckMetadataVectorStore."
                 )
             else:
                 self._initialize_embedding_model(
-                    model_provider=model_provider,
-                    model_reference=model_reference,
+                    embedding_model_provider=embedding_model_provider,
+                    embedding_model_reference=embedding_model_reference,
                     model_api_key=model_api_key,
                 )
 
     def _initialize_embedding_model(
-        self, model_provider: str, model_reference: str, model_api_key: Optional[str]
+        self,
+        embedding_model_provider: str,
+        embedding_model_reference: str,
+        model_api_key: Optional[str],
     ) -> None:
         """
         Initializes the embedding model.
@@ -81,12 +85,12 @@ class CheckMetadataVectorStore:
         logger.info("Initializing embedding model...")
         try:
             Settings.embed_model = embedding_model_chooser(
-                model_provider=model_provider,
-                model_reference=model_reference,
+                embedding_model_provider=embedding_model_provider,
+                emebedding_model_reference=embedding_model_reference,
                 api_key=model_api_key,
             )
-            self._embedding_model_provider = model_provider
-            self._embedding_model_reference = model_reference
+            self._embedding_model_provider = embedding_model_provider
+            self._embedding_model_reference = embedding_model_reference
         except ValueError as e:
             raise ValueError(f"Error initializing embedding model: {e}")
 

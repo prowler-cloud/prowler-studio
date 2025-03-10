@@ -29,10 +29,10 @@ def build_check_rag(
         "core",
         "indexed_data_db",
     ),
-    model_provider: Annotated[
+    embedding_model_provider: Annotated[
         str, typer.Option(help="The embedding model provider")
     ] = "",
-    model_reference: Annotated[
+    embedding_model_reference: Annotated[
         str, typer.Option(help="The specific embedding model to use")
     ] = "",
     embedding_model_api_key: Annotated[
@@ -48,8 +48,8 @@ def build_check_rag(
     Args:
         prowler_directory_path: Path to the Prowler directory where the checks are stored
         rag_path: Path to the indexed data storage
-        model_provider: The model provider to use
-        model_reference: The specific model reference to use
+        embedding_model_provider: The model provider to use
+        embedding_model_reference: The specific model reference to use
         embedding_model_api_key: Embedding model API key
     Raises:
         FileExistsError: If the RAG dataset already exists in the specified path
@@ -65,21 +65,21 @@ def build_check_rag(
 
         config = get_config()
 
-        if not model_provider:
-            model_provider = (
+        if not embedding_model_provider:
+            embedding_model_provider = (
                 get_embedding_model_provider()
                 if not config.get("models", {}).get("embedding_model_provider")
                 else config.get("models", {}).get("embedding_model_provider")
             )
-        if not model_reference:
-            model_reference = (
-                get_embedding_model_reference(model_provider)
+        if not embedding_model_reference:
+            embedding_model_reference = (
+                get_embedding_model_reference(embedding_model_provider)
                 if not config.get("models", {}).get("embedding_model_reference")
                 else config.get("models", {}).get("embedding_model_reference")
             )
         CheckMetadataVectorStore(
-            model_provider=model_provider,
-            model_reference=model_reference,
+            embedding_model_provider=embedding_model_provider,
+            embedding_model_reference=embedding_model_reference,
             model_api_key=embedding_model_api_key,
         ).build_check_vector_store(
             prowler_directory_path=prowler_directory_path,
