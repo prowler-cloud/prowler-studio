@@ -1,6 +1,5 @@
 from time import sleep
 
-import requests
 from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
@@ -15,6 +14,7 @@ from core.src.events import (
     CheckMetadataInformation,
     CheckMetadataResult,
 )
+from core.src.rag.vector_store import CheckMetadataVectorStore
 from core.src.utils.llm_structured_outputs import CheckMetadata
 from core.src.utils.model_chooser import llm_chooser
 from core.src.utils.prompt_loader import Step, load_prompt_template
@@ -170,6 +170,10 @@ class ChecKreationWorkflow(Workflow):
                 )
             ).text.strip()
 
+            check_metadata_vector_store = CheckMetadataVectorStore()
+
+            await ctx.set("check_metadata_vector_store", check_metadata_vector_store)
+
             indexed_data_manager = IndexedDataManager()
 
             check_manager = CheckDataManager(
@@ -270,16 +274,16 @@ class ChecKreationWorkflow(Workflow):
         """
         logger.info("Creating check metadata...")
         try:
-            # Download the relevant check metadata from the Prowler repository to give as reference to the prompt
+            check_metadata_vector_store = await ctx.get("check_metadata_vector_store")
             relevant_checks_metadata = []
-
             MAX_STRUCTURED_ATTEMPS = 5
 
             for check_name in check_metadata_base_info.related_check_names:
-                metadata = requests.get(
-                    f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_metadata_base_info.prowler_provider}/services/{check_name.split('_')[0]}/{check_name}/{check_name}.metadata.json"
+                metadata = check_metadata_vector_store.get_check_metadata(
+                    provider_name=check_metadata_base_info.prowler_provider,
+                    check_id=check_name,
                 )
-                relevant_checks_metadata.append(metadata.text)
+                relevant_checks_metadata.append(metadata)
 
             for i in range(MAX_STRUCTURED_ATTEMPS):
                 try:
@@ -357,17 +361,19 @@ class ChecKreationWorkflow(Workflow):
         """
         logger.info("Creating check code...")
         try:
+            check_metadata_vector_store = await ctx.get("check_metadata_vector_store")
             relevant_related_checks = []
 
             for check_name in check_code_info.related_check_names:
-                code = requests.get(
-                    f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_code_info.prowler_provider}/services/{check_name.split('_')[0]}/{check_name}/{check_name}.py"
+                code = check_metadata_vector_store.get_check_code(
+                    provider_name=check_code_info.prowler_provider, check_id=check_name
                 )
-                relevant_related_checks.append(code.text)
+                relevant_related_checks.append(code)
 
-            service_class_code = requests.get(
-                f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_code_info.prowler_provider}/services/{check_name.split('_')[0]}/{check_name.split('_')[0]}_service.py"
-            ).text
+            service_class_code = check_metadata_vector_store.get_service_code(
+                provider_name=check_code_info.prowler_provider,
+                service_name=check_name.split("_")[0],
+            )
 
             relevant_related_checks = "\n\n--------\n\n".join(relevant_related_checks)
 

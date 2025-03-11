@@ -39,8 +39,8 @@ class IndexedDataManager:
             Default storage context for the indexed data.
         """
         Settings.embed_model = embedding_model_chooser(
-            model_provider=self.index_metadata.get("model_provider", ""),
-            model_reference=self.index_metadata.get("model_reference", ""),
+            embedding_model_provider=self.index_metadata.get("model_provider", ""),
+            emebedding_model_reference=self.index_metadata.get("model_reference", ""),
         )
         return StorageContext.from_defaults(persist_dir=self.base_dir)
 

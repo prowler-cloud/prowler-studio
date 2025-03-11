@@ -10,7 +10,7 @@ from cli.src.views.menus import (
     get_embedding_model_reference,
 )
 from cli.src.views.output import display_error, display_success, display_warning
-from core.src.rag.vectore_store import CheckMetadataVectorStore
+from core.src.rag.vector_store import CheckMetadataVectorStore
 
 
 def build_check_rag(

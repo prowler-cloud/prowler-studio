@@ -362,6 +362,113 @@ class CheckMetadataVectorStore:
         except Exception as e:
             raise Exception(f"Error storing index in disk: {e}")
 
+    def get_service_code(self, provider_name: str, service_name: str) -> str:
+        """Retrieve the code for a given service.
+
+        Args:
+            provider_name: The Prowler provider of the service.
+            service_name: The name of the service.
+
+        Returns:
+            The code of the service if found, otherwise raises a ValueError.
+
+        Raises:
+            ValueError: If an error occurs while retrieving the service code.
+        """
+        try:
+            return gzip.decompress(
+                base64.b64decode(
+                    self._check_inventory[provider_name][service_name]["code"]
+                )
+            ).decode("utf-8")
+        except Exception as e:
+            raise ValueError(f"Error retrieving service {service_name} code: {e}")
+
+    def get_check_metadata(self, provider_name: str, check_id: str) -> dict:
+        """Retrieve metadata for a given check ID.
+
+        Args:
+            provider_name: The Prowler provider of the check.
+            check_id: The ID of the check.
+
+        Returns:
+            The metadata of the check if found, otherwise raises a ValueError.
+
+        Raises:
+            ValueError: If an error occurs while retrieving the check metadata.
+        """
+        try:
+            return json.loads(
+                gzip.decompress(
+                    base64.b64decode(
+                        self._check_inventory[provider_name][check_id.split("_")[0]][
+                            "checks"
+                        ][check_id]["metadata"]
+                    )
+                ).decode("utf-8")
+            )
+
+        except KeyError as e:
+            raise ValueError(
+                f"Check {check_id} not found for provider {provider_name}: {e}"
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Error retrieving check metadata {check_id} for provider {provider_name}: {e}"
+            )
+
+    def get_check_code(self, provider_name: str, check_id: str) -> str:
+        """Retrieve code for a given check ID.
+
+        Args:
+            provider_name: The Prowler provider of the check.
+            check_id: The ID of the check.
+
+        Returns:
+            The code of the check if found, otherwise raises a ValueError.
+
+        Raises:
+            ValueError: If an error occurs while retrieving the check code.
+        """
+        try:
+            return gzip.decompress(
+                base64.b64decode(
+                    self._check_inventory[provider_name][check_id.split("_")[0]][
+                        "checks"
+                    ][check_id]["code"]
+                )
+            ).decode("utf-8")
+        except Exception as e:
+            raise ValueError(
+                f"Error retrieving check code {check_id} for provider {provider_name}: {e}"
+            )
+
+    def get_check_fixer(self, provider_name: str, check_id: str) -> str:
+        """Retrieve fixer for a given check ID.
+
+        Args:
+            provider_name: The Prowler provider of the check.
+            check_id: The ID of the check.
+
+        Returns:
+            The fixer of the check if found, otherwise raises a ValueError.
+
+        Raises:
+            ValueError: If an error occurs while retrieving the check fixer.
+        """
+        try:
+            return gzip.decompress(
+                base64.b64decode(
+                    self._check_inventory[provider_name][check_id.split("_")[0]][
+                        "checks"
+                    ][check_id]["fixer"]
+                )
+            ).decode("utf-8")
+        except Exception as e:
+            raise ValueError(
+                f"Error retrieving check fixer {check_id} for provider_name {provider_name}: {e}"
+            )
+
     def get_related_checks(
         self,
         check_description: str,
@@ -370,8 +477,7 @@ class CheckMetadataVectorStore:
         returned_checks: int = 5,
         confidence_threshold: float = 0.75,
     ) -> list[str]:
-        """
-        Retrieves the related checks based on the check description.
+        """Retrieves the related checks based on the check description.
 
         Args:
             check_description: Description of the check.
