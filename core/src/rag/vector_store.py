@@ -5,7 +5,14 @@ import os
 from datetime import datetime
 from typing import Optional
 
-from llama_index.core import Settings, StorageContext, VectorStoreIndex
+from llama_index.core import (
+    Settings,
+    StorageContext,
+    VectorStoreIndex,
+    load_index_from_storage,
+)
+from llama_index.core.postprocessor import SimilarityPostprocessor
+from llama_index.core.query_engine.retriever_query_engine import RetrieverQueryEngine
 from llama_index.core.schema import Document
 from loguru import logger
 
@@ -49,8 +56,12 @@ class CheckMetadataVectorStore:
                     model_api_key=model_api_key,
                 )
                 self._check_inventory = store_index_metadata["check_inventory"]
-                self._index = StorageContext.from_defaults(
-                    persist_dir=os.path.abspath(os.path.dirname(INDEX_METADATA_PATH))
+                self._index = load_index_from_storage(
+                    StorageContext.from_defaults(
+                        persist_dir=os.path.abspath(
+                            os.path.dirname(INDEX_METADATA_PATH)
+                        )
+                    )
                 )
         else:
             # If not, check if the user provided the model_provider and model_reference
@@ -64,32 +75,6 @@ class CheckMetadataVectorStore:
                     embedding_model_reference=embedding_model_reference,
                     model_api_key=model_api_key,
                 )
-
-    def _initialize_embedding_model(
-        self,
-        embedding_model_provider: str,
-        embedding_model_reference: str,
-        model_api_key: Optional[str],
-    ) -> None:
-        """
-        Initializes the embedding model.
-
-        Args:
-            model_provider: Name of the embedding model provider.
-            model_reference: Reference of the embedding model.
-            model_api_key: API key to access the embedding model.
-        """
-        logger.info("Initializing embedding model...")
-        try:
-            Settings.embed_model = embedding_model_chooser(
-                embedding_model_provider=embedding_model_provider,
-                emebedding_model_reference=embedding_model_reference,
-                api_key=model_api_key,
-            )
-            self._embedding_model_provider = embedding_model_provider
-            self._embedding_model_reference = embedding_model_reference
-        except ValueError as e:
-            raise ValueError(f"Error initializing embedding model: {e}")
 
     def build_check_vector_store(
         self,
@@ -121,6 +106,203 @@ class CheckMetadataVectorStore:
             )
         except Exception as e:
             raise Exception(f"Error building vector store: {e}")
+
+    def get_service_code(self, provider_name: str, service_name: str) -> str:
+        """Retrieve the code for a given service.
+
+        Args:
+            provider_name: The Prowler provider of the service.
+            service_name: The name of the service.
+
+        Returns:
+            The code of the service if found, otherwise raises a ValueError.
+
+        Raises:
+            ValueError: If an error occurs while retrieving the service code.
+        """
+        try:
+            return gzip.decompress(
+                base64.b64decode(
+                    self._check_inventory[provider_name][service_name]["code"]
+                )
+            ).decode("utf-8")
+        except Exception as e:
+            raise ValueError(f"Error retrieving service {service_name} code: {e}")
+
+    def get_check_metadata(self, provider_name: str, check_id: str) -> dict:
+        """Retrieve metadata for a given check ID.
+
+        Args:
+            provider_name: The Prowler provider of the check.
+            check_id: The ID of the check.
+
+        Returns:
+            The metadata of the check if found, otherwise raises a ValueError.
+
+        Raises:
+            ValueError: If an error occurs while retrieving the check metadata.
+        """
+        try:
+            return json.loads(
+                gzip.decompress(
+                    base64.b64decode(
+                        self._check_inventory[provider_name][check_id.split("_")[0]][
+                            "checks"
+                        ][check_id]["metadata"]
+                    )
+                ).decode("utf-8")
+            )
+
+        except KeyError as e:
+            raise ValueError(
+                f"Check {check_id} not found for provider {provider_name}: {e}"
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Error retrieving check metadata {check_id} for provider {provider_name}: {e}"
+            )
+
+    def get_check_code(self, provider_name: str, check_id: str) -> str:
+        """Retrieve code for a given check ID.
+
+        Args:
+            provider_name: The Prowler provider of the check.
+            check_id: The ID of the check.
+
+        Returns:
+            The code of the check if found, otherwise raises a ValueError.
+
+        Raises:
+            ValueError: If an error occurs while retrieving the check code.
+        """
+        try:
+            return gzip.decompress(
+                base64.b64decode(
+                    self._check_inventory[provider_name][check_id.split("_")[0]][
+                        "checks"
+                    ][check_id]["code"]
+                )
+            ).decode("utf-8")
+        except Exception as e:
+            raise ValueError(
+                f"Error retrieving check code {check_id} for provider {provider_name}: {e}"
+            )
+
+    def get_check_fixer(self, provider_name: str, check_id: str) -> str:
+        """Retrieve fixer for a given check ID.
+
+        Args:
+            provider_name: The Prowler provider of the check.
+            check_id: The ID of the check.
+
+        Returns:
+            The fixer of the check if found, otherwise raises a ValueError.
+
+        Raises:
+            ValueError: If an error occurs while retrieving the check fixer.
+        """
+        try:
+            return gzip.decompress(
+                base64.b64decode(
+                    self._check_inventory[provider_name][check_id.split("_")[0]][
+                        "checks"
+                    ][check_id]["fixer"]
+                )
+            ).decode("utf-8")
+        except Exception as e:
+            raise ValueError(
+                f"Error retrieving check fixer {check_id} for provider_name {provider_name}: {e}"
+            )
+
+    def get_related_checks(
+        self,
+        check_description: str,
+        num_checks: int = 5,
+        confidence_threshold: float = 0.75,
+    ) -> dict[str, list[str]]:
+        """Finds related checks based on the check description.
+
+        Args:
+            check_description: Description of the check.
+            num_checks: Number of checks to return.
+            confidence_threshold: Confidence threshold for the related checks.
+
+        Returns:
+            A dictionary of related checks grouped by provider and service.
+
+        Raises:
+            Exception: If an error occurs while retrieving the related checks.
+        """
+        try:
+            check_retriever = self._index.as_retriever(similarity_top_k=num_checks)
+
+            nodes = check_retriever.retrieve(check_description)
+            filtered_nodes = SimilarityPostprocessor(
+                similarity_cutoff=confidence_threshold
+            ).postprocess_nodes(nodes)
+
+            related_checks = {}
+
+            for node in filtered_nodes:
+                node_provider = node.metadata.get("provider", "")
+                node_service = node.metadata.get("service_name", "")
+                check_id = node.metadata.get("check_id", "")
+
+                related_checks.setdefault(node_provider, {}).setdefault(
+                    node_service, []
+                ).append(check_id)
+
+            return related_checks
+        except Exception as e:
+            raise Exception(f"Error retrieving related checks: {e}")
+
+    def check_exists(self, check_description: str, confidence_threshold: float = 0.75):
+        """Check if a check description exists, using retrieved nodes if available.
+
+        Args:
+            check_description: The description of the check.
+            confidence_threshold: Confidence threshold for the check.
+        Returns:
+            True if the check exists, False otherwise.
+        """
+        query_engine = RetrieverQueryEngine.from_args(
+            self._index.as_retriever(),
+            node_postprocessors=[
+                SimilarityPostprocessor(similarity_cutoff=confidence_threshold)
+            ],
+        )
+        response = query_engine.query(
+            f"SYSTEM CONTEXT: Prowler is an open-source CSPM tool. You have as context all checks metadata. A check metadata refers to the information related to a security automated control to ensure that best practices are followed, such as its description, provider, service, etc.\n Based in all current Prowler checks ensure if one or more checks metadata are covering the following description. You MUST answer with 'yes' or 'no', if the answer is 'no' please indicate the reason why the check is not covered by other checks.\n Check description: {check_description}"
+        )
+        return response.response.strip().lower() == "yes"
+
+    # Private methods
+
+    def _initialize_embedding_model(
+        self,
+        embedding_model_provider: str,
+        embedding_model_reference: str,
+        model_api_key: Optional[str],
+    ) -> None:
+        """
+        Initializes the embedding model.
+
+        Args:
+            model_provider: Name of the embedding model provider.
+            model_reference: Reference of the embedding model.
+            model_api_key: API key to access the embedding model.
+        """
+        logger.info("Initializing embedding model...")
+        try:
+            Settings.embed_model = embedding_model_chooser(
+                embedding_model_provider=embedding_model_provider,
+                emebedding_model_reference=embedding_model_reference,
+                api_key=model_api_key,
+            )
+            self._embedding_model_provider = embedding_model_provider
+            self._embedding_model_reference = embedding_model_reference
+        except ValueError as e:
+            raise ValueError(f"Error initializing embedding model: {e}")
 
     def _load_checks_from_local_repo(
         self, prowler_directory_path: str
@@ -361,150 +543,6 @@ class CheckMetadataVectorStore:
                 )
         except Exception as e:
             raise Exception(f"Error storing index in disk: {e}")
-
-    def get_service_code(self, provider_name: str, service_name: str) -> str:
-        """Retrieve the code for a given service.
-
-        Args:
-            provider_name: The Prowler provider of the service.
-            service_name: The name of the service.
-
-        Returns:
-            The code of the service if found, otherwise raises a ValueError.
-
-        Raises:
-            ValueError: If an error occurs while retrieving the service code.
-        """
-        try:
-            return gzip.decompress(
-                base64.b64decode(
-                    self._check_inventory[provider_name][service_name]["code"]
-                )
-            ).decode("utf-8")
-        except Exception as e:
-            raise ValueError(f"Error retrieving service {service_name} code: {e}")
-
-    def get_check_metadata(self, provider_name: str, check_id: str) -> dict:
-        """Retrieve metadata for a given check ID.
-
-        Args:
-            provider_name: The Prowler provider of the check.
-            check_id: The ID of the check.
-
-        Returns:
-            The metadata of the check if found, otherwise raises a ValueError.
-
-        Raises:
-            ValueError: If an error occurs while retrieving the check metadata.
-        """
-        try:
-            return json.loads(
-                gzip.decompress(
-                    base64.b64decode(
-                        self._check_inventory[provider_name][check_id.split("_")[0]][
-                            "checks"
-                        ][check_id]["metadata"]
-                    )
-                ).decode("utf-8")
-            )
-
-        except KeyError as e:
-            raise ValueError(
-                f"Check {check_id} not found for provider {provider_name}: {e}"
-            )
-        except Exception as e:
-            raise ValueError(
-                f"Error retrieving check metadata {check_id} for provider {provider_name}: {e}"
-            )
-
-    def get_check_code(self, provider_name: str, check_id: str) -> str:
-        """Retrieve code for a given check ID.
-
-        Args:
-            provider_name: The Prowler provider of the check.
-            check_id: The ID of the check.
-
-        Returns:
-            The code of the check if found, otherwise raises a ValueError.
-
-        Raises:
-            ValueError: If an error occurs while retrieving the check code.
-        """
-        try:
-            return gzip.decompress(
-                base64.b64decode(
-                    self._check_inventory[provider_name][check_id.split("_")[0]][
-                        "checks"
-                    ][check_id]["code"]
-                )
-            ).decode("utf-8")
-        except Exception as e:
-            raise ValueError(
-                f"Error retrieving check code {check_id} for provider {provider_name}: {e}"
-            )
-
-    def get_check_fixer(self, provider_name: str, check_id: str) -> str:
-        """Retrieve fixer for a given check ID.
-
-        Args:
-            provider_name: The Prowler provider of the check.
-            check_id: The ID of the check.
-
-        Returns:
-            The fixer of the check if found, otherwise raises a ValueError.
-
-        Raises:
-            ValueError: If an error occurs while retrieving the check fixer.
-        """
-        try:
-            return gzip.decompress(
-                base64.b64decode(
-                    self._check_inventory[provider_name][check_id.split("_")[0]][
-                        "checks"
-                    ][check_id]["fixer"]
-                )
-            ).decode("utf-8")
-        except Exception as e:
-            raise ValueError(
-                f"Error retrieving check fixer {check_id} for provider_name {provider_name}: {e}"
-            )
-
-    def get_related_checks(
-        self,
-        check_description: str,
-        check_provider: Optional[str] = None,
-        check_service: Optional[str] = None,
-        returned_checks: int = 5,
-        confidence_threshold: float = 0.75,
-    ) -> list[str]:
-        """Retrieves the related checks based on the check description.
-
-        Args:
-            check_description: Description of the check.
-            check_provider: Provider of the check. If not provided, all providers will be considered.
-            check_service: Service of the check. If not provided, all services will be considered.
-            returned_checks: Number of checks to return.
-            confidence_threshold: Confidence threshold for the related checks.
-
-        Returns:
-            A list of related checks.
-
-        Raises:
-            ValueError: If the check_provider or check_service is not found in the check inventory. Or if the check_provider does not have any of the check_services.
-            Exception: If an error occurs while retrieving the related checks.
-        """
-        # TODO
-
-    def check_exists(self, check_description: str) -> bool:
-        """Check if a check description exists, using retrieved nodes if available.
-
-        Args:
-            check_description: The description of the check.
-        Returns:
-            True if the check exists, False otherwise.
-        """
-        # TODO
-        # Look filter to the query engine
 
     # WHEN ALL ABOVE METHODS ARE IMPLEMENTED, THE rag.py from core/src/utils/rag.py WILL BE REMOVED
     # AND THE BELOW METHODS WILL BE IMPLEMENTED IN THE CURRENT WORKFLOW
