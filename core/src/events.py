@@ -1,5 +1,3 @@
-from typing import Literal
-
 from llama_index.core.workflow import Event
 from pydantic import Field
 
@@ -9,7 +7,7 @@ from core.src.utils.llm_structured_outputs import CheckMetadata
 class CheckBasicInformation(Event):
     """Event representing basic information for cloud security assessments after user input analysis."""
 
-    prowler_provider: Literal["aws", "azure", "gcp", "kubernetes"] = Field(
+    prowler_provider: str = Field(
         description="Prowler provider to use for the check creation"
     )
     service: str = Field(
@@ -22,7 +20,7 @@ class CheckMetadataInformation(Event):
 
     check_name: str = Field(description="Name of the check to create")
     check_description: str = Field(description="Short description of the check")
-    prowler_provider: Literal["aws", "azure", "gcp", "kubernetes"] = Field(
+    prowler_provider: str = Field(
         description="Cloud provider to use for the check creation"
     )
     related_check_names: list = Field(
@@ -49,7 +47,7 @@ class CheckCodeInformation(Event):
     related_check_names: list = Field(
         description="List of related check names to the check being created"
     )
-    prowler_provider: Literal["aws", "azure", "gcp", "kubernetes"] = Field(
+    prowler_provider: str = Field(
         description="Cloud provider to use for the check creation"
     )
 

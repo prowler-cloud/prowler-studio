@@ -33,9 +33,7 @@ class RemediationModel(BaseModel):
 class CheckMetadata(BaseModel):
     """Metadata information of a Prowler check."""
 
-    Provider: Literal["aws", "azure", "gcp", "kubernetes"] = Field(
-        description="The provider of the check"
-    )
+    Provider: str = Field(description="The provider of the check")
     CheckID: str = Field(description="ID of the check")
     CheckTitle: str = Field(description="Title of the check")
     CheckType: List[str] = Field(description="For now this must be an empty str")
