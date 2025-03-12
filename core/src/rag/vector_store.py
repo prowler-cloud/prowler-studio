@@ -276,6 +276,42 @@ class CheckMetadataVectorStore:
         )
         return response.response.strip().lower() == "yes"
 
+    def get_available_providers(self) -> set[str]:
+        """Retrieve the available providers.
+
+        Returns:
+            A set of available providers.
+        """
+        return set(self._check_inventory.keys())
+
+    def get_available_services(self, provider_name: str) -> set[str]:
+        """Retrieve the available services for a given provider.
+
+        Args:
+            provider_name: The Prowler provider.
+
+        Returns:
+            A set of available services for the provider.
+        """
+        return set(self._check_inventory.get(provider_name, {}).keys())
+
+    def get_available_checks(self, provider_name: str, service_name: str) -> set[str]:
+        """Retrieve the available checks for a given provider and service.
+
+        Args:
+            provider_name: The Prowler provider.
+            service_name: The service name.
+
+        Returns:
+            A set of available checks for the provider and service.
+        """
+        return set(
+            self._check_inventory.get(provider_name, {})
+            .get(service_name, {})
+            .get("checks", {})
+            .keys()
+        )
+
     # Private methods
 
     def _initialize_embedding_model(
@@ -292,7 +328,6 @@ class CheckMetadataVectorStore:
             model_reference: Reference of the embedding model.
             model_api_key: API key to access the embedding model.
         """
-        logger.info("Initializing embedding model...")
         try:
             Settings.embed_model = embedding_model_chooser(
                 embedding_model_provider=embedding_model_provider,
@@ -368,7 +403,7 @@ class CheckMetadataVectorStore:
         return document
 
     def _update_check_inventory(self, check_dir: str) -> None:
-        """Update the check inventory with the check metadata, code and fixer.
+        """Update the check inventory with the check metadata, code, fixer and service code.
 
         Args:
             check_dir: Directory where the check is located.
@@ -485,8 +520,7 @@ class CheckMetadataVectorStore:
         ),
         overwrite_with_other_model: bool = False,
     ) -> None:
-        """
-        Stores the index to disk.
+        """Stores the index to disk.
 
         Args:
             vector_store_path: Path to store the index.
@@ -543,10 +577,3 @@ class CheckMetadataVectorStore:
                 )
         except Exception as e:
             raise Exception(f"Error storing index in disk: {e}")
-
-    # WHEN ALL ABOVE METHODS ARE IMPLEMENTED, THE rag.py from core/src/utils/rag.py WILL BE REMOVED
-    # AND THE BELOW METHODS WILL BE IMPLEMENTED IN THE CURRENT WORKFLOW
-
-    ############################################################################################################
-
-    # HERE IMPLEMENT WAYS TO UPDATE THE INDEX AND CHECK INVENTORY
