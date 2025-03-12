@@ -3,6 +3,7 @@ import gzip
 import json
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from llama_index.core import (
@@ -20,6 +21,11 @@ from core.src.utils.model_chooser import embedding_model_chooser
 
 
 class CheckMetadataVectorStore:
+    _INDEX_METADATA_NAME = "index_metadata.json"
+    _DEFAULT_STORE_DIR = (
+        Path(__file__).resolve().parent.parent.parent / "indexed_data_db"
+    )
+
     def __init__(
         self,
         embedding_model_provider: Optional[str] = None,
@@ -34,47 +40,19 @@ class CheckMetadataVectorStore:
             embedding_model_reference: Reference of the embedding model.
             model_api_key: API key to access the embedding model.
         """
-
-        INDEX_METADATA_PATH = os.path.abspath(
-            os.path.join(__file__, "../../../indexed_data_db/index_metadata.json")
-        )
-
-        # Should contain a BaseIndex object
         self._index = None
         self._check_inventory = {}
+        self._embedding_model_provider = None
+        self._embedding_model_reference = None
 
-        # Check if in there is an actual index in disk to be loaded
-        if os.path.exists(INDEX_METADATA_PATH):
-            with open(
-                INDEX_METADATA_PATH,
-                "r",
-            ) as metadata_file:
-                store_index_metadata = json.load(metadata_file)
-                self._initialize_embedding_model(
-                    embedding_model_provider=store_index_metadata["model_provider"],
-                    embedding_model_reference=store_index_metadata["model_reference"],
-                    model_api_key=model_api_key,
-                )
-                self._check_inventory = store_index_metadata["check_inventory"]
-                self._index = load_index_from_storage(
-                    StorageContext.from_defaults(
-                        persist_dir=os.path.abspath(
-                            os.path.dirname(INDEX_METADATA_PATH)
-                        )
-                    )
-                )
+        metadata_path = self._DEFAULT_STORE_DIR / self._INDEX_METADATA_NAME
+
+        if metadata_path.exists():
+            self._load_existing_index(metadata_path, model_api_key)
         else:
-            # If not, check if the user provided the model_provider and model_reference
-            if not embedding_model_provider or not embedding_model_reference:
-                raise ValueError(
-                    "Please provide an embedding model provider and reference to initialize the CheckMetadataVectorStore."
-                )
-            else:
-                self._initialize_embedding_model(
-                    embedding_model_provider=embedding_model_provider,
-                    embedding_model_reference=embedding_model_reference,
-                    model_api_key=model_api_key,
-                )
+            self._initialize_new_index(
+                embedding_model_provider, embedding_model_reference, model_api_key
+            )
 
     def build_check_vector_store(
         self,
@@ -313,6 +291,53 @@ class CheckMetadataVectorStore:
         )
 
     # Private methods
+
+    def _load_existing_index(
+        self, metadata_path: str, model_api_key: Optional[str]
+    ) -> None:
+        """Loads an existing index from disk.
+
+        Args:
+            metadata_path: Path to the index metadata file.
+            model_api_key: API key
+        """
+        metadata = self._read_json_file(metadata_path)
+
+        self._initialize_embedding_model(
+            embedding_model_provider=metadata["model_provider"],
+            embedding_model_reference=metadata["model_reference"],
+            model_api_key=model_api_key,
+        )
+        self._check_inventory = metadata["check_inventory"]
+        self._index = load_index_from_storage(
+            StorageContext.from_defaults(
+                persist_dir=str(metadata_path.parent),
+            )
+        )
+
+    def _initialize_new_index(
+        self,
+        embedding_model_provider: str,
+        embedding_model_reference: str,
+        model_api_key: Optional[str],
+    ) -> None:
+        """Initializes a new index.
+
+        Args:
+            embedding_model_provider: Name of the embedding model provider.
+            embedding_model_reference: Reference of the embedding model.
+            model_api_key: API key to access the embedding model.
+        """
+        if not embedding_model_provider or not embedding_model_reference:
+            raise ValueError(
+                "Please provide an embedding model provider and reference to initialize the CheckMetadataVectorStore."
+            )
+
+        self._initialize_embedding_model(
+            embedding_model_provider=embedding_model_provider,
+            embedding_model_reference=embedding_model_reference,
+            model_api_key=model_api_key,
+        )
 
     def _initialize_embedding_model(
         self,
