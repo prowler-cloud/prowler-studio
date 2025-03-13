@@ -125,10 +125,8 @@ class CheckMetadataVectorStore:
                 ).decode("utf-8")
             )
 
-        except KeyError as e:
-            raise ValueError(
-                f"Check {check_id} not found for provider {provider_name}: {e}"
-            )
+        except KeyError:
+            raise ValueError(f"Check {check_id} not found for provider {provider_name}")
         except Exception as e:
             raise ValueError(
                 f"Error retrieving check metadata {check_id} for provider {provider_name}: {e}"
