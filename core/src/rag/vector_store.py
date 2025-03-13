@@ -1,7 +1,6 @@
 import base64
 import gzip
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -56,10 +55,7 @@ class CheckMetadataVectorStore:
 
     def build_check_vector_store(
         self,
-        prowler_directory_path: str,
-        vector_store_path: Optional[str] = os.path.abspath(
-            os.path.join(__file__, "../../../")
-        ),
+        prowler_directory_path: Path,
         overwrite: bool = False,
     ) -> None:
         """
@@ -67,7 +63,6 @@ class CheckMetadataVectorStore:
 
         Args:
             prowler_directory_path: Path to the Prowler directory.
-            vector_store_path: Path to store the vector store.
             overwrite: Whether to overwrite the existing index in the vector store.
         """
         if self._index is not None and not overwrite:
@@ -79,7 +74,6 @@ class CheckMetadataVectorStore:
             documents = self._load_checks_from_local_repo(prowler_directory_path)
             self._index_documents(documents)
             self._store_index_in_disk(
-                vector_store_path=vector_store_path,
                 overwrite_with_other_model=overwrite,
             )
         except Exception as e:
@@ -293,7 +287,7 @@ class CheckMetadataVectorStore:
     # Private methods
 
     def _load_existing_index(
-        self, metadata_path: str, model_api_key: Optional[str]
+        self, metadata_path: Path, model_api_key: Optional[str]
     ) -> None:
         """Loads an existing index from disk.
 
@@ -365,10 +359,9 @@ class CheckMetadataVectorStore:
             raise ValueError(f"Error initializing embedding model: {e}")
 
     def _load_checks_from_local_repo(
-        self, prowler_directory_path: str
+        self, prowler_directory_path: Path
     ) -> list[Document]:
-        """
-        Extracts all data needed from the Prowler directory and converts it to a list of Document objects.
+        """Extracts all data needed from the Prowler directory and converts it to a list of Document objects.
 
         Args:
             prowler_directory_path: Base path to the Prowler directory.
@@ -380,23 +373,22 @@ class CheckMetadataVectorStore:
             FileNotFoundError: If the providers directory does not exist.
         """
         logger.info("Extracting checks from Prowler directory...")
+        providers_dir = prowler_directory_path / "prowler/providers"
+        if not providers_dir.exists():
+            raise FileNotFoundError(
+                f"Prowler providers directory not found: {providers_dir}"
+            )
+
         documents = []
-        providers_path = os.path.join(prowler_directory_path, "prowler/providers")
-
-        if not os.path.exists(providers_path):
-            raise FileNotFoundError(f"Directory {providers_path} not found.")
-
-        for root, _, files in os.walk(providers_path):
-            for file in files:
-                if file.endswith(".metadata.json"):
-                    document = self._create_check_document(check_dir=root)
-                    documents.append(document)
-                    self._update_check_inventory(check_dir=root)
+        for metadata_file in providers_dir.rglob("*.metadata.json"):
+            document = self._create_check_document(check_dir=metadata_file.parent)
+            documents.append(document)
+            self._update_check_inventory(check_dir=metadata_file.parent)
 
         return documents
 
-    def _create_check_document(self, check_dir: str) -> Document:
-        """Process a check to create a Document object and insert in the RAG knowledge base.
+    def _create_check_document(self, check_dir: Path) -> Document:
+        """Create LlamaIndex Document from check metadata.
 
         Args:
             check_dir: Directory where the check is located.
@@ -404,11 +396,7 @@ class CheckMetadataVectorStore:
         Returns:
             A Document object containing the metadata extracted from the metadata file.
         """
-        metadata_path = os.path.join(
-            check_dir, f"{check_dir.split('/')[-1]}.metadata.json"
-        )
-
-        metadata = self._read_json_file(metadata_path)
+        metadata = self._read_json_file(check_dir / f"{check_dir.name}.metadata.json")
 
         # Make relevant text fields searchable (Provider, CheckID, CheckTitle, ServiceName, Severity, Description, Risk, Notes)
         metadata_formatted = f"The check '{metadata['CheckID']}' titled '{metadata['CheckTitle']}' applies to the '{metadata['ServiceName']}' service in the provider '{metadata['Provider']}'. It has a severity of '{metadata['Severity']}'\n The description states: '{metadata['Description']}' The risk is '{metadata['Risk']}' Additional notes: '{metadata['Notes']}'"
@@ -427,15 +415,15 @@ class CheckMetadataVectorStore:
 
         return document
 
-    def _update_check_inventory(self, check_dir: str) -> None:
+    def _update_check_inventory(self, check_dir: Path) -> None:
         """Update the check inventory with the check metadata, code, fixer and service code.
 
         Args:
             check_dir: Directory where the check is located.
         """
-        check_id = check_dir.split("/")[-1]
-        service = check_dir.split("/")[-2]
-        provider = check_dir.split("/")[-4]
+        provider = check_dir.parents[2].name  # .../provider/.../service/check_id
+        service = check_dir.parent.name
+        check_id = check_dir.name
 
         # Initialize defaults values if not exists
         self._check_inventory.setdefault(provider, {}).setdefault(
@@ -444,11 +432,9 @@ class CheckMetadataVectorStore:
 
         # If service code from the inventory and the actual service code are different, update the inventory
 
-        service_file_path = os.path.join(
-            os.path.dirname(check_dir), f"{service}_service.py"
-        )
+        service_file_path = check_dir.parent / f"{service}_service.py"
 
-        if os.path.exists(service_file_path):
+        if service_file_path.exists():
             repo_service_code = self._read_file_content(service_file_path)
 
             if self._check_inventory[provider][service]["code"] != repo_service_code:
@@ -461,33 +447,31 @@ class CheckMetadataVectorStore:
             "metadata": base64.b64encode(
                 gzip.compress(
                     json.dumps(
-                        self._read_json_file(
-                            os.path.join(check_dir, f"{check_id}.metadata.json")
-                        )
+                        self._read_json_file(check_dir / f"{check_id}.metadata.json")
                     ).encode(encoding="utf-8")
                 )
             ).decode("utf-8"),
             "code": base64.b64encode(
                 gzip.compress(
-                    self._read_file_content(
-                        os.path.join(check_dir, f"{check_id}.py")
-                    ).encode(encoding="utf-8")
+                    self._read_file_content(check_dir / f"{check_id}.py").encode(
+                        encoding="utf-8"
+                    )
                 )
             ).decode("utf-8"),
             "fixer": (
                 base64.b64encode(
                     gzip.compress(
                         self._read_file_content(
-                            os.path.join(check_dir, f"{check_id}_fixer.py")
+                            check_dir / f"{check_id}_fixer.py"
                         ).encode(encoding="utf-8")
                     )
                 ).decode("utf-8")
-                if os.path.exists(os.path.join(check_dir, f"{check_id}_fixer.py"))
+                if (check_dir / f"{check_id}_fixer.py").exists()
                 else ""
             ),
         }
 
-    def _read_json_file(self, file_path: str) -> dict:
+    def _read_json_file(self, file_path: Path) -> dict:
         """Safely read a JSON file, returning an empty dictionary if the file doesn't exist
 
         Args:
@@ -499,13 +483,13 @@ class CheckMetadataVectorStore:
         Raises:
             FileNotFoundError: If the file does not exist.
         """
-        if os.path.exists(file_path):
+        if file_path.exists():
             with open(file_path, "r") as f:
                 return json.load(f)
         else:
             raise FileNotFoundError(f"File {file_path} not found.")
 
-    def _read_file_content(self, file_path: str) -> str:
+    def _read_file_content(self, file_path: Path) -> str:
         """Safely read file content, returning empty string if file doesn't exist
 
         Args:
@@ -517,7 +501,7 @@ class CheckMetadataVectorStore:
         Raises:
             FileNotFoundError: If the file does not exist.
         """
-        if os.path.exists(file_path):
+        if file_path.exists():
             with open(file_path, "r") as f:
                 return f.read()
         else:
@@ -540,9 +524,6 @@ class CheckMetadataVectorStore:
 
     def _store_index_in_disk(
         self,
-        vector_store_path: str = os.path.abspath(
-            os.path.join(__file__, "../../../indexed_data_db")
-        ),
         overwrite_with_other_model: bool = False,
     ) -> None:
         """Stores the index to disk.
@@ -559,11 +540,10 @@ class CheckMetadataVectorStore:
                 "check_inventory": self._check_inventory,
             }
 
-            if os.path.exists(os.path.join(vector_store_path)):
+            if self._DEFAULT_STORE_DIR.exists():
                 # Load the past configuration
                 with open(
-                    os.path.join(vector_store_path, "index_metadata.json"),
-                    "r",
+                    self._DEFAULT_STORE_DIR / "index_metadata.json", "r"
                 ) as metadata_file:
                     store_index_metadata = json.load(metadata_file)
 
@@ -590,11 +570,10 @@ class CheckMetadataVectorStore:
                     "%Y-%m-%d %H:%M:%S"
                 )
 
-            self._index.storage_context.persist(os.path.join(vector_store_path))
+            self._index.storage_context.persist(self._DEFAULT_STORE_DIR)
             # Persist some metadata and check inventory
             with open(
-                os.path.join(vector_store_path, "index_metadata.json"),
-                "w",
+                self._DEFAULT_STORE_DIR / "index_metadata.json", "w"
             ) as metadata_file:
                 json.dump(
                     store_index_metadata,

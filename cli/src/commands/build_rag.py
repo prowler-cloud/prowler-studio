@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 from typing import Annotated
 
 import typer
@@ -15,20 +15,12 @@ from core.src.rag.vector_store import CheckMetadataVectorStore
 
 def build_check_rag(
     prowler_directory_path: Annotated[
-        str,
+        Path,
         typer.Argument(
             help="Path to the Prowler directory where the checks are stored",
             exists=True,
         ),
     ],
-    rag_path: Annotated[
-        str, typer.Argument(help="Path to save the RAG dataset")
-    ] = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "../../../",
-        "core",
-        "indexed_data_db",
-    ),
     embedding_model_provider: Annotated[
         str, typer.Option(help="The embedding model provider")
     ] = "",
@@ -47,7 +39,6 @@ def build_check_rag(
 
     Args:
         prowler_directory_path: Path to the Prowler directory where the checks are stored
-        rag_path: Path to the indexed data storage
         embedding_model_provider: The model provider to use
         embedding_model_reference: The specific model reference to use
         embedding_model_api_key: Embedding model API key
@@ -55,10 +46,14 @@ def build_check_rag(
         FileExistsError: If the RAG dataset already exists in the specified path
     """
     try:
-        if os.path.exists(rag_path):
+        DEFAULT_VECTOR_STORE_PATH = (
+            Path(__file__).resolve().parent.parent.parent / "core" / "indexed_data_db"
+        )
+
+        if DEFAULT_VECTOR_STORE_PATH.exists():
             if overwrite is None:
                 overwrite = typer.confirm(
-                    f"RAG dataset already exists in the path: {os.path.abspath(rag_path)}. Do you want to overwrite it?"
+                    f"RAG dataset already exists in the path: {DEFAULT_VECTOR_STORE_PATH.resolve()}. Do you want to overwrite it?"
                 )
             if not overwrite:
                 raise typer.Exit(code=1)
@@ -83,7 +78,6 @@ def build_check_rag(
             model_api_key=embedding_model_api_key,
         ).build_check_vector_store(
             prowler_directory_path=prowler_directory_path,
-            vector_store_path=rag_path,
             overwrite=True,
         )
         raise typer.Exit(code=0)
