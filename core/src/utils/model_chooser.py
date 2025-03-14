@@ -63,13 +63,15 @@ def llm_chooser(
 
 
 def embedding_model_chooser(
-    model_provider: str, model_reference: str, api_key: Optional[str] = ""
+    embedding_model_provider: str,
+    emebedding_model_reference: str,
+    api_key: Optional[str] = None,
 ) -> BaseEmbedding:
     """Choose the right embedding model based on the user input.
 
     Args:
-        model_provider: Provider of the embedding model.
-        model_reference: Reference to the embedding model, depending on the provider it can be a name, a path or a URL.
+        embedding_model_provider: Provider of the embedding model.
+        emebedding_model_reference: Reference to the embedding model, depending on the provider it can be a name, a path or a URL.
         api_key: API key to access the model. It is not a required parameter if the model provider does not require it.
     Returns:
         The embedding model to use for the passed model provider and reference.
@@ -77,16 +79,19 @@ def embedding_model_chooser(
 
     embedding_model = None
 
-    if model_provider == "gemini":
-        if model_reference in SUPPORTED_EMBEDDING_MODELS[model_provider]:
+    if embedding_model_provider == "gemini":
+        if (
+            emebedding_model_reference
+            in SUPPORTED_EMBEDDING_MODELS[embedding_model_provider]
+        ):
             if not api_key:
                 api_key = os.getenv("GOOGLE_API_KEY")
 
             embedding_model = GeminiEmbedding(
-                model_name=model_reference,
+                model_name=emebedding_model_reference,
                 api_key=api_key,
             )
     else:
-        raise ValueError(f"Model provider {model_provider} not supported.")
+        raise ValueError(f"Model provider {embedding_model_provider} not supported.")
 
     return embedding_model

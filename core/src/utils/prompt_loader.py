@@ -49,13 +49,14 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Your main task is act as a filter, you should decide if the user prompt is a valid prompt to create a check or not.\n"
                 "You MUST return 'yes' if the user prompt is a valid prompt to create a check, 'no' otherwise.\n"
-                "A valid user prompt is a prompt that contains a security best practice for AWS, Azure, GCP or Kubernetes.\n"
+                f"A valid user prompt is a prompt that contains a security best practice that can be ensured automatically using API calls to the cloud provider.\n"
+                f"The valid providers are: {', '.join(kwargs.get('valid_providers', {}))}\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
             Step.PROVIDER_EXTRACTION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Your task is to extract the Prowler provider from the user prompt.\n"
-                "You MUST return a string with the Prowler provider. For now the only valid providers are: aws, azure, gcp and kubernetes.\n"
+                f"You MUST return a string with the Prowler provider. For now the only valid providers are: {', '.join(kwargs.get('valid_providers', {}))}\n"
                 "If the user does not provide the provider explicitly, you can try to infer it from the user prompt service or requirements.\n"
                 "In the case that you can't infer the provider from the user query for any reason, you must return 'unknown'.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
@@ -64,7 +65,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Extract the service from the user prompt.\n"
                 "You MUST return a string with the service name.\n"
-                f"For now the valid services for {kwargs.get('prowler_provider', '')} are:\n{[f'Prowler Service Name: {prowler_service_name}, Description: {description}\n' for prowler_service_name, description in kwargs.get('services', {}).items()]}\n"  # This line probably fails in older Python versions due to f-string
+                f"For now the valid services for {kwargs.get('prowler_provider', '')} are: {', '.join(kwargs.get('services', {}))}.\n"
                 "If the user does not provide the service explicitly, you can try to infer it from the user prompt requirements.\n"
                 "In the case that you can't infer the service from the user query for any reason or is currently not supported, you must return 'unknown'.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"

@@ -1,6 +1,5 @@
 from time import sleep
 
-import requests
 from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
@@ -15,15 +14,10 @@ from core.src.events import (
     CheckMetadataInformation,
     CheckMetadataResult,
 )
+from core.src.rag.vector_store import CheckMetadataVectorStore
 from core.src.utils.llm_structured_outputs import CheckMetadata
 from core.src.utils.model_chooser import llm_chooser
 from core.src.utils.prompt_loader import Step, load_prompt_template
-from core.src.utils.prowler_information import (
-    PROWLER_CHECKS,
-    SUPPORTED_PROVIDERS,
-    get_prowler_services,
-)
-from core.src.utils.rag import CheckDataManager, IndexedDataManager
 
 DEFAULT_ERROR_MESSAGE = "Sorry but I cannot create a Prowler check with that information, please try again introducing more context about the check that you want to create."
 
@@ -61,11 +55,22 @@ class ChecKreationWorkflow(Workflow):
                 await ctx.set("model_provider", start_event.get("model_provider"))
                 await ctx.set("model_reference", start_event.get("model_reference"))
 
+                check_metadata_vector_store = CheckMetadataVectorStore()
+
+                await ctx.set(
+                    "check_metadata_vector_store", check_metadata_vector_store
+                )
+
+                available_providers = (
+                    check_metadata_vector_store.check_inventory.get_available_providers()
+                )
+
                 is_prowler_check = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
                         step=Step.BASIC_FILTER,
                         model_reference=start_event.get("model_reference"),
                         user_query=user_query,
+                        valid_providers=available_providers,
                     )
                 )
 
@@ -79,6 +84,7 @@ class ChecKreationWorkflow(Workflow):
                                 step=Step.PROVIDER_EXTRACTION,
                                 model_reference=start_event.get("model_reference"),
                                 user_query=user_query,
+                                valid_providers=available_providers,
                             )
                         )
                     )
@@ -86,12 +92,15 @@ class ChecKreationWorkflow(Workflow):
                     .lower()
                 )
 
-                if prowler_provider not in SUPPORTED_PROVIDERS:
+                if prowler_provider not in available_providers:
                     return StopEvent(
-                        result=f"Sorry but I cannot create a Prowler check for that provider, please try again with a supported provider ({', '.join(SUPPORTED_PROVIDERS)})."
+                        result=f"Sorry but I cannot create a Prowler check for that provider, please try again with a supported provider ({', '.join(available_providers)})."
                     )
 
-                services_for_provider = get_prowler_services(prowler_provider)
+                # TODO: Add description for each service to improve the LLM predictions
+                services_for_provider = check_metadata_vector_store.check_inventory.get_available_services_in_provider(
+                    provider_name=prowler_provider
+                )
 
                 check_service = (
                     (
@@ -129,12 +138,12 @@ class ChecKreationWorkflow(Workflow):
         except ValueError as e:
             logger.error(str(e))
             return StopEvent(
-                result="An error occurred while processing the user input. Please try again., if the error persists, please contact the support team."
+                result="An error occurred while processing the user input. Please try again."
             )
         except Exception as e:
             logger.exception(e)
             return StopEvent(
-                result="An error occurred while processing the user input. Please try again., if the error persists, please contact the support team."
+                result="An error occurred while processing the user input. Please try again."
             )
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=3))
@@ -170,23 +179,14 @@ class ChecKreationWorkflow(Workflow):
                 )
             ).text.strip()
 
-            indexed_data_manager = IndexedDataManager()
-
-            check_manager = CheckDataManager(
-                indexed_data_manager=indexed_data_manager, similarity_top_k=10
+            check_metadata_vector_store = await ctx.get("check_metadata_vector_store")
+            check_already_exists = check_metadata_vector_store.check_exists(
+                check_description
             )
-
-            # Check if the check already exists in the index data
-
-            check_already_exists = check_manager.check_exists(check_description)
-
-            # Get relevant reference checks from the security analysis
-
-            reference_check_names = check_manager.get_relevant_checks(
+            reference_check_names = check_metadata_vector_store.get_related_checks(
                 check_description=check_description,
-                check_provider=check_basic_info.prowler_provider,
-                check_service=check_basic_info.service,
-            )
+                num_checks=15,
+            )[check_basic_info.prowler_provider][check_basic_info.service]
 
             if check_already_exists:
                 check_already_exists_message = (
@@ -196,16 +196,19 @@ class ChecKreationWorkflow(Workflow):
                 if reference_check_names:
                     check_already_exists_message += (
                         " Here is a list of related checks that you should check before creating a new one:\n"
-                        + "\n".join(f"- {check}" for check in reference_check_names)
+                        + "\n".join(f"- {check}" for check in reference_check_names[:3])
                     )
 
                 return StopEvent(result=check_already_exists_message)
 
             if not reference_check_names:
                 # Extract the first 5 checks from the service
-                reference_check_names = PROWLER_CHECKS.get(
-                    check_basic_info.prowler_provider, {}
-                ).get(check_basic_info.service, [])[:5]
+                reference_check_names = (
+                    check_metadata_vector_store.get_available_checks_in_service(
+                        provider_name=check_basic_info.prowler_provider,
+                        service_name=check_basic_info.service,
+                    )[:5]
+                )
 
             if not reference_check_names:
                 # TODO: Add a way to create a new check from scratch or searching other checks from other services
@@ -270,16 +273,19 @@ class ChecKreationWorkflow(Workflow):
         """
         logger.info("Creating check metadata...")
         try:
-            # Download the relevant check metadata from the Prowler repository to give as reference to the prompt
+            check_metadata_vector_store = await ctx.get("check_metadata_vector_store")
             relevant_checks_metadata = []
-
             MAX_STRUCTURED_ATTEMPS = 5
 
             for check_name in check_metadata_base_info.related_check_names:
-                metadata = requests.get(
-                    f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_metadata_base_info.prowler_provider}/services/{check_name.split('_')[0]}/{check_name}/{check_name}.metadata.json"
+                metadata = (
+                    check_metadata_vector_store.check_inventory.get_check_metadata(
+                        provider=check_metadata_base_info.prowler_provider,
+                        service=check_metadata_base_info.check_name.split("_")[0],
+                        check_id=check_name,
+                    )
                 )
-                relevant_checks_metadata.append(metadata.text)
+                relevant_checks_metadata.append(metadata)
 
             for i in range(MAX_STRUCTURED_ATTEMPS):
                 try:
@@ -357,17 +363,23 @@ class ChecKreationWorkflow(Workflow):
         """
         logger.info("Creating check code...")
         try:
+            check_metadata_vector_store = await ctx.get("check_metadata_vector_store")
             relevant_related_checks = []
 
             for check_name in check_code_info.related_check_names:
-                code = requests.get(
-                    f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_code_info.prowler_provider}/services/{check_name.split('_')[0]}/{check_name}/{check_name}.py"
+                code = check_metadata_vector_store.check_inventory.get_check_code(
+                    provider=check_code_info.prowler_provider,
+                    service=check_name.split("_")[0],
+                    check_id=check_name,
                 )
-                relevant_related_checks.append(code.text)
+                relevant_related_checks.append(code)
 
-            service_class_code = requests.get(
-                f"https://raw.githubusercontent.com/prowler-cloud/prowler/refs/heads/master/prowler/providers/{check_code_info.prowler_provider}/services/{check_name.split('_')[0]}/{check_name.split('_')[0]}_service.py"
-            ).text
+            service_class_code = (
+                check_metadata_vector_store.check_inventory.get_service_code(
+                    provider=check_code_info.prowler_provider,
+                    service=check_name.split("_")[0],
+                )
+            )
 
             relevant_related_checks = "\n\n--------\n\n".join(relevant_related_checks)
 

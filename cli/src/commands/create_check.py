@@ -22,6 +22,7 @@ from cli.src.views.prompts import (
     confirm_save_check,
     prompt_user_message,
 )
+from core.src.rag.vector_store import CheckMetadataVectorStore
 from core.src.workflow import ChecKreationWorkflow
 
 
@@ -66,14 +67,6 @@ def create_new_check(
         str,
         typer.Option(envvar="EMBEDDING_MODEL_API_KEY", help="Embedding model API key"),
     ] = "",  # TODO: review this because in a future it should support different keys for embedding models and LLM models
-    rag_path: Annotated[
-        str, typer.Option(help="Path to the indexed data storage", exists=True)
-    ] = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)),
-        "../../../",
-        "core",
-        "indexed_data_db",
-    ),
     log_level: Annotated[str, typer.Option(help="Log level to be used")] = "INFO",
     output_directory: Annotated[
         Path,
@@ -97,7 +90,6 @@ def create_new_check(
         model_reference: The specific model reference to use
         llm_api_key: LLM API key
         embedding_model_api_key: Embedding model API key
-        rag_path: Path to the indexed data storage
         log_level: Log level to be used
     """
     try:
@@ -119,7 +111,7 @@ def create_new_check(
             user_query = prompt_user_message()
 
         if user_query:
-            if os.path.exists(rag_path):
+            if os.path.exists(CheckMetadataVectorStore.DEFAULT_STORE_DIR):
                 set_app_log_level(log_level)
 
                 result = asyncio.run(
