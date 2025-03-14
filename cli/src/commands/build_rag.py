@@ -46,14 +46,10 @@ def build_check_rag(
         FileExistsError: If the RAG dataset already exists in the specified path
     """
     try:
-        DEFAULT_VECTOR_STORE_PATH = (
-            Path(__file__).resolve().parent.parent.parent / "core" / "indexed_data_db"
-        )
-
-        if DEFAULT_VECTOR_STORE_PATH.exists():
+        if CheckMetadataVectorStore.DEFAULT_STORE_DIR.exists():
             if overwrite is None:
                 overwrite = typer.confirm(
-                    f"RAG dataset already exists in the path: {DEFAULT_VECTOR_STORE_PATH.resolve()}. Do you want to overwrite it?"
+                    f"RAG dataset already exists in the path: {CheckMetadataVectorStore.DEFAULT_STORE_DIR.resolve()}. Do you want to overwrite it (only new changes will be added)?"
                 )
             if not overwrite:
                 raise typer.Exit(code=1)

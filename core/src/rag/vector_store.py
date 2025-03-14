@@ -3,7 +3,7 @@ import gzip
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from llama_index.core import (
     Settings,
@@ -19,10 +19,371 @@ from loguru import logger
 from core.src.utils.model_chooser import embedding_model_chooser
 
 
+def read_file(file_path: Path, json_load: bool = False) -> Union[str, dict]:
+    """
+    Safely reads file content, returning an empty string or dictionary if the file doesn't exist.
+
+    Args:
+        file_path: Path to the file to read.
+        json_load: If True, attempts to load the file content as JSON. Defaults to False.
+
+    Returns:
+        The content of the file (string or dictionary) or an empty string/dictionary if the file doesn't exist.
+
+    Raises:
+        FileNotFoundError: If the file does not exist.
+        json.JSONDecodeError: If json_load is True and the file content is not valid JSON.
+    """
+    if file_path.exists():
+        with open(file_path, "r") as f:
+            content = f.read()
+            if json_load:
+                try:
+                    return json.loads(content)
+                except json.JSONDecodeError as e:
+                    raise json.JSONDecodeError(
+                        f"Invalid JSON in file {file_path}: {e.msg}", e.doc, e.pos
+                    ) from e
+            else:
+                return content
+    else:
+        raise FileNotFoundError(f"File {file_path} not found.")
+
+
+####################################################################################################
+
+
+class CheckInventory:
+    """Manages the code and metadata of checks and services associated with an index of checks.
+
+    Attributes:
+        _check_inventory (dict): Inventory of checks and services. Nested dictionary with the following structure:
+            {
+                "provider_name": {
+                    "service_name": {
+                        "description": str,
+                        "code": str,
+                        "checks": {
+                            "check_id": {
+                                "metadata": str,
+                                "code": str,
+                                "fixer": str
+                            },
+                            ...
+                        }
+                    },
+                    ...
+                },
+                ...
+            }
+    """
+
+    def __init__(self, metadata: dict = {}):
+        self._check_inventory = metadata.get("check_inventory", {})
+
+    def to_dict(self):
+        """Returns the inventory as a dictionary."""
+        return self._check_inventory
+
+    def get_available_providers(self) -> set[str]:
+        """Retrieve the available providers.
+
+        Returns:
+            A set of available providers.
+        """
+        return set(self.check_inventory.keys())
+
+    def get_available_services_in_provider(self, provider_name: str) -> set[str]:
+        """Retrieve the available services for a given provider.
+
+        Args:
+            provider_name: The Prowler provider.
+
+        Returns:
+            A set of available services for the provider.
+        """
+        return set(self.check_inventory.get(provider_name, {}).keys())
+
+    def get_available_checks_in_service(
+        self, provider_name: str, service_name: str
+    ) -> set[str]:
+        """Retrieve the available checks for a given provider and service.
+
+        Args:
+            provider_name: The Prowler provider.
+            service_name: The service name.
+
+        Returns:
+            A set of available checks for the provider and service.
+        """
+        return set(
+            self.check_inventory.get(provider_name, {})
+            .get(service_name, {})
+            .get("checks", {})
+            .keys()
+        )
+
+    def update_check(self, check_dir: Path) -> bool:
+        """Update the check inventory with the check metadata, code, and fixer.
+
+        If the check does not exist in the inventory, it will be added. If the check already exists,
+        it will be updated only if the metadata/fixer/code are different, each one respectively.
+
+        Args:
+            check_dir: Directory where the check is located.
+
+        Returns:
+            True if the check was updated, False otherwise.
+        """
+        provider = check_dir.parents[2].name
+        service = check_dir.parent.name
+        check_id = check_dir.name
+
+        self._check_inventory.setdefault(provider, {}).setdefault(
+            service, {"description": "", "code": "", "checks": {}}
+        )["checks"].setdefault(check_id, {"metadata": "", "code": "", "fixer": ""})
+
+        updated = False
+
+        metadata_file = check_dir / f"{check_id}.metadata.json"
+        code_file = check_dir / f"{check_id}.py"
+        fixer_file = check_dir / f"{check_id}_fixer.py"
+
+        if self._update_metadata(provider, service, check_id, metadata_file):
+            updated = True
+        if self._update_code(provider, service, check_id, code_file):
+            updated = True
+        if self._update_fixer(provider, service, check_id, fixer_file):
+            updated = True
+
+        return updated
+
+    def update_service(self, service_dir: Path) -> bool:
+        """Update the service code in the check inventory.
+
+        If the service does not exist in the inventory, it will be added. If the service already exists,
+        it will be updated only if the service code is different.
+
+        Args:
+            service_dir: Directory where the service is located.
+
+        Returns:
+            True if the service was updated, False otherwise.
+        """
+        provider = service_dir.parent.parent.name
+        service = service_dir.name
+
+        self._check_inventory.setdefault(provider, {}).setdefault(
+            service, {"description": "", "code": "", "checks": {}}
+        )
+
+        updated = False
+        service_file_path = service_dir / f"{service}_service.py"
+
+        if service_file_path.exists():
+            repo_service_code = read_file(service_file_path)
+
+            if repo_service_code != self.get_service_code(provider, service):
+                self._check_inventory[provider][service]["code"] = (
+                    self._prepare_data_for_storage(repo_service_code)
+                )
+                updated = True
+
+        return updated
+
+    def get_service_code(self, provider: str, service: str) -> str:
+        """Retrieve the code of a service.
+
+        Args:
+            provider: The Prowler provider.
+            service: The service name.
+
+        Returns:
+            The code of the service.
+        """
+        return self._get_data_format_for_storage(
+            self._check_inventory.get(provider, {}).get(service, {}).get("code", "")
+        )
+
+    def get_check_metadata(self, provider: str, service: str, check_id: str) -> dict:
+        """Retrieve the metadata of a check.
+
+        Args:
+            provider: The Prowler provider.
+            service: The service name.
+            check_id: The check ID.
+
+        Returns:
+            The metadata of the check.
+        """
+        metadata_str = self._get_data_format_for_storage(
+            self._check_inventory.get(provider, {})
+            .get(service, {})
+            .get("checks", {})
+            .get(check_id, {})
+            .get("metadata", "")
+        )
+        if metadata_str != "":
+            return json.loads(metadata_str)
+        else:
+            return {}
+
+    def get_check_code(self, provider: str, service: str, check_id: str) -> str:
+        """Retrieve the code of a check.
+
+        Args:
+            provider: The Prowler provider.
+            service: The service name.
+            check_id: The check ID.
+
+        Returns:
+            The code of the check.
+        """
+        return self._get_data_format_for_storage(
+            self._check_inventory.get(provider, {})
+            .get(service, {})
+            .get("checks", {})
+            .get(check_id, {})
+            .get("code", "")
+        )
+
+    def get_check_fixer(self, provider: str, service: str, check_id: str) -> str:
+        """Retrieve the fixer of a check.
+
+        Args:
+            provider: The Prowler provider.
+            service: The service name.
+            check_id: The check ID.
+
+        Returns:
+            The fixer of the check.
+        """
+        return self._get_data_format_for_storage(
+            self._check_inventory.get(provider, {})
+            .get(service, {})
+            .get("checks", {})
+            .get(check_id, {})
+            .get("fixer", "")
+        )
+
+    # Private methods
+
+    def _update_metadata(self, provider, service, check_id, file_path) -> bool:
+        """Update the metadata of a check.
+
+        Args:
+            provider: The Prowler provider of the check.
+            service: The service name.
+            check_id: The ID of the check.
+            file_path: Path to the file containing the metadata.
+
+        Returns:
+            True if the metadata was updated, False otherwise.
+        """
+        if file_path.exists():
+            repo_content = read_file(file_path, json_load=True)
+            if repo_content != self.get_check_metadata(provider, service, check_id):
+                self._check_inventory[provider][service]["checks"][check_id][
+                    "metadata"
+                ] = self._prepare_data_for_storage(json.dumps(repo_content))
+                return True
+        return False
+
+    def _update_code(self, provider, service, check_id, file_path) -> bool:
+        """Update the code of a check.
+
+        Args:
+            provider: The Prowler provider of the check.
+            service: The service name.
+            check_id: The ID of the check.
+            file_path: Path to the file containing the code.
+
+        Returns:
+            True if the code was updated, False otherwise.
+        """
+        if file_path.exists():
+            repo_content = read_file(file_path)
+            if repo_content != self.get_check_code(provider, service, check_id):
+                self._check_inventory[provider][service]["checks"][check_id]["code"] = (
+                    self._prepare_data_for_storage(repo_content)
+                )
+                return True
+        return False
+
+    def _update_fixer(self, provider, service, check_id, file_path) -> bool:
+        """Update the fixer of a check.
+
+        Args:
+            provider: The Prowler provider of the check.
+            service: The service name.
+            check_id: The ID of the check.
+            file_path: Path to the file containing the fixer.
+
+        Returns:
+            True if the fixer was updated, False otherwise.
+        """
+        if file_path.exists():
+            repo_content = read_file(file_path)
+            if repo_content != self.get_check_fixer(provider, service, check_id):
+                self._check_inventory[provider][service]["checks"][check_id][
+                    "fixer"
+                ] = self._prepare_data_for_storage(repo_content)
+                return True
+        return False
+
+    # Storage format functions
+
+    def _prepare_data_for_storage(self, data: str) -> str:
+        """Compress and encode data for storage.
+
+        Args:
+            data: The data to compress and encode.
+
+        Returns:
+            The compressed and encoded data.
+        """
+        try:
+            return base64.b64encode(gzip.compress(data.encode())).decode()
+        except Exception as e:
+            raise Exception(f"Error preparing data for storage: {e}")
+
+    def _get_data_format_for_storage(self, data: str) -> str:
+        """Decompress and decode data for storage.
+
+        Args:
+            data: The data to decompress and decode.
+
+        Returns:
+            The decompressed and decoded data.
+        """
+        try:
+            return gzip.decompress(base64.b64decode(data)).decode()
+        except Exception as e:
+            raise Exception(f"Error getting data format for storage: {e}")
+
+
+####################################################################################################
+
+
 class CheckMetadataVectorStore:
-    _INDEX_METADATA_NAME = "index_metadata.json"
-    _DEFAULT_STORE_DIR = (
-        Path(__file__).resolve().parent.parent.parent / "indexed_data_db"
+    """Manages the indexing and retrieval of check metadata
+
+    Constants:
+        INDEX_METADATA_NAME (str): Name of the index metadata file.
+        DEFAULT_STORE_DIR (Path): Default path to the vector store.
+
+    Attributes:
+        _embedding_model_provider (str): Name of the embedding model provider.
+        _embedding_model_reference (str): Reference of the embedding model.
+        _index (VectorStoreIndex | None): Index of the check metadata.
+        check_inventory (CheckInventory): Inventory of checks and services.
+        _creation_date (str): Date when the index was created.
+        _last_updated (str | None): Date when the index was last updated.
+    """
+
+    INDEX_METADATA_NAME = "db_metadata.json"
+    DEFAULT_STORE_DIR = (
+        Path(__file__).resolve().parent.parent.parent / "indexed_check_metadata_db"
     )
 
     def __init__(
@@ -39,19 +400,25 @@ class CheckMetadataVectorStore:
             embedding_model_reference: Reference of the embedding model.
             model_api_key: API key to access the embedding model.
         """
-        self._index = None
-        self._check_inventory = {}
-        self._embedding_model_provider = None
-        self._embedding_model_reference = None
-
-        metadata_path = self._DEFAULT_STORE_DIR / self._INDEX_METADATA_NAME
+        metadata_path = self.DEFAULT_STORE_DIR / self.INDEX_METADATA_NAME
 
         if metadata_path.exists():
             self._load_existing_index(metadata_path, model_api_key)
         else:
-            self._initialize_new_index(
-                embedding_model_provider, embedding_model_reference, model_api_key
-            )
+            if not embedding_model_provider or not embedding_model_reference:
+                raise ValueError(
+                    "You must provide the embedding model provider and reference to create a new index."
+                )
+            else:
+                self._initialize_embedding_model(
+                    embedding_model_provider=embedding_model_provider,
+                    embedding_model_reference=embedding_model_reference,
+                    model_api_key=model_api_key,
+                )
+                self._index = None
+                self.check_inventory = CheckInventory()
+                self._creation_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                self._last_updated = None
 
     def build_check_vector_store(
         self,
@@ -65,124 +432,30 @@ class CheckMetadataVectorStore:
             prowler_directory_path: Path to the Prowler directory.
             overwrite: Whether to overwrite the existing index in the vector store.
         """
-        if self._index is not None and not overwrite:
-            raise Exception(
-                "An index already exists in the vector store. Set the 'overwrite' parameter to True to overwrite the existing index."
-            )
 
         try:
-            documents = self._load_checks_from_local_repo(prowler_directory_path)
-            self._index_documents(documents)
-            self._store_index_in_disk(
-                overwrite_with_other_model=overwrite,
-            )
+            if self._index is not None and not overwrite:
+                raise Exception(
+                    "An index already exists in the vector store. Set the 'overwrite' parameter to True to update the existing index."
+                )
+            else:
+                to_insert_documents = self._load_updated_checks_from_local_repo(
+                    prowler_directory_path
+                )
+
+                if self._index is not None and overwrite and to_insert_documents:
+                    for document in to_insert_documents:
+                        self._index.update_ref_doc(document)
+                elif self._index is None:
+                    self._index = VectorStoreIndex.from_documents(
+                        documents=to_insert_documents, show_progress=True
+                    )
+
+                self._store_index_in_disk(
+                    overwrite_with_other_model=overwrite,
+                )
         except Exception as e:
             raise Exception(f"Error building vector store: {e}")
-
-    def get_service_code(self, provider_name: str, service_name: str) -> str:
-        """Retrieve the code for a given service.
-
-        Args:
-            provider_name: The Prowler provider of the service.
-            service_name: The name of the service.
-
-        Returns:
-            The code of the service if found, otherwise raises a ValueError.
-
-        Raises:
-            ValueError: If an error occurs while retrieving the service code.
-        """
-        try:
-            return gzip.decompress(
-                base64.b64decode(
-                    self._check_inventory[provider_name][service_name]["code"]
-                )
-            ).decode("utf-8")
-        except Exception as e:
-            raise ValueError(f"Error retrieving service {service_name} code: {e}")
-
-    def get_check_metadata(self, provider_name: str, check_id: str) -> dict:
-        """Retrieve metadata for a given check ID.
-
-        Args:
-            provider_name: The Prowler provider of the check.
-            check_id: The ID of the check.
-
-        Returns:
-            The metadata of the check if found, otherwise raises a ValueError.
-
-        Raises:
-            ValueError: If an error occurs while retrieving the check metadata.
-        """
-        try:
-            return json.loads(
-                gzip.decompress(
-                    base64.b64decode(
-                        self._check_inventory[provider_name][check_id.split("_")[0]][
-                            "checks"
-                        ][check_id]["metadata"]
-                    )
-                ).decode("utf-8")
-            )
-
-        except KeyError:
-            raise ValueError(f"Check {check_id} not found for provider {provider_name}")
-        except Exception as e:
-            raise ValueError(
-                f"Error retrieving check metadata {check_id} for provider {provider_name}: {e}"
-            )
-
-    def get_check_code(self, provider_name: str, check_id: str) -> str:
-        """Retrieve code for a given check ID.
-
-        Args:
-            provider_name: The Prowler provider of the check.
-            check_id: The ID of the check.
-
-        Returns:
-            The code of the check if found, otherwise raises a ValueError.
-
-        Raises:
-            ValueError: If an error occurs while retrieving the check code.
-        """
-        try:
-            return gzip.decompress(
-                base64.b64decode(
-                    self._check_inventory[provider_name][check_id.split("_")[0]][
-                        "checks"
-                    ][check_id]["code"]
-                )
-            ).decode("utf-8")
-        except Exception as e:
-            raise ValueError(
-                f"Error retrieving check code {check_id} for provider {provider_name}: {e}"
-            )
-
-    def get_check_fixer(self, provider_name: str, check_id: str) -> str:
-        """Retrieve fixer for a given check ID.
-
-        Args:
-            provider_name: The Prowler provider of the check.
-            check_id: The ID of the check.
-
-        Returns:
-            The fixer of the check if found, otherwise raises a ValueError.
-
-        Raises:
-            ValueError: If an error occurs while retrieving the check fixer.
-        """
-        try:
-            return gzip.decompress(
-                base64.b64decode(
-                    self._check_inventory[provider_name][check_id.split("_")[0]][
-                        "checks"
-                    ][check_id]["fixer"]
-                )
-            ).decode("utf-8")
-        except Exception as e:
-            raise ValueError(
-                f"Error retrieving check fixer {check_id} for provider_name {provider_name}: {e}"
-            )
 
     def get_related_checks(
         self,
@@ -246,42 +519,6 @@ class CheckMetadataVectorStore:
         )
         return response.response.strip().lower() == "yes"
 
-    def get_available_providers(self) -> set[str]:
-        """Retrieve the available providers.
-
-        Returns:
-            A set of available providers.
-        """
-        return set(self._check_inventory.keys())
-
-    def get_available_services(self, provider_name: str) -> set[str]:
-        """Retrieve the available services for a given provider.
-
-        Args:
-            provider_name: The Prowler provider.
-
-        Returns:
-            A set of available services for the provider.
-        """
-        return set(self._check_inventory.get(provider_name, {}).keys())
-
-    def get_available_checks(self, provider_name: str, service_name: str) -> set[str]:
-        """Retrieve the available checks for a given provider and service.
-
-        Args:
-            provider_name: The Prowler provider.
-            service_name: The service name.
-
-        Returns:
-            A set of available checks for the provider and service.
-        """
-        return set(
-            self._check_inventory.get(provider_name, {})
-            .get(service_name, {})
-            .get("checks", {})
-            .keys()
-        )
-
     # Private methods
 
     def _load_existing_index(
@@ -293,43 +530,21 @@ class CheckMetadataVectorStore:
             metadata_path: Path to the index metadata file.
             model_api_key: API key
         """
-        metadata = self._read_json_file(metadata_path)
+        metadata = read_file(file_path=metadata_path, json_load=True)
 
         self._initialize_embedding_model(
             embedding_model_provider=metadata["model_provider"],
             embedding_model_reference=metadata["model_reference"],
             model_api_key=model_api_key,
         )
-        self._check_inventory = metadata["check_inventory"]
+        self.check_inventory = CheckInventory(metadata)
         self._index = load_index_from_storage(
             StorageContext.from_defaults(
-                persist_dir=str(metadata_path.parent),
+                persist_dir=str(self.DEFAULT_STORE_DIR),
             )
         )
-
-    def _initialize_new_index(
-        self,
-        embedding_model_provider: str,
-        embedding_model_reference: str,
-        model_api_key: Optional[str],
-    ) -> None:
-        """Initializes a new index.
-
-        Args:
-            embedding_model_provider: Name of the embedding model provider.
-            embedding_model_reference: Reference of the embedding model.
-            model_api_key: API key to access the embedding model.
-        """
-        if not embedding_model_provider or not embedding_model_reference:
-            raise ValueError(
-                "Please provide an embedding model provider and reference to initialize the CheckMetadataVectorStore."
-            )
-
-        self._initialize_embedding_model(
-            embedding_model_provider=embedding_model_provider,
-            embedding_model_reference=embedding_model_reference,
-            model_api_key=model_api_key,
-        )
+        self._creation_date = metadata.get("creation_date", "")
+        self._last_updated = metadata.get("last_updated", None)
 
     def _initialize_embedding_model(
         self,
@@ -356,34 +571,39 @@ class CheckMetadataVectorStore:
         except ValueError as e:
             raise ValueError(f"Error initializing embedding model: {e}")
 
-    def _load_checks_from_local_repo(
+    def _load_updated_checks_from_local_repo(
         self, prowler_directory_path: Path
     ) -> list[Document]:
-        """Extracts all data needed from the Prowler directory and converts it to a list of Document objects.
+        """Extracts only updated checks from the Prowler directory and converts them to a list of Document objects.
 
         Args:
             prowler_directory_path: Base path to the Prowler directory.
 
         Returns:
-            A list of Document objects containing the metadata extracted from the Prowler directory.
+            A list of Document objects containing the metadata of only updated checks.
 
         Raises:
             FileNotFoundError: If the providers directory does not exist.
         """
-        logger.info("Extracting checks from Prowler directory...")
+        logger.info("Extracting updated checks from Prowler directory...")
         providers_dir = prowler_directory_path / "prowler/providers"
         if not providers_dir.exists():
             raise FileNotFoundError(
                 f"Prowler providers directory not found: {providers_dir}"
             )
 
-        documents = []
+        updated_documents = []
         for metadata_file in providers_dir.rglob("*.metadata.json"):
-            document = self._create_check_document(check_dir=metadata_file.parent)
-            documents.append(document)
-            self._update_check_inventory(check_dir=metadata_file.parent)
+            # Actualizar servicio primero (puede ser necesario para el contexto del check)
+            self.check_inventory.update_service(metadata_file.parent.parent)
 
-        return documents
+            # Verificar si el check ha sido actualizado
+            if self.check_inventory.update_check(metadata_file.parent):
+                # Solo crear y añadir el documento si el check fue actualizado
+                document = self._create_check_document(check_dir=metadata_file.parent)
+                updated_documents.append(document)
+
+        return updated_documents
 
     def _create_check_document(self, check_dir: Path) -> Document:
         """Create LlamaIndex Document from check metadata.
@@ -394,12 +614,15 @@ class CheckMetadataVectorStore:
         Returns:
             A Document object containing the metadata extracted from the metadata file.
         """
-        metadata = self._read_json_file(check_dir / f"{check_dir.name}.metadata.json")
+        metadata = read_file(
+            file_path=(check_dir / f"{check_dir.name}.metadata.json"), json_load=True
+        )
 
         # Make relevant text fields searchable (Provider, CheckID, CheckTitle, ServiceName, Severity, Description, Risk, Notes)
         metadata_formatted = f"The check '{metadata['CheckID']}' titled '{metadata['CheckTitle']}' applies to the '{metadata['ServiceName']}' service in the provider '{metadata['Provider']}'. It has a severity of '{metadata['Severity']}'\n The description states: '{metadata['Description']}' The risk is '{metadata['Risk']}' Additional notes: '{metadata['Notes']}'"
 
         document = Document(
+            id_=f"{metadata['Provider']}_{metadata['CheckID']}",
             text=metadata_formatted,
             metadata={
                 "provider": metadata["Provider"],
@@ -412,113 +635,6 @@ class CheckMetadataVectorStore:
         )
 
         return document
-
-    def _update_check_inventory(self, check_dir: Path) -> None:
-        """Update the check inventory with the check metadata, code, fixer and service code.
-
-        Args:
-            check_dir: Directory where the check is located.
-        """
-        provider = check_dir.parents[2].name  # .../provider/.../service/check_id
-        service = check_dir.parent.name
-        check_id = check_dir.name
-
-        # Initialize defaults values if not exists
-        self._check_inventory.setdefault(provider, {}).setdefault(
-            service, {"description": "", "code": "", "checks": {}}
-        )["checks"].setdefault(check_id, {"metadata": {}, "code": "", "fixer": ""})
-
-        # If service code from the inventory and the actual service code are different, update the inventory
-
-        service_file_path = check_dir.parent / f"{service}_service.py"
-
-        if service_file_path.exists():
-            repo_service_code = self._read_file_content(service_file_path)
-
-            if self._check_inventory[provider][service]["code"] != repo_service_code:
-                self._check_inventory[provider][service]["code"] = base64.b64encode(
-                    gzip.compress(repo_service_code.encode(encoding="utf-8"))
-                ).decode("utf-8")
-
-        # Update the check metadata, code and fixer
-        self._check_inventory[provider][service]["checks"][check_id] = {
-            "metadata": base64.b64encode(
-                gzip.compress(
-                    json.dumps(
-                        self._read_json_file(check_dir / f"{check_id}.metadata.json")
-                    ).encode(encoding="utf-8")
-                )
-            ).decode("utf-8"),
-            "code": base64.b64encode(
-                gzip.compress(
-                    self._read_file_content(check_dir / f"{check_id}.py").encode(
-                        encoding="utf-8"
-                    )
-                )
-            ).decode("utf-8"),
-            "fixer": (
-                base64.b64encode(
-                    gzip.compress(
-                        self._read_file_content(
-                            check_dir / f"{check_id}_fixer.py"
-                        ).encode(encoding="utf-8")
-                    )
-                ).decode("utf-8")
-                if (check_dir / f"{check_id}_fixer.py").exists()
-                else ""
-            ),
-        }
-
-    def _read_json_file(self, file_path: Path) -> dict:
-        """Safely read a JSON file, returning an empty dictionary if the file doesn't exist
-
-        Args:
-            file_path: Path to the JSON file to read.
-
-        Returns:
-            The content of the JSON file or an empty dictionary if the file doesn't exist.
-
-        Raises:
-            FileNotFoundError: If the file does not exist.
-        """
-        if file_path.exists():
-            with open(file_path, "r") as f:
-                return json.load(f)
-        else:
-            raise FileNotFoundError(f"File {file_path} not found.")
-
-    def _read_file_content(self, file_path: Path) -> str:
-        """Safely read file content, returning empty string if file doesn't exist
-
-        Args:
-            file_path: Path to the file to read.
-
-        Returns:
-            The content of the file or an empty string if the file doesn't exist.
-
-        Raises:
-            FileNotFoundError: If the file does not exist.
-        """
-        if file_path.exists():
-            with open(file_path, "r") as f:
-                return f.read()
-        else:
-            raise FileNotFoundError(f"File {file_path} not found.")
-
-    def _index_documents(self, documents: list[Document]) -> None:
-        """
-        Indexes the documents in the vector store.
-
-        Args:
-            documents: A list of Document objects to be indexed.
-        """
-        logger.info("Indexing documents...")
-        try:
-            self._index = VectorStoreIndex.from_documents(
-                documents=documents, show_progress=True
-            )
-        except Exception as e:
-            raise Exception(f"Error indexing documents: {e}")
 
     def _store_index_in_disk(
         self,
@@ -535,13 +651,13 @@ class CheckMetadataVectorStore:
                 "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "model_provider": self._embedding_model_provider,
                 "model_reference": self._embedding_model_reference,
-                "check_inventory": self._check_inventory,
+                "check_inventory": self.check_inventory.to_dict(),
             }
 
-            if self._DEFAULT_STORE_DIR.exists():
+            if self.DEFAULT_STORE_DIR.exists():
                 # Load the past configuration
                 with open(
-                    self._DEFAULT_STORE_DIR / "index_metadata.json", "r"
+                    self.DEFAULT_STORE_DIR / self.INDEX_METADATA_NAME, "r"
                 ) as metadata_file:
                     store_index_metadata = json.load(metadata_file)
 
@@ -568,10 +684,10 @@ class CheckMetadataVectorStore:
                     "%Y-%m-%d %H:%M:%S"
                 )
 
-            self._index.storage_context.persist(self._DEFAULT_STORE_DIR)
+            self._index.storage_context.persist(self.DEFAULT_STORE_DIR)
             # Persist some metadata and check inventory
             with open(
-                self._DEFAULT_STORE_DIR / "index_metadata.json", "w"
+                self.DEFAULT_STORE_DIR / self.INDEX_METADATA_NAME, "w"
             ) as metadata_file:
                 json.dump(
                     store_index_metadata,
