@@ -123,41 +123,6 @@ class CheckInventory:
             .keys()
         )
 
-    def update_check(self, check_dir: Path) -> bool:
-        """Update the check inventory with the check metadata, code, and fixer.
-
-        If the check does not exist in the inventory, it will be added. If the check already exists,
-        it will be updated only if the metadata/fixer/code are different, each one respectively.
-
-        Args:
-            check_dir: Directory where the check is located.
-
-        Returns:
-            True if the check was updated, False otherwise.
-        """
-        provider = check_dir.parents[2].name
-        service = check_dir.parent.name
-        check_id = check_dir.name
-
-        self._check_inventory.setdefault(provider, {}).setdefault(
-            service, {"description": "", "code": "", "checks": {}}
-        )["checks"].setdefault(check_id, {"metadata": "", "code": "", "fixer": ""})
-
-        updated = False
-
-        metadata_file = check_dir / f"{check_id}.metadata.json"
-        code_file = check_dir / f"{check_id}.py"
-        fixer_file = check_dir / f"{check_id}_fixer.py"
-
-        if self._update_metadata(provider, service, check_id, metadata_file):
-            updated = True
-        if self._update_code(provider, service, check_id, code_file):
-            updated = True
-        if self._update_fixer(provider, service, check_id, fixer_file):
-            updated = True
-
-        return updated
-
     def update_service(self, service_dir: Path) -> bool:
         """Update the service code in the check inventory.
 
@@ -266,9 +231,7 @@ class CheckInventory:
             .get("fixer", "")
         )
 
-    # Private methods
-
-    def _update_metadata(self, provider, service, check_id, file_path) -> bool:
+    def update_check_metadata(self, provider, service, check_id, file_path) -> bool:
         """Update the metadata of a check.
 
         Args:
@@ -289,7 +252,7 @@ class CheckInventory:
                 return True
         return False
 
-    def _update_code(self, provider, service, check_id, file_path) -> bool:
+    def update_check_code(self, provider, service, check_id, file_path) -> bool:
         """Update the code of a check.
 
         Args:
@@ -310,7 +273,7 @@ class CheckInventory:
                 return True
         return False
 
-    def _update_fixer(self, provider, service, check_id, file_path) -> bool:
+    def update_check_fixer(self, provider, service, check_id, file_path) -> bool:
         """Update the fixer of a check.
 
         Args:
@@ -594,12 +557,28 @@ class CheckMetadataVectorStore:
 
         updated_documents = []
         for metadata_file in providers_dir.rglob("*.metadata.json"):
-            # Actualizar servicio primero (puede ser necesario para el contexto del check)
             self.check_inventory.update_service(metadata_file.parent.parent)
+            self.check_inventory.update_check_code(
+                provider=metadata_file.parents[3].name,
+                service=metadata_file.parents[1].name,
+                check_id=metadata_file.parent.name,
+                file_path=metadata_file.parent / f"{metadata_file.parent.name}.py",
+            )
+            self.check_inventory.update_check_fixer(
+                provider=metadata_file.parents[3].name,
+                service=metadata_file.parents[1].name,
+                check_id=metadata_file.parent.name,
+                file_path=metadata_file.parent
+                / f"{metadata_file.parent.name}_fixer.py",
+            )
 
-            # Verificar si el check ha sido actualizado
-            if self.check_inventory.update_check(metadata_file.parent):
-                # Solo crear y añadir el documento si el check fue actualizado
+            # Only rebuild the document if the metadata was updated because the document is only composed of metadata data
+            if self.check_inventory.update_check_metadata(
+                provider=metadata_file.parents[3].name,
+                service=metadata_file.parents[1].name,
+                check_id=metadata_file.parent.name,
+                file_path=metadata_file,
+            ):
                 document = self._create_check_document(check_dir=metadata_file.parent)
                 updated_documents.append(document)
 
