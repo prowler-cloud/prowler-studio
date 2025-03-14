@@ -10,7 +10,7 @@ class CheckInventory:
     """Manages the code and metadata of checks and services associated with an index of checks.
 
     Attributes:
-        _check_inventory (dict): Inventory of checks and services. Nested dictionary with the following structure:
+        _inventory (dict): Inventory of checks and services. Nested dictionary with the following structure:
             {
                 "provider_name": {
                     "service_name": {
@@ -32,11 +32,11 @@ class CheckInventory:
     """
 
     def __init__(self, metadata: dict = {}):
-        self._check_inventory = metadata.get("check_inventory", {})
+        self._inventory = metadata.get("check_inventory", {})
 
     def to_dict(self):
         """Returns the inventory as a dictionary."""
-        return self._check_inventory
+        return self._inventory
 
     def get_available_providers(self) -> set[str]:
         """Retrieve the available providers.
@@ -44,7 +44,7 @@ class CheckInventory:
         Returns:
             A set of available providers.
         """
-        return set(self.check_inventory.keys())
+        return set(self._inventory.keys())
 
     def get_available_services_in_provider(self, provider_name: str) -> set[str]:
         """Retrieve the available services for a given provider.
@@ -55,7 +55,7 @@ class CheckInventory:
         Returns:
             A set of available services for the provider.
         """
-        return set(self.check_inventory.get(provider_name, {}).keys())
+        return set(self._inventory.get(provider_name, {}).keys())
 
     def get_available_checks_in_service(
         self, provider_name: str, service_name: str
@@ -70,7 +70,7 @@ class CheckInventory:
             A set of available checks for the provider and service.
         """
         return set(
-            self.check_inventory.get(provider_name, {})
+            self._inventory.get(provider_name, {})
             .get(service_name, {})
             .get("checks", {})
             .keys()
@@ -91,7 +91,7 @@ class CheckInventory:
         provider = service_dir.parent.parent.name
         service = service_dir.name
 
-        self._check_inventory.setdefault(provider, {}).setdefault(
+        self._inventory.setdefault(provider, {}).setdefault(
             service, {"description": "", "code": "", "checks": {}}
         )
 
@@ -102,7 +102,7 @@ class CheckInventory:
             repo_service_code = read_file(service_file_path)
 
             if repo_service_code != self.get_service_code(provider, service):
-                self._check_inventory[provider][service]["code"] = (
+                self._inventory[provider][service]["code"] = (
                     self._prepare_data_for_storage(repo_service_code)
                 )
                 updated = True
@@ -120,7 +120,7 @@ class CheckInventory:
             The code of the service.
         """
         return self._get_data_format_for_storage(
-            self._check_inventory.get(provider, {}).get(service, {}).get("code", "")
+            self._inventory.get(provider, {}).get(service, {}).get("code", "")
         )
 
     def get_check_metadata(self, provider: str, service: str, check_id: str) -> dict:
@@ -135,7 +135,7 @@ class CheckInventory:
             The metadata of the check.
         """
         metadata_str = self._get_data_format_for_storage(
-            self._check_inventory.get(provider, {})
+            self._inventory.get(provider, {})
             .get(service, {})
             .get("checks", {})
             .get(check_id, {})
@@ -158,7 +158,7 @@ class CheckInventory:
             The code of the check.
         """
         return self._get_data_format_for_storage(
-            self._check_inventory.get(provider, {})
+            self._inventory.get(provider, {})
             .get(service, {})
             .get("checks", {})
             .get(check_id, {})
@@ -177,7 +177,7 @@ class CheckInventory:
             The fixer of the check.
         """
         return self._get_data_format_for_storage(
-            self._check_inventory.get(provider, {})
+            self._inventory.get(provider, {})
             .get(service, {})
             .get("checks", {})
             .get(check_id, {})
@@ -199,9 +199,9 @@ class CheckInventory:
         if file_path.exists():
             repo_content = read_file(file_path, json_load=True)
             if repo_content != self.get_check_metadata(provider, service, check_id):
-                self._check_inventory[provider][service]["checks"][check_id][
-                    "metadata"
-                ] = self._prepare_data_for_storage(json.dumps(repo_content))
+                self._inventory[provider][service]["checks"][check_id]["metadata"] = (
+                    self._prepare_data_for_storage(json.dumps(repo_content))
+                )
                 return True
         return False
 
@@ -220,7 +220,7 @@ class CheckInventory:
         if file_path.exists():
             repo_content = read_file(file_path)
             if repo_content != self.get_check_code(provider, service, check_id):
-                self._check_inventory[provider][service]["checks"][check_id]["code"] = (
+                self._inventory[provider][service]["checks"][check_id]["code"] = (
                     self._prepare_data_for_storage(repo_content)
                 )
                 return True
@@ -241,9 +241,9 @@ class CheckInventory:
         if file_path.exists():
             repo_content = read_file(file_path)
             if repo_content != self.get_check_fixer(provider, service, check_id):
-                self._check_inventory[provider][service]["checks"][check_id][
-                    "fixer"
-                ] = self._prepare_data_for_storage(repo_content)
+                self._inventory[provider][service]["checks"][check_id]["fixer"] = (
+                    self._prepare_data_for_storage(repo_content)
+                )
                 return True
         return False
 

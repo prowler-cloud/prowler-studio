@@ -111,7 +111,7 @@ def create_new_check(
             user_query = prompt_user_message()
 
         if user_query:
-            if os.path.exists(CheckMetadataVectorStore.DEFAULT_VECTOR_STORE_PATH):
+            if os.path.exists(CheckMetadataVectorStore.DEFAULT_STORE_DIR):
                 set_app_log_level(log_level)
 
                 result = asyncio.run(

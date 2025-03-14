@@ -62,7 +62,7 @@ class ChecKreationWorkflow(Workflow):
                 )
 
                 available_providers = (
-                    check_metadata_vector_store.get_available_providers()
+                    check_metadata_vector_store.check_inventory.get_available_providers()
                 )
 
                 is_prowler_check = await Settings.llm.acomplete(
@@ -92,20 +92,14 @@ class ChecKreationWorkflow(Workflow):
                     .lower()
                 )
 
-                supported_providers = (
-                    check_metadata_vector_store.get_available_providers()
-                )
-
-                if prowler_provider not in supported_providers:
+                if prowler_provider not in available_providers:
                     return StopEvent(
-                        result=f"Sorry but I cannot create a Prowler check for that provider, please try again with a supported provider ({', '.join(supported_providers)})."
+                        result=f"Sorry but I cannot create a Prowler check for that provider, please try again with a supported provider ({', '.join(available_providers)})."
                     )
 
                 # TODO: Add description for each service to improve the LLM predictions
-                services_for_provider = (
-                    check_metadata_vector_store.get_available_services(
-                        provider_name=prowler_provider
-                    )
+                services_for_provider = check_metadata_vector_store.check_inventory.get_available_services_in_provider(
+                    provider_name=prowler_provider
                 )
 
                 check_service = (
@@ -144,12 +138,12 @@ class ChecKreationWorkflow(Workflow):
         except ValueError as e:
             logger.error(str(e))
             return StopEvent(
-                result="An error occurred while processing the user input. Please try again., if the error persists, please contact the support team."
+                result="An error occurred while processing the user input. Please try again."
             )
         except Exception as e:
             logger.exception(e)
             return StopEvent(
-                result="An error occurred while processing the user input. Please try again., if the error persists, please contact the support team."
+                result="An error occurred while processing the user input. Please try again."
             )
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=3))
@@ -202,7 +196,7 @@ class ChecKreationWorkflow(Workflow):
                 if reference_check_names:
                     check_already_exists_message += (
                         " Here is a list of related checks that you should check before creating a new one:\n"
-                        + "\n".join(f"- {check}" for check in reference_check_names)
+                        + "\n".join(f"- {check}" for check in reference_check_names[:3])
                     )
 
                 return StopEvent(result=check_already_exists_message)
@@ -210,7 +204,7 @@ class ChecKreationWorkflow(Workflow):
             if not reference_check_names:
                 # Extract the first 5 checks from the service
                 reference_check_names = (
-                    check_metadata_vector_store.get_available_checks(
+                    check_metadata_vector_store.get_available_checks_in_service(
                         provider_name=check_basic_info.prowler_provider,
                         service_name=check_basic_info.service,
                     )[:5]
@@ -284,9 +278,12 @@ class ChecKreationWorkflow(Workflow):
             MAX_STRUCTURED_ATTEMPS = 5
 
             for check_name in check_metadata_base_info.related_check_names:
-                metadata = check_metadata_vector_store.get_check_metadata(
-                    provider_name=check_metadata_base_info.prowler_provider,
-                    check_id=check_name,
+                metadata = (
+                    check_metadata_vector_store.check_inventory.get_check_metadata(
+                        provider=check_metadata_base_info.prowler_provider,
+                        service=check_metadata_base_info.check_name.split("_")[0],
+                        check_id=check_name,
+                    )
                 )
                 relevant_checks_metadata.append(metadata)
 
@@ -370,14 +367,18 @@ class ChecKreationWorkflow(Workflow):
             relevant_related_checks = []
 
             for check_name in check_code_info.related_check_names:
-                code = check_metadata_vector_store.get_check_code(
-                    provider_name=check_code_info.prowler_provider, check_id=check_name
+                code = check_metadata_vector_store.check_inventory.get_check_code(
+                    provider=check_code_info.prowler_provider,
+                    service=check_name.split("_")[0],
+                    check_id=check_name,
                 )
                 relevant_related_checks.append(code)
 
-            service_class_code = check_metadata_vector_store.get_service_code(
-                provider_name=check_code_info.prowler_provider,
-                service_name=check_name.split("_")[0],
+            service_class_code = (
+                check_metadata_vector_store.check_inventory.get_service_code(
+                    provider=check_code_info.prowler_provider,
+                    service=check_name.split("_")[0],
+                )
             )
 
             relevant_related_checks = "\n\n--------\n\n".join(relevant_related_checks)
