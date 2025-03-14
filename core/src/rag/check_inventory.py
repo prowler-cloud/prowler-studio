@@ -76,39 +76,6 @@ class CheckInventory:
             .keys()
         )
 
-    def update_service(self, service_dir: Path) -> bool:
-        """Update the service code in the check inventory.
-
-        If the service does not exist in the inventory, it will be added. If the service already exists,
-        it will be updated only if the service code is different.
-
-        Args:
-            service_dir: Directory where the service is located.
-
-        Returns:
-            True if the service was updated, False otherwise.
-        """
-        provider = service_dir.parent.parent.name
-        service = service_dir.name
-
-        self._inventory.setdefault(provider, {}).setdefault(
-            service, {"description": "", "code": "", "checks": {}}
-        )
-
-        updated = False
-        service_file_path = service_dir / f"{service}_service.py"
-
-        if service_file_path.exists():
-            repo_service_code = read_file(service_file_path)
-
-            if repo_service_code != self.get_service_code(provider, service):
-                self._inventory[provider][service]["code"] = (
-                    self._prepare_data_for_storage(repo_service_code)
-                )
-                updated = True
-
-        return updated
-
     def get_service_code(self, provider: str, service: str) -> str:
         """Retrieve the code of a service.
 
@@ -183,6 +150,39 @@ class CheckInventory:
             .get(check_id, {})
             .get("fixer", "")
         )
+
+    def update_service(self, service_dir: Path) -> bool:
+        """Update the service code in the check inventory.
+
+        If the service does not exist in the inventory, it will be added. If the service already exists,
+        it will be updated only if the service code is different.
+
+        Args:
+            service_dir: Directory where the service is located.
+
+        Returns:
+            True if the service was updated, False otherwise.
+        """
+        provider = service_dir.parent.parent.name
+        service = service_dir.name
+
+        self._inventory.setdefault(provider, {}).setdefault(
+            service, {"description": "", "code": "", "checks": {}}
+        )
+
+        updated = False
+        service_file_path = service_dir / f"{service}_service.py"
+
+        if service_file_path.exists():
+            repo_service_code = read_file(service_file_path)
+
+            if repo_service_code != self.get_service_code(provider, service):
+                self._inventory[provider][service]["code"] = (
+                    self._prepare_data_for_storage(repo_service_code)
+                )
+                updated = True
+
+        return updated
 
     def update_check_metadata(self, provider, service, check_id, file_path) -> bool:
         """Update the metadata of a check.
