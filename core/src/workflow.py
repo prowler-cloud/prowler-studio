@@ -322,35 +322,6 @@ class ChecKreationWorkflow(Workflow):
             logger.exception(e)
             return StopEvent(result=DEFAULT_ERROR_MESSAGE)
 
-    # FOR NOW THIS IS NOT GONNA BE USED
-    # @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=5))
-    # async def create_check_tests(
-    #     self, ctx: Context, check_test_info: CheckTestInformation
-    # ) -> CheckTestsResult:
-    #     """Create the Prowler check tests based on the user input.
-
-    #     Args:
-    #         ctx: Workflow context.
-    #         check_metadata: Structured information extracted from the user query to create the check metadata.
-    #     """
-    #     logger.info("Creating check tests...")
-    #     try:
-    #         check_tests = await Settings.llm.acomplete(
-    #             prompt=load_prompt_template(
-    #                 step=Step.CHECK_TESTS_GENERATION,
-    #                 model_reference=await ctx.get("model_reference"),
-    #                 check_name=check_test_info.check_name,
-    #                 base_cases_and_steps=check_test_info.base_cases_and_steps,
-    #             )
-    #         )
-
-    #         return CheckTestsResult(check_tests=check_tests.text)
-
-    #     except ValueError as e:
-    #         logger.error(str(e))
-    #     except Exception as e:
-    #         logger.exception(e)
-
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=8))
     async def create_check_code(
         self, ctx: Context, check_code_info: CheckCodeInformation

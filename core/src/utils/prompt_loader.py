@@ -1,9 +1,5 @@
 from enum import Enum
 
-from core.src.utils.workflow_check_creation_examples import (
-    EXAMPLE_CHECK_CREATION_WORKFLOW,
-)
-
 
 class Step(str, Enum):
     BASIC_FILTER = "basic_filter"
@@ -13,7 +9,6 @@ class Step(str, Enum):
     CHECK_BASE_CASES_AND_STEPS_EXTRACTION = "check_base_cases_and_steps_extraction"
     CHECK_NAME_DESIGN = "check_name_design"
     CHECK_METADATA_GENERATION = "check_metadata_generation"
-    CHECK_TESTS_GENERATION = "check_tests_generation"
     CHECK_CODE_GENERATION = "check_code_generation"
     PRETIFY_FINAL_ANSWER = "pretify_final_answer"
     REMEDIATION_GENERATION = "remediation_generation"
@@ -29,19 +24,8 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
     """
 
     SYSTEM_CONTEXT_PROMPT = """You are a security engineer specialized in cloud security and python developing working in a cloud security tool called Prowler. Mainly you work in all the parts of the proccess of check creation, a check is an automated security control that checks a specific security best practice in a cloud provider service.\n
-    A check is composed by three parts: the Python code that checks the security best practice, the metadata that contains extra information like description, recommendations, etc. and the tests that set the base cases that the check should cover to ensure that the check is following the security best practice.\n
+    A check is composed by two parts: the Python code that using the the proper Python SDK audit for ensure the security best practice are being follwed and the metadata that contains extra information useful for the user like the description, the severity of the check, the risk, the remediation steps, etc.\n
     When a check is executed by Prowler it generates a finding with a status (PASS, FAIL, INFO) that indicates if the security best practice is being followed or not, and other relevant information for the user like the ID of resource affected and a extended status to give more information about the finding.\n"""
-
-    EXAMPLE_USER_QUERIES = {
-        "aws": ["make a check to ensure that the S3 bucket is not public."],
-        "azure": ["how can I ensure that my Entra policy is secure?"],
-        "gcp": [
-            "create a check to ensure BigQuery datasets are encrypted with Customer-Managed Keys (CMKs)."
-        ],
-        "kubernetes": [
-            "create a check to ensure that in my k8s cluster the secrets are not stored in the environment variables."
-        ],
-    }
 
     RAW_PROMPT_TEMPLATES = {
         "generic": {
@@ -103,32 +87,6 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"{30 * '-'}\n"
                 "Complete only the next task:\n"
                 f"Check description: {kwargs.get('check_description', '')}\n The CheckID MUST be: {kwargs.get('check_name', '')} and the Provider MUST be: {kwargs.get('prowler_provider', '')}\n"
-            ),
-            Step.CHECK_TESTS_GENERATION: (
-                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
-                "Generate the Prowler check tests based on the base cases.\n"
-                "Tests will be the base case that the check should cover to ensure that the check is following the security best practice.\n"
-                "Please first extract from the security analysis the base cases that the check should cover and then generate the tests based on the base cases.\n"
-                "IMPORTANT NOTES: - The ONLY status accepted is 'FAIL', 'PASS or 'INFO'. Please do not include any other status and if it is possible not use INFO status because it is not recommended.\n- All dependencies that you consider that is needed is already in Prowler so you do not need to worry about it.\n"
-                "In the next lines you can see some examples of the task that you must do.\n"
-                f"{30 * '-'}\n"
-                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['aws'][0]]['security_analysis']}\n"
-                f"Base cases study: {'\n'.join(EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['aws'][0]]['base_case_scenarios'])}\n"
-                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['aws'][0]]['check_tests']}\n"
-                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['azure'][0]]['security_analysis']}\n"
-                f"Base cases study: {'\n'.join(EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['azure'][0]]['base_case_scenarios'])}\n"
-                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['azure'][0]]['check_tests']}\n"
-                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['gcp'][0]]['security_analysis']}\n"
-                f"Base cases study: {'\n'.join(EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['gcp'][0]]['base_case_scenarios'])}\n"
-                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['gcp'][0]]['check_tests']}\n"
-                f"Security analysis: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['kubernetes'][0]]['security_analysis']}\n"
-                f"Base cases study: {'\n'.join(EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['kubernetes'][0]]['base_case_scenarios'])}\n"
-                f"Check Tests: {EXAMPLE_CHECK_CREATION_WORKFLOW[EXAMPLE_USER_QUERIES['kubernetes'][0]]['check_tests']}\n"
-                f"{30 * '-'}\n"
-                "Complete only the next task:\n"
-                f"Security analysis: The check name MUST be: {kwargs.get('check_name', '')}"
-                f"Base cases study: {kwargs.get('base_cases_and_steps', '')}\n"
-                f"Check Tests: "
             ),
             Step.CHECK_CODE_GENERATION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
