@@ -44,15 +44,12 @@ class ChecKreationWorkflow(Workflow):
             user_query = start_event.get("user_query", "")
 
             if user_query:
-                await ctx.set("user_query", user_query)
-
                 Settings.llm = llm_chooser(
                     model_provider=start_event.get("model_provider", ""),
                     model_reference=start_event.get("model_reference", ""),
                     api_key=start_event.get("api_key", ""),
                 )
 
-                await ctx.set("model_provider", start_event.get("model_provider"))
                 await ctx.set("model_reference", start_event.get("model_reference"))
 
                 check_metadata_vector_store = CheckMetadataVectorStore()
@@ -128,8 +125,22 @@ class ChecKreationWorkflow(Workflow):
                         result=f"Sorry but the check service that you are trying to create is not supported in {prowler_provider} provider, please try again with a supported service: {', '.join(services_for_provider)}."
                     )
 
+                # Summary of the user input to create the check
+
+                user_input_summary = await Settings.llm.acomplete(
+                    prompt=load_prompt_template(
+                        step=Step.USER_INPUT_SUMMARY,
+                        model_reference=start_event.get("model_reference"),
+                        user_query=user_query,
+                        prowler_provider=prowler_provider,
+                        service=check_service,
+                    )
+                )
+
                 return CheckBasicInformation(
-                    prowler_provider=prowler_provider, service=check_service
+                    user_input_summary=user_input_summary.text.strip(),
+                    prowler_provider=prowler_provider,
+                    service=check_service,
                 )
 
             else:
@@ -158,35 +169,33 @@ class ChecKreationWorkflow(Workflow):
         """
         logger.info("Making security analysis...")
         try:
-            base_cases_and_steps = (
-                await Settings.llm.acomplete(
-                    prompt=load_prompt_template(
-                        step=Step.CHECK_BASE_CASES_AND_STEPS_EXTRACTION,
-                        model_reference=await ctx.get("model_reference"),
-                        user_query=await ctx.get("user_query"),
-                    )
-                )
-            ).text.strip()
-
-            check_description = (
-                await Settings.llm.acomplete(
-                    prompt=load_prompt_template(
-                        step=Step.CHECK_DESCRIPTION_GENERATION,
-                        model_reference=await ctx.get("model_reference"),
-                        user_query=await ctx.get("user_query"),
-                        base_cases_and_steps=base_cases_and_steps,
-                    )
-                )
-            ).text.strip()
-
             check_metadata_vector_store = await ctx.get("check_metadata_vector_store")
             check_already_exists = check_metadata_vector_store.check_exists(
-                check_description
+                check_description=check_basic_info.user_input_summary
             )
-            reference_check_names = check_metadata_vector_store.get_related_checks(
-                check_description=check_description,
-                num_checks=15,
-            )[check_basic_info.prowler_provider][check_basic_info.service]
+            reference_check_names = (
+                check_metadata_vector_store.get_related_checks(
+                    check_description=check_basic_info.user_input_summary,
+                    num_checks=15,
+                )
+                .get(check_basic_info.prowler_provider, {})
+                .get(check_basic_info.service, [])
+            )
+
+            if not reference_check_names:
+                # Extract the first 5 checks from the service
+                reference_check_names = (
+                    check_metadata_vector_store.get_available_checks_in_service(
+                        provider_name=check_basic_info.prowler_provider,
+                        service_name=check_basic_info.service,
+                    )[:5]
+                )
+
+                if not reference_check_names:
+                    # TODO: Add a way to create a new check from scratch or searching other checks from other services
+                    return StopEvent(
+                        result="Sorry but I cannot create a new check for this service because there are no checks available for it."
+                    )
 
             if check_already_exists:
                 check_already_exists_message = (
@@ -201,30 +210,15 @@ class ChecKreationWorkflow(Workflow):
 
                 return StopEvent(result=check_already_exists_message)
 
-            if not reference_check_names:
-                # Extract the first 5 checks from the service
-                reference_check_names = (
-                    check_metadata_vector_store.get_available_checks_in_service(
-                        provider_name=check_basic_info.prowler_provider,
-                        service_name=check_basic_info.service,
-                    )[:5]
-                )
-
-            if not reference_check_names:
-                # TODO: Add a way to create a new check from scratch or searching other checks from other services
-                return StopEvent(
-                    result="\nIt seems that there are no checks available for this service in Prowler, sorry but I cannot create a new check for you."
-                )
-
             check_name = (
                 (
                     await Settings.llm.acomplete(
                         prompt=load_prompt_template(
                             step=Step.CHECK_NAME_DESIGN,
                             model_reference=await ctx.get("model_reference"),
-                            user_query=await ctx.get("user_query"),
+                            user_query=check_basic_info.user_input_summary,
                             service=check_basic_info.service,
-                            check_description=check_description,
+                            check_description=check_basic_info.user_input_summary,
                             relevant_related_checks=reference_check_names,
                         )
                     )
@@ -236,13 +230,22 @@ class ChecKreationWorkflow(Workflow):
             if check_name.split("_")[0] != check_basic_info.service:
                 return StopEvent(result=DEFAULT_ERROR_MESSAGE)
 
+            audit_steps = (
+                await Settings.llm.acomplete(
+                    prompt=load_prompt_template(
+                        step=Step.AUDIT_STEPS_EXTRACTION,
+                        model_reference=await ctx.get("model_reference"),
+                        user_query=check_basic_info.user_input_summary,
+                    )
+                )
+            ).text.strip()
+
             check_path = f"prowler/providers/{check_basic_info.prowler_provider}/services/{check_basic_info.service}/{check_name}"
             await ctx.set("check_path", check_path)
 
             ctx.send_event(
                 CheckMetadataInformation(
                     check_name=check_name,
-                    check_description=check_description,
                     prowler_provider=check_basic_info.prowler_provider,
                     related_check_names=reference_check_names,
                 )
@@ -250,16 +253,15 @@ class ChecKreationWorkflow(Workflow):
             ctx.send_event(
                 CheckCodeInformation(
                     check_name=check_name,
-                    base_cases_and_steps=base_cases_and_steps,
+                    # base_cases_and_steps=TBD,
                     related_check_names=reference_check_names,
                     prowler_provider=check_basic_info.prowler_provider,
                 )
             )
 
-        except ValueError as e:
-            logger.error(str(e))
         except Exception as e:
-            logger.exception(e)
+            logger.exception(f"An error occurred while analyzing the user input: {e}")
+            return StopEvent(result="An error occurred while analyzing the user input.")
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=5))
     async def create_check_metadata(

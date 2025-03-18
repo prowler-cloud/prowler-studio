@@ -7,6 +7,9 @@ from core.src.utils.llm_structured_outputs import CheckMetadata
 class CheckBasicInformation(Event):
     """Event representing basic information for cloud security assessments after user input analysis."""
 
+    user_input_summary: str = Field(
+        description="Summary of the user input analysis for the check"
+    )
     prowler_provider: str = Field(
         description="Prowler provider to use for the check creation"
     )
@@ -16,10 +19,12 @@ class CheckBasicInformation(Event):
 
 
 class CheckMetadataInformation(Event):
-    """Event representing the information needed to generate check metadata for cloud security assessments after user input analysis."""
+    """Event representing the information needed to generate check metadata for cloud security assessments after more in depth user input analysis."""
 
     check_name: str = Field(description="Name of the check to create")
-    check_description: str = Field(description="Short description of the check")
+    user_input_summary: str = Field(
+        description="Summary of the user input analysis for the check"
+    )
     prowler_provider: str = Field(
         description="Cloud provider to use for the check creation"
     )
@@ -28,13 +33,16 @@ class CheckMetadataInformation(Event):
     )
 
 
-class CheckTestInformation(Event):
-    """Event representing information needed to create tests for the check."""
+# class CheckServiceInformation(Event):
+#     """Event representing the information needed to modify the service to be able to create a new check."""
 
-    check_name: str = Field(description="Name of the check to create")
-    base_cases_and_steps: str = Field(
-        description="Base cases and steps to identify the security issue"
-    )
+#     service_name: str = Field(description="Name of the service to modify")
+#     related_check_names: list = Field(
+#         description="List of related check names to the check being created"
+#     )
+#     prowler_provider: str = Field(
+#         description="Cloud provider to use for the check creation"
+#     )
 
 
 class CheckCodeInformation(Event):

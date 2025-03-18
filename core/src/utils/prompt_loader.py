@@ -6,9 +6,8 @@ class Step(str, Enum):
     PROVIDER_EXTRACTION = "provider_extraction"
     SERVICE_EXTRACTION = "service_extraction"
     USER_INPUT_SUMMARY = "user_input_summary"
-
-    CHECK_DESCRIPTION_GENERATION = "check_description_generation"
     CHECK_NAME_DESIGN = "check_name_design"
+    AUDIT_STEPS_EXTRACTION = "audit_steps_extraction"
     CHECK_METADATA_GENERATION = "check_metadata_generation"
     CHECK_CODE_GENERATION = "check_code_generation"
     PRETIFY_FINAL_ANSWER = "pretify_final_answer"
@@ -64,19 +63,6 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "The summary MUST be shorter or equal than the user prompt.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
-            # Step.CHECK_BASE_CASES_AND_STEPS_EXTRACTION: (
-            #     f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
-            #     "From the user prompt, extract the security analysis.\n"
-            #     "In this analysis you must include the base cases that the check should cover to ensure that the infrastructure is following the security best practice, please try to fit the base cases only to the user prompt, do not include base cases from other checks. "
-            #     "And the steps at conceptual level to identify the security issue, please focus on waht kind of resources to audit, what field of configurations to check, etc. Please do not include any code or what technology should be used to check the security best practice.\n"
-            #     f"User prompt: {kwargs.get('user_query', '')}\n"
-            # ),
-            Step.CHECK_DESCRIPTION_GENERATION: (
-                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
-                "Based on user prompt and behaviour of the check, give me a summary description of the check. Try to be as concise as possible and does not include the status or the provider, only a generic description of what check does.\n"
-                f"User prompt: {kwargs.get('user_query', '')}\n"
-                f"Base cases and steps to audit (behaviour): {kwargs.get('base_cases_and_steps', '')}\n"
-            ),
             Step.CHECK_NAME_DESIGN: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Design the check name based on the user prompt. The check name should follow the Prowler check naming convention: <service>_<best_practice>.\n"
@@ -84,6 +70,11 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"Check Description: {kwargs.get('check_description', '')}\n"
                 f"Here you can consult some examples of check names that are more similar to the extracted security description: {kwargs.get('relevant_related_checks', '')}\n"
                 "You MUST return a string ONLY with the check name.\n"
+                f"User prompt: {kwargs.get('user_query', '')}\n"
+            ),
+            Step.AUDIT_STEPS_EXTRACTION: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Extract the audit steps from the user check summary. You should extact the steps that will be followed in the check progammatically at a high level to successfully audit the proposed request, you don't need to give details about the calls just the high level concepts.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
             Step.CHECK_METADATA_GENERATION: (
