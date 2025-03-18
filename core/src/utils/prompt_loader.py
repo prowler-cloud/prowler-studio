@@ -5,8 +5,9 @@ class Step(str, Enum):
     BASIC_FILTER = "basic_filter"
     PROVIDER_EXTRACTION = "provider_extraction"
     SERVICE_EXTRACTION = "service_extraction"
+    USER_INPUT_SUMMARY = "user_input_summary"
+
     CHECK_DESCRIPTION_GENERATION = "check_description_generation"
-    CHECK_BASE_CASES_AND_STEPS_EXTRACTION = "check_base_cases_and_steps_extraction"
     CHECK_NAME_DESIGN = "check_name_design"
     CHECK_METADATA_GENERATION = "check_metadata_generation"
     CHECK_CODE_GENERATION = "check_code_generation"
@@ -33,7 +34,10 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Your main task is act as a filter, you should decide if the user prompt is a valid prompt to create a check or not.\n"
                 "You MUST return 'yes' if the user prompt is a valid prompt to create a check, otherwise return in a friendly way why the user prompt is not valid.\n"
-                f"A valid user prompt is a prompt that contains the provider and the service explicitly or implicitly, and the security best practice that the check should audit. You can only create one check per user prompt, so if the user request for creating more than one check you must return that the user prompt is not valid.\n"
+                "Valid prompts are:\n"
+                f"- Requests that contains a security assesment that can be audited in an automated way for one of the supported providers.\n"
+                f"- Modified versions of existing checks that are not already implemented in Prowler.\n"
+                "You can only create one check per user prompt, so if the user request for creating more than one check you must return that the user prompt is not valid.\n"
                 f"The valid providers are: {', '.join(kwargs.get('valid_providers', {}))}\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
@@ -54,13 +58,19 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "In the case that you can't infer the service from the user query for any reason or is currently not supported, you must return 'unknown'.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
-            Step.CHECK_BASE_CASES_AND_STEPS_EXTRACTION: (
+            Step.USER_INPUT_SUMMARY: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
-                "From the user prompt, extract the security analysis.\n"
-                "In this analysis you must include the base cases that the check should cover to ensure that the infrastructure is following the security best practice, please try to fit the base cases only to the user prompt, do not include base cases from other checks. "
-                "And the steps at conceptual level to identify the security issue, please focus on waht kind of resources to audit, what field of configurations to check, etc. Please do not include any code or what technology should be used to check the security best practice.\n"
+                "Summarize the user input analysis for the check creation. In this summary you have to include all the relevant information that can be useful for the check creation process.\n"
+                "The summary MUST be shorter or equal than the user prompt.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
+            # Step.CHECK_BASE_CASES_AND_STEPS_EXTRACTION: (
+            #     f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+            #     "From the user prompt, extract the security analysis.\n"
+            #     "In this analysis you must include the base cases that the check should cover to ensure that the infrastructure is following the security best practice, please try to fit the base cases only to the user prompt, do not include base cases from other checks. "
+            #     "And the steps at conceptual level to identify the security issue, please focus on waht kind of resources to audit, what field of configurations to check, etc. Please do not include any code or what technology should be used to check the security best practice.\n"
+            #     f"User prompt: {kwargs.get('user_query', '')}\n"
+            # ),
             Step.CHECK_DESCRIPTION_GENERATION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Based on user prompt and behaviour of the check, give me a summary description of the check. Try to be as concise as possible and does not include the status or the provider, only a generic description of what check does.\n"
