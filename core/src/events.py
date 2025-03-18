@@ -21,10 +21,10 @@ class CheckBasicInformation(Event):
 class CheckMetadataInformation(Event):
     """Event representing the information needed to generate check metadata for cloud security assessments after more in depth user input analysis."""
 
-    check_name: str = Field(description="Name of the check to create")
     user_input_summary: str = Field(
         description="Summary of the user input analysis for the check"
     )
+    check_name: str = Field(description="Name of the check to create")
     prowler_provider: str = Field(
         description="Cloud provider to use for the check creation"
     )
@@ -33,16 +33,16 @@ class CheckMetadataInformation(Event):
     )
 
 
-# class CheckServiceInformation(Event):
-#     """Event representing the information needed to modify the service to be able to create a new check."""
+class CheckServiceInformation(Event):
+    """Event representing the information needed to modify the service to be able to create a new check."""
 
-#     service_name: str = Field(description="Name of the service to modify")
-#     related_check_names: list = Field(
-#         description="List of related check names to the check being created"
-#     )
-#     prowler_provider: str = Field(
-#         description="Cloud provider to use for the check creation"
-#     )
+    service_name: str = Field(description="Name of the service to modify")
+    related_check_names: list = Field(
+        description="List of related check names to the check being created"
+    )
+    prowler_provider: str = Field(
+        description="Cloud provider to use for the check creation"
+    )
 
 
 class CheckCodeInformation(Event):

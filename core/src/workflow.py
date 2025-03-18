@@ -5,7 +5,6 @@ from llama_index.core.prompts.base import PromptTemplate
 from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
 from llama_index.core.workflow.retry_policy import ConstantDelayRetryPolicy
 from loguru import logger
-from pydantic import ValidationError
 
 from core.src.events import (
     CheckBasicInformation,
@@ -160,14 +159,14 @@ class ChecKreationWorkflow(Workflow):
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=3))
     async def user_input_analysis(
         self, ctx: Context, check_basic_info: CheckBasicInformation
-    ) -> CheckMetadataInformation | CheckCodeInformation | StopEvent:
+    ) -> CheckMetadataInformation | StopEvent:
         """Analyze the user input to extract the security best practices, kind of resource to audit and base cases to cover.
 
         Args:
             ctx: Workflow context.
             check_basic_info: Basic information extracted from the user query to create the check
         """
-        logger.info("Making security analysis...")
+        logger.info("Analyzing user input...")
         try:
             check_metadata_vector_store = await ctx.get("check_metadata_vector_store")
             check_already_exists = check_metadata_vector_store.check_exists(
@@ -245,17 +244,10 @@ class ChecKreationWorkflow(Workflow):
 
             ctx.send_event(
                 CheckMetadataInformation(
+                    user_input_summary=check_basic_info.user_input_summary,
                     check_name=check_name,
                     prowler_provider=check_basic_info.prowler_provider,
                     related_check_names=reference_check_names,
-                )
-            )
-            ctx.send_event(
-                CheckCodeInformation(
-                    check_name=check_name,
-                    # base_cases_and_steps=TBD,
-                    related_check_names=reference_check_names,
-                    prowler_provider=check_basic_info.prowler_provider,
                 )
             )
 
@@ -298,7 +290,7 @@ class ChecKreationWorkflow(Workflow):
                                 step=Step.CHECK_METADATA_GENERATION,
                                 model_reference=await ctx.get("model_reference"),
                                 check_name=check_metadata_base_info.check_name,
-                                check_description=check_metadata_base_info.check_description,
+                                check_description=check_metadata_base_info.user_input_summary,
                                 prowler_provider=check_metadata_base_info.prowler_provider,
                                 relevant_related_checks_metadata=relevant_checks_metadata,
                             )
@@ -312,11 +304,6 @@ class ChecKreationWorkflow(Workflow):
 
             return CheckMetadataResult(check_metadata=check_metadata)
 
-        except ValidationError as e:
-            logger.error(f"Validation error: {e}")
-            return StopEvent(
-                result="Sorry but there was a validation error while creating the check metadata, please try again later or change the input to see if it is valid for the model."
-            )
         except ValueError as e:
             logger.error(str(e))
             return StopEvent(result=DEFAULT_ERROR_MESSAGE)
