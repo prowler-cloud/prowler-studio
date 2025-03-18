@@ -75,7 +75,7 @@ class ChecKreationWorkflow(Workflow):
                 )
 
                 if is_prowler_check.text.strip().lower() != "yes":
-                    return StopEvent(result=DEFAULT_ERROR_MESSAGE)
+                    return StopEvent(result=is_prowler_check.text)
 
                 prowler_provider = (
                     (
@@ -147,7 +147,7 @@ class ChecKreationWorkflow(Workflow):
             )
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=3))
-    async def security_analysis(
+    async def user_input_analysis(
         self, ctx: Context, check_basic_info: CheckBasicInformation
     ) -> CheckMetadataInformation | CheckCodeInformation | StopEvent:
         """Analyze the user input to extract the security best practices, kind of resource to audit and base cases to cover.

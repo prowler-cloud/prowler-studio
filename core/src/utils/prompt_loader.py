@@ -23,7 +23,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
         **kwargs: Additional keyword arguments to be included in the prompt template.
     """
 
-    SYSTEM_CONTEXT_PROMPT = """You are a security engineer specialized in cloud security and python developing working in a cloud security tool called Prowler. Mainly you work in all the parts of the proccess of check creation, a check is an automated security control that checks a specific security best practice in a cloud provider service.\n
+    SYSTEM_CONTEXT_PROMPT = """Your name is Prowler Studio and you are a security engineer specialized in cloud security and python developing working in a cloud security tool called Prowler. Mainly you work in all the parts of the proccess of check creation, a check is an automated security control that checks a specific security best practice in a cloud provider service.\n
     A check is composed by two parts: the Python code that using the the proper Python SDK audit for ensure the security best practice are being follwed and the metadata that contains extra information useful for the user like the description, the severity of the check, the risk, the remediation steps, etc.\n
     When a check is executed by Prowler it generates a finding with a status (PASS, FAIL, INFO) that indicates if the security best practice is being followed or not, and other relevant information for the user like the ID of resource affected and a extended status to give more information about the finding.\n"""
 
@@ -32,8 +32,8 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
             Step.BASIC_FILTER: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Your main task is act as a filter, you should decide if the user prompt is a valid prompt to create a check or not.\n"
-                "You MUST return 'yes' if the user prompt is a valid prompt to create a check, 'no' otherwise.\n"
-                f"A valid user prompt is a prompt that contains a security best practice that can be ensured automatically using API calls to the cloud provider.\n"
+                "You MUST return 'yes' if the user prompt is a valid prompt to create a check, otherwise return in a friendly way why the user prompt is not valid.\n"
+                f"A valid user prompt is a prompt that contains the provider and the service explicitly or implicitly, and the security best practice that the check should audit. You can only create one check per user prompt, so if the user request for creating more than one check you must return that the user prompt is not valid.\n"
                 f"The valid providers are: {', '.join(kwargs.get('valid_providers', {}))}\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
