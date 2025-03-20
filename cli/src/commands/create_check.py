@@ -155,6 +155,7 @@ def create_new_check(
                                 path=output_directory,
                                 code=result["code"],
                                 metadata=result["metadata"],
+                                modified_service_code=result["modified_service_code"],
                             )
 
                             prowler_command = [

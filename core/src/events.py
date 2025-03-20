@@ -36,27 +36,11 @@ class CheckMetadataInformation(Event):
 class CheckServiceInformation(Event):
     """Event representing the information needed to modify the service to be able to create a new check."""
 
-    service_name: str = Field(description="Name of the service to modify")
-    related_check_names: list = Field(
-        description="List of related check names to the check being created"
-    )
-    prowler_provider: str = Field(
-        description="Cloud provider to use for the check creation"
-    )
-
-
-class CheckCodeInformation(Event):
-    """Event representing check code information needed to create a new check."""
-
+    prowler_provider: str = Field(description="Provider of the check to create")
     check_name: str = Field(description="Name of the check to create")
-    base_cases_and_steps: str = Field(
-        description="Base cases and steps to identify the security issue"
-    )
+    audit_steps: str = Field(description="Audit steps to identify the security issue")
     related_check_names: list = Field(
         description="List of related check names to the check being created"
-    )
-    prowler_provider: str = Field(
-        description="Cloud provider to use for the check creation"
     )
 
 
@@ -66,13 +50,24 @@ class CheckMetadataResult(Event):
     check_metadata: CheckMetadata = Field(description="Check metadata information")
 
 
-class CheckTestsResult(Event):
-    """Event representing the output of the check metadata generation step."""
+class CheckServiceResult(Event):
+    """Event representing the output of the check service modification step."""
 
-    check_tests: str = Field(description="Python tests for the check")
+    service_code: str = Field(description="Python code for the service")
+    check_name: str = Field(description="Name of the check to create")
+    prowler_provider: str = Field(
+        description="Cloud provider to use for the check creation"
+    )
+    related_check_names: list = Field(
+        description="List of related check names to the check being created"
+    )
+    audit_steps: str = Field(description="Audit steps to identify the security issue")
 
 
 class CheckCodeResult(Event):
     """Event representing the output of the check code generation step."""
 
     check_code: str = Field(description="Python code for the check")
+    modified_service_code: str = Field(
+        description="Python Code from modified service, if not modified it will be an empty string"
+    )

@@ -6,12 +6,13 @@ from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, 
 from llama_index.core.workflow.retry_policy import ConstantDelayRetryPolicy
 from loguru import logger
 
-from core.src.events import (
+from core.src.events import (  # CheckCodeInformation,
     CheckBasicInformation,
-    CheckCodeInformation,
     CheckCodeResult,
     CheckMetadataInformation,
     CheckMetadataResult,
+    CheckServiceInformation,
+    CheckServiceResult,
 )
 from core.src.rag.vector_store import CheckMetadataVectorStore
 from core.src.utils.llm_structured_outputs import CheckMetadata
@@ -41,6 +42,7 @@ class ChecKreationWorkflow(Workflow):
         logger.info("Initializing...")
         try:
             user_query = start_event.get("user_query", "")
+            await ctx.set("user_query", user_query)
 
             if user_query:
                 Settings.llm = llm_chooser(
@@ -159,7 +161,7 @@ class ChecKreationWorkflow(Workflow):
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=3))
     async def user_input_analysis(
         self, ctx: Context, check_basic_info: CheckBasicInformation
-    ) -> CheckMetadataInformation | StopEvent:
+    ) -> CheckMetadataInformation | CheckServiceInformation | StopEvent:
         """Analyze the user input to extract the security best practices, kind of resource to audit and base cases to cover.
 
         Args:
@@ -183,12 +185,12 @@ class ChecKreationWorkflow(Workflow):
 
             if not reference_check_names:
                 # Extract the first 5 checks from the service
-                reference_check_names = (
-                    check_metadata_vector_store.get_available_checks_in_service(
+                reference_check_names = list(
+                    check_metadata_vector_store.check_inventory.get_available_checks_in_service(
                         provider_name=check_basic_info.prowler_provider,
                         service_name=check_basic_info.service,
-                    )[:5]
-                )
+                    )
+                )[:5]
 
                 if not reference_check_names:
                     # TODO: Add a way to create a new check from scratch or searching other checks from other services
@@ -247,6 +249,14 @@ class ChecKreationWorkflow(Workflow):
                     user_input_summary=check_basic_info.user_input_summary,
                     check_name=check_name,
                     prowler_provider=check_basic_info.prowler_provider,
+                    related_check_names=reference_check_names,
+                )
+            )
+            ctx.send_event(
+                CheckServiceInformation(
+                    prowler_provider=check_basic_info.prowler_provider,
+                    check_name=check_name,
+                    audit_steps=audit_steps,
                     related_check_names=reference_check_names,
                 )
             )
@@ -311,9 +321,77 @@ class ChecKreationWorkflow(Workflow):
             logger.exception(e)
             return StopEvent(result=DEFAULT_ERROR_MESSAGE)
 
+    @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=5))
+    async def modify_service(
+        self, ctx: Context, check_service_info: CheckServiceInformation
+    ) -> CheckServiceResult | StopEvent:
+        """Ensure if the service needs to be modified to create a new check and modify it if needed.
+
+        Args:
+            ctx: Workflow context.
+            check_service_info: Information needed to modify the service to create a new check.
+        """
+        logger.info("Checking service...")
+        try:
+            check_metadata_vector_store = await ctx.get("check_metadata_vector_store")
+
+            service_code = check_metadata_vector_store.check_inventory.get_service_code(
+                provider=check_service_info.prowler_provider,
+                service=check_service_info.check_name.split("_")[0],
+            )
+
+            is_service_complete = (
+                await Settings.llm.acomplete(
+                    prompt=load_prompt_template(
+                        step=Step.IS_SERVICE_COMPLETE,
+                        model_reference=await ctx.get("model_reference"),
+                        service_code=service_code,
+                        audit_steps=check_service_info.audit_steps,
+                    )
+                )
+            ).text.strip()
+
+            if is_service_complete.lower() == "no":
+                # Identify the missing parts of the service
+                missing_service_attributes = (
+                    await Settings.llm.acomplete(
+                        prompt=load_prompt_template(
+                            step=Step.IDENTIFY_NEEDED_CALLS_ATTRIBUTES,
+                            model_reference=await ctx.get("model_reference"),
+                            audit_steps=check_service_info.audit_steps,
+                            service_code=service_code,
+                        )
+                    )
+                ).text.strip()
+
+                # Add the missing parts to the service
+                service_code = (
+                    await Settings.llm.acomplete(
+                        prompt=load_prompt_template(
+                            step=Step.MODIFY_SERVICE,
+                            model_reference=await ctx.get("model_reference"),
+                            service_code=service_code,
+                            missing_service_attributes=missing_service_attributes,
+                        )
+                    )
+                ).text
+
+            return CheckServiceResult(
+                service_code=service_code,
+                check_name=check_service_info.check_name,
+                prowler_provider=check_service_info.prowler_provider,
+                related_check_names=check_service_info.related_check_names,
+                audit_steps=check_service_info.audit_steps,
+            )
+
+        except ValueError as e:
+            logger.error(str(e))
+        except Exception as e:
+            logger.exception(e)
+
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=8))
     async def create_check_code(
-        self, ctx: Context, check_code_info: CheckCodeInformation
+        self, ctx: Context, check_code_info: CheckServiceResult
     ) -> CheckCodeResult:
         """Create the Prowler check code based on the user input.
 
@@ -334,12 +412,7 @@ class ChecKreationWorkflow(Workflow):
                 )
                 relevant_related_checks.append(code)
 
-            service_class_code = (
-                check_metadata_vector_store.check_inventory.get_service_code(
-                    provider=check_code_info.prowler_provider,
-                    service=check_name.split("_")[0],
-                )
-            )
+            # Ensure if the service code has been modified
 
             relevant_related_checks = "\n\n--------\n\n".join(relevant_related_checks)
 
@@ -348,14 +421,29 @@ class ChecKreationWorkflow(Workflow):
                     step=Step.CHECK_CODE_GENERATION,
                     model_reference=await ctx.get("model_reference"),
                     check_name=check_code_info.check_name,
-                    base_cases_and_steps=check_code_info.base_cases_and_steps,
+                    audit_steps=check_code_info.audit_steps,
                     relevant_related_checks=relevant_related_checks,
-                    service_class_code=service_class_code,
-                    user_query=await ctx.get("user_query"),
+                    service_code=check_code_info.service_code,
                 )
             )
 
-            return CheckCodeResult(check_code=check_code.text)
+            # TODO: Syntax check the code before returning it
+
+            original_service_code = (
+                check_metadata_vector_store.check_inventory.get_service_code(
+                    provider=check_code_info.prowler_provider,
+                    service=check_name.split("_")[0],
+                )
+            )
+
+            return CheckCodeResult(
+                check_code=check_code.text,
+                modified_service_code=(
+                    check_code_info.service_code
+                    if check_code_info.service_code != original_service_code
+                    else ""
+                ),
+            )
 
         except ValueError as e:
             logger.error(str(e))
@@ -384,6 +472,7 @@ class ChecKreationWorkflow(Workflow):
             else:
                 logger.info("Returning check...")
                 # Ask the LLM to pretify the final answer before returning it to the user
+
                 final_answer = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
                         step=Step.PRETIFY_FINAL_ANSWER,
@@ -391,6 +480,7 @@ class ChecKreationWorkflow(Workflow):
                         user_query=await ctx.get("user_query"),
                         check_metadata=check[0].check_metadata,
                         check_code=check[1].check_code,
+                        modified_service_code=check[1].modified_service_code,
                         check_path=await ctx.get("check_path"),
                     )
                 )
@@ -411,7 +501,7 @@ class ChecKreationWorkflow(Workflow):
                         "code": check[1].check_code,
                         "check_path": await ctx.get("check_path"),
                         "remediation": remediation.text,
-                        # TODO: Add tests to the final answer if requested
+                        "modified_service_code": check[1].modified_service_code,
                     }
                 )
 
