@@ -158,29 +158,34 @@ def create_new_check(
                                 modified_service_code=result["modified_service_code"],
                             )
 
-                            prowler_command = [
-                                "prowler",
-                                check_provider,
-                                "--checks-folder",
-                                output_directory.parent,
-                                "-c",
-                                check_name,
-                                "--output-directory",
-                                Path(output_directory.resolve(), "output").resolve(),
-                                "--verbose",
-                            ]
+                            if (
+                                result["modified_service_code"] == ""
+                                and check_provider == "aws"
+                                and ask_execute_new_check()
+                            ):
+                                prowler_command = [
+                                    "prowler",
+                                    check_provider,
+                                    "--checks-folder",
+                                    output_directory.parent,
+                                    "-c",
+                                    check_name,
+                                    "--output-directory",
+                                    Path(
+                                        output_directory.resolve(), "output"
+                                    ).resolve(),
+                                    "--verbose",
+                                ]
 
-                            formated_command = " \\\n".join(
-                                [f"    {param}" for param in prowler_command]
-                            )
+                                formated_command = " \\\n".join(
+                                    [f"    {param}" for param in prowler_command]
+                                )
 
-                            display_success(
-                                f"Check saved successfully in {output_directory.resolve()}. Now you can run it with Prowler using the command:\n\n{formated_command}"
-                            )
+                                display_success(
+                                    f"Check saved successfully in {output_directory.resolve()}. Now you can run it with Prowler using the command:\n\n{formated_command}"
+                                )
 
-                            # Ask the user if he wants to execute the new check
-
-                            if check_provider == "aws" and ask_execute_new_check():
+                                # Ask the user if he wants to execute the new check
                                 try:
                                     execution_status_code = subprocess.run(
                                         prowler_command, check=False
