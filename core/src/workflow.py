@@ -1,3 +1,4 @@
+from difflib import unified_diff
 from time import sleep
 
 from llama_index.core import Settings
@@ -472,6 +473,34 @@ class ChecKreationWorkflow(Workflow):
             else:
                 logger.info("Returning check...")
                 # Ask the LLM to pretify the final answer before returning it to the user
+                check_path = await ctx.get("check_path")
+
+                # Calculate the difference using difflib
+                service_code = check[1].modified_service_code
+
+                if service_code != "":
+                    # Import the RAG to get the original service code
+                    check_metadata_vector_store = await ctx.get(
+                        "check_metadata_vector_store"
+                    )
+                    original_service_code = (
+                        check_metadata_vector_store.check_inventory.get_service_code(
+                            provider=check_path.split("/")[2],
+                            service=check_path.split("/")[4],
+                        )
+                    )
+
+                    code_diff = "\n".join(
+                        unified_diff(
+                            original_service_code.splitlines(),
+                            service_code.splitlines()[1:-1],
+                            fromfile=f"{check_path.split('/')[4]}_service.py",
+                            tofile=f"modified_{check_path.split('/')[4]}_service.py",
+                            lineterm="",
+                        )
+                    )
+                else:
+                    code_diff = ""
 
                 final_answer = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
@@ -480,8 +509,8 @@ class ChecKreationWorkflow(Workflow):
                         user_query=await ctx.get("user_query"),
                         check_metadata=check[0].check_metadata,
                         check_code=check[1].check_code,
-                        modified_service_code=check[1].modified_service_code,
-                        check_path=await ctx.get("check_path"),
+                        modified_service_code=code_diff,
+                        check_path=check_path,
                     )
                 )
 
