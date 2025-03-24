@@ -5,6 +5,10 @@ def prompt_user_message() -> str:
     return Prompt.ask("\n[bold]Message Prowler Studio :robot:[/bold]\n╰┈➤")
 
 
+def prompt_enter_compliance_path() -> str:
+    return Prompt.ask("\n[bold]Enter the path to the compliance json file[/bold]\n╰┈➤")
+
+
 def confirm_save_check(path: str) -> bool:
     return Confirm.ask(
         f"\n[bold]Do you want to save the generated check in {path}?[/bold] [y/n]"

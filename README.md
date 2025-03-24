@@ -194,6 +194,7 @@ poetry run ./prowler-studio --help
 
 - `create-check`: Create a new check.
 - `build-check-rag`: Build a RAG dataset updated with master (the RAG dataset is already in the repository, this command is to update it with new possible checks).
+- `update-compliance`: Update a specified compliance using the given compliance path using the Prowler Compliance Framework format.
 
 ## Prowler Studio Chatbot
 
