@@ -169,7 +169,7 @@ class CheckMetadataVectorStore:
             ],
         )
         response = query_engine.query(
-            f"SYSTEM CONTEXT: Prowler is an open-source CSPM tool. You have as context all checks metadata. A check metadata refers to the information related to a security automated control to ensure that best practices are followed, such as its description, provider, service, etc.\n Based in all current Prowler checks ensure if one or more checks metadata are covering the following description. You MUST answer with 'yes' or 'no', if the answer is 'no' please indicate the reason why the check is not covered by other checks.\n Check description: {check_description}"
+            f"SYSTEM CONTEXT: Prowler is an open-source CSPM tool. You have as context all checks metadata. A check metadata refers to the information related to a security automated control to ensure that best practices are followed, such as its description, provider, service, etc.\n Based in all current Prowler checks ensure if one or more checks metadata are covering the following description. You MUST answer with 'yes' or 'no'.\n Check description: {check_description}"
         )
         return response.response.strip().lower() == "yes"
 

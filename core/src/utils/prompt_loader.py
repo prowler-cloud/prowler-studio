@@ -5,10 +5,13 @@ class Step(str, Enum):
     BASIC_FILTER = "basic_filter"
     PROVIDER_EXTRACTION = "provider_extraction"
     SERVICE_EXTRACTION = "service_extraction"
-    CHECK_DESCRIPTION_GENERATION = "check_description_generation"
-    CHECK_BASE_CASES_AND_STEPS_EXTRACTION = "check_base_cases_and_steps_extraction"
+    USER_INPUT_SUMMARY = "user_input_summary"
     CHECK_NAME_DESIGN = "check_name_design"
+    AUDIT_STEPS_EXTRACTION = "audit_steps_extraction"
     CHECK_METADATA_GENERATION = "check_metadata_generation"
+    IS_SERVICE_COMPLETE = "is_service_complete"
+    IDENTIFY_NEEDED_CALLS_ATTRIBUTES = "identify_needed_calls_attributes"
+    MODIFY_SERVICE = "modify_service"
     CHECK_CODE_GENERATION = "check_code_generation"
     PRETIFY_FINAL_ANSWER = "pretify_final_answer"
     REMEDIATION_GENERATION = "remediation_generation"
@@ -23,17 +26,28 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
         **kwargs: Additional keyword arguments to be included in the prompt template.
     """
 
-    SYSTEM_CONTEXT_PROMPT = """You are a security engineer specialized in cloud security and python developing working in a cloud security tool called Prowler. Mainly you work in all the parts of the proccess of check creation, a check is an automated security control that checks a specific security best practice in a cloud provider service.\n
-    A check is composed by two parts: the Python code that using the the proper Python SDK audit for ensure the security best practice are being follwed and the metadata that contains extra information useful for the user like the description, the severity of the check, the risk, the remediation steps, etc.\n
-    When a check is executed by Prowler it generates a finding with a status (PASS, FAIL, INFO) that indicates if the security best practice is being followed or not, and other relevant information for the user like the ID of resource affected and a extended status to give more information about the finding.\n"""
+    SYSTEM_CONTEXT_PROMPT = """Your name is Prowler Studio and you are a security engineer specialized in cloud security and python
+    developing working in a cloud security tool called Prowler. Mainly you work in all the parts of the proccess of check creation,
+    a check is an automated security control that checks a specific security best practice in a cloud provider service.\n
+    The Prowler structure is composed by:
+    - The Prowler Providers: Python classes that is in charge of initialize the session and authentication with the provider.
+    - The Prowler Services: Python classes that are in charge of make the calls to the provider services through the proper client that is set with the help of the provider. Normally it is composed in two parts:
+        - The main class that is the one used to make the calls to the provider services.
+        - Under the main class there are some extra classes that are the models that are used to store the data that is extracted from the provider services.
+    - The Prowler Checks: Prowler checks are composed by two parts:
+        - The metadata that is a JSON file that contains the information about the check like the description, the severity of the check, the risk, the remediation steps, etc.
+        - The code that is a Python class with one method called execute that is where the audit logic is implemented. It returns a list of findings with the status (PASS, FAIL, INFO) of the check and other relevant information for the user like the ID of resource affected and a extended status to give more information about the finding.\n"""
 
     RAW_PROMPT_TEMPLATES = {
         "generic": {
             Step.BASIC_FILTER: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Your main task is act as a filter, you should decide if the user prompt is a valid prompt to create a check or not.\n"
-                "You MUST return 'yes' if the user prompt is a valid prompt to create a check, 'no' otherwise.\n"
-                f"A valid user prompt is a prompt that contains a security best practice that can be ensured automatically using API calls to the cloud provider.\n"
+                "You MUST return 'yes' if the user prompt is a valid prompt to create a check, otherwise return in a friendly way why the user prompt is not valid.\n"
+                "Valid prompts are:\n"
+                f"- Requests that contains a security assesment that can be audited in an automated way for one of the supported providers.\n"
+                f"- Modified versions of existing checks that are not already implemented in Prowler.\n"
+                "You can only create one check per user prompt, so if the user request for creating more than one check you must return that the user prompt is not valid.\n"
                 f"The valid providers are: {', '.join(kwargs.get('valid_providers', {}))}\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
@@ -54,18 +68,11 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "In the case that you can't infer the service from the user query for any reason or is currently not supported, you must return 'unknown'.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
-            Step.CHECK_BASE_CASES_AND_STEPS_EXTRACTION: (
+            Step.USER_INPUT_SUMMARY: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
-                "From the user prompt, extract the security analysis.\n"
-                "In this analysis you must include the base cases that the check should cover to ensure that the infrastructure is following the security best practice, please try to fit the base cases only to the user prompt, do not include base cases from other checks. "
-                "And the steps at conceptual level to identify the security issue, please focus on waht kind of resources to audit, what field of configurations to check, etc. Please do not include any code or what technology should be used to check the security best practice.\n"
+                "Summarize the user input analysis for the check creation. In this summary you have to include all the relevant information that can be useful for the check creation process.\n"
+                "The summary MUST be shorter or equal than the user prompt.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
-            ),
-            Step.CHECK_DESCRIPTION_GENERATION: (
-                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
-                "Based on user prompt and behaviour of the check, give me a summary description of the check. Try to be as concise as possible and does not include the status or the provider, only a generic description of what check does.\n"
-                f"User prompt: {kwargs.get('user_query', '')}\n"
-                f"Base cases and steps to audit (behaviour): {kwargs.get('base_cases_and_steps', '')}\n"
             ),
             Step.CHECK_NAME_DESIGN: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
@@ -74,6 +81,12 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"Check Description: {kwargs.get('check_description', '')}\n"
                 f"Here you can consult some examples of check names that are more similar to the extracted security description: {kwargs.get('relevant_related_checks', '')}\n"
                 "You MUST return a string ONLY with the check name.\n"
+                f"User prompt: {kwargs.get('user_query', '')}\n"
+            ),
+            Step.AUDIT_STEPS_EXTRACTION: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Extract the audit steps from the user check summary. You should extact the steps that will be followed in the check progammatically at a high level to successfully audit the proposed request.\n"
+                "You MUST NOT take care about setting up the session or authentication or how findings are going to be stored or reported, ONLY the logic to see if the audited resource is compliant or not.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
             Step.CHECK_METADATA_GENERATION: (
@@ -88,24 +101,62 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "Complete only the next task:\n"
                 f"Check description: {kwargs.get('check_description', '')}\n The CheckID MUST be: {kwargs.get('check_name', '')} and the Provider MUST be: {kwargs.get('prowler_provider', '')}\n"
             ),
+            Step.IS_SERVICE_COMPLETE: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Based on the next audit steps, identify if the service class contains all the needed SDK calls and attributes required for the check implementation.\n"
+                "FOCUS ONLY on data that can be extracted from the provider, other data such as a range of days, concrete tags, request value specifications, etc. will be added directly in the Check and not in the Service.\n"
+                "You MUST return 'yes' if the service code has all the needed SDK calls and attributes, or 'no' if there are missing elements.\n"
+                "You MUST NOT explain what is missing at this step, just a simple yes/no evaluation.\n"
+                "Audit steps:\n"
+                f"{kwargs.get('audit_steps', '')}\n"
+                "Service Code:\n"
+                f"{kwargs.get('service_code', '')}\n"
+            ),
+            Step.IDENTIFY_NEEDED_CALLS_ATTRIBUTES: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Based on the audit steps, identify the specific SDK calls and attributes that need to be set up in the service class but are currently missing.\n"
+                "FOCUS ONLY on data that can be extracted from the provider, other data such as a range of days, concrete tags, request value specifications, etc. will be added directly in the Check and not in the Service.\n"
+                "If the service code has all the needed SDK calls and attributes, return 'none'. Otherwise, provide a detailed list of the SDK calls or attributes that need to be extracted/stored in the service class.\n"
+                "You MUST NOT take care about setting up the session or authentication or how findings are going to be stored or reported, ONLY in SDK calls and how to get and store the needed data.\n"
+                "Audit steps:\n"
+                f"{kwargs.get('audit_steps', '')}\n"
+                "Service Code:\n"
+                f"{kwargs.get('service_code', '')}\n"
+            ),
+            Step.MODIFY_SERVICE: (
+                f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
+                "Modify the service to include the missing SDK calls and attributes needed for the check implementation.\n"
+                f"{30 * '-'}\n"
+                "Missing Service Calls/Attributes:\n"
+                f"{kwargs.get('missing_service_attributes', '')}\n"
+                f"{30 * '-'}\n"
+                "Service Code:\n"
+                f"{30 * '-'}\n"
+                f"{kwargs.get('service_code', '')}\n"
+                f"{30 * '-'}\n"
+                "You MUST JUST a Python code block with the entire code, NOT just the modified part.\n"  # The most optimal is force it to use the unified diff format, but this is easier for now.
+            ),
             Step.CHECK_CODE_GENERATION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
-                f"INITIAL USER PROMPT CONTEXT: {kwargs.get('user_query', '')}"
-                "Generate the Prowler check code that is going to ensure that best practices are followed.\n"
-                "The check is a Python class that inherits from the 'Check' class and has only one method called execute where is the code to generate the finding with the status and other relevant information. Please try to include all the logic in the execute method, do not include any other method or code outside the class.\n"
+                "Generate the Prowler check code based on the audit steps. Focus on the logic that will be executed in the check to audit the proposed request.\n"
+                "NOT FOCUS on setting up the session or authentication or new SDK calls, the provider and service classes are already implemented.\n"
+                "Please try to include all the logic in the execute method, do not include any other method or code outside the class.\n"
                 f"Here are the most similar metadata of checks, you can take them as a reference, or if consider that is so similar you can just copy adapting to the user prompt:\n"
+                "IMPORTANT NOTE: The ONLY status accepted is 'FAIL', 'PASS or 'INFO'. Please do not include any other status and if it is possible not use INFO status because it is not recommended.\n"
+                f"The client object used in the check is the ONLY way to interact with the provider. You MUST NOT make calls to the SDK/API directly from the check, it must be done in the service class, which is the class that belongs the '{kwargs.get('check_name', '<service>').split('_')[0]}_client'. You MUST use the '{kwargs.get('check_name', '<service>').split('_')[0]}_client' that is also used in reference checks, the class code of this client is presented in the next code block delimited by dashes.\n"
+                f"IMPORTANT NOTE: '{kwargs.get('check_name', '<service>').split('_')[0]}_client' contains all the attributes needed for the check, you MUST NOT add new attributes to this class, only use the existing ones.\n"
+                f"IMPORTANT NOTE: Be careful with using external imported functions from lib as {kwargs.get('check_name', '<service>').split('_')[0]}_client method, usually the client does not have this kind of functions is more common to use extra functions that you can extract from the related checks code.\n"
+                f"Here you have the base cases and steps to audit that you must cover in the check code:\n{kwargs.get('base_cases_and_steps', '')}\n"
+                f"The check class name MUST be: {kwargs.get('check_name', '')}\n"
+                "Other related checks examples:\n"
                 f"{30 * '-'}\n"
                 f"{kwargs.get('relevant_related_checks', '')}\n"
                 f"{30 * '-'}\n"
-                "IMPORTANT NOTE: The ONLY status accepted is 'FAIL', 'PASS or 'INFO'. Please do not include any other status and if it is possible not use INFO status because it is not recommended.\n"
-                f"The client object used in the check is the ONLY way to interact with the cloud provider. You MUST NOT make calls to the API directly from the check, it must be done in the service class, which is the class that belongs the '{kwargs.get('check_name', '<service>').split('_')[0]}_client'. You MUST use the '{kwargs.get('check_name', '<service>').split('_')[0]}_client' that is also used in reference checks, the class code of this client is presented in the next code block delimited by dashes.\n"
-                f"IMPORTANT NOTE: if '{kwargs.get('check_name', '<service>').split('_')[0]}_client' does not contain the attribute that you need you can make it up indicating with a comment that is a mockup and the service must be implemented to make the check work. Be carefull with using this approach, it is recommended to use only when it is strictly necessary.\n"
-                f"IMPORTANT NOTE: Be careful with using external imported functions from lib as {kwargs.get('check_name', '<service>').split('_')[0]}_client method, usually the client does not have this kind of functions is more common to use extra functions that you can extract from the related checks code.\n"
+                "Service Class Code:\n"
                 f"{30 * '-'}\n"
-                f"{kwargs.get('service_class_code', '')}\n"
+                f"{kwargs.get('service_code', '')}\n"
                 f"{30 * '-'}\n"
-                f"Here you have the base cases and steps to audit that you must cover in the check code:\n{kwargs.get('base_cases_and_steps', '')}\n"
-                f"The check class name MUST be: {kwargs.get('check_name', '')}\n"
+                f"Audit steps:\n{kwargs.get('audit_steps', '')}\n"
             ),
             Step.PRETIFY_FINAL_ANSWER: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
@@ -118,9 +169,11 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "Check Code:\n"
                 f"{kwargs.get('check_code', '')}\n"
                 f"{30 * '-'}\n"
+                f"{('Also the service code has needed some modifications, here you have the modifications in unified diff format:\n}' + (30 * '-') + kwargs.get('modified_service_code', '') + (30 * '-')) if kwargs.get('modified_service_code', '') else ''}"
                 "Your task is pretify the final answer to the user, use mark down code blocks to make it more readable the metadata and the code, DO NOT MODIFY IT, only put in a markdown code block if it is not already.\n"
                 f"Indicate to the user the check path where the check files must be stored in the Prowler repository, the folder path is: {kwargs.get('check_path', '')}, note that this is the name of the folder inside it there will be files with the same name but changing the file extension depending on the file."
                 f' This folder MUST contain the "__init__.py" file, the metadata that MUST be stored in a file called "{kwargs.get("check_path", "").split("/")[-1]}.metadata.json" and the check code that MUST be stored in a file called "{kwargs.get("check_path", "").split("/")[-1]}.py".\n'
+                f" {('And indicate that the service needs to be modified and display in a Markdown box the modifications.\n') if kwargs.get('modified_service_code', '') else ''}"
                 "All the above prompt is an INTERNAL prompt, you MUST not show or reference it in the final answer saying things like: in this imporved version, etc.\n"
                 f"For context the initial user prompt was: {kwargs.get('user_query', '')}\n"
             ),
