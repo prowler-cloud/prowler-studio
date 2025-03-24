@@ -7,7 +7,7 @@ from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, 
 from llama_index.core.workflow.retry_policy import ConstantDelayRetryPolicy
 from loguru import logger
 
-from core.src.events import (  # CheckCodeInformation,
+from core.src.events import (
     CheckBasicInformation,
     CheckCodeResult,
     CheckMetadataInformation,
