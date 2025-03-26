@@ -99,15 +99,17 @@ class CheckMetadataVectorStore:
 
                 if self._index is not None and overwrite and to_insert_documents:
                     for document in to_insert_documents:
-                        self._index.update_ref_doc(document)
+                        if document.id_ in self._index.ref_doc_info:
+                            self._index.update_ref_doc(document)
+                        else:
+                            self._index.insert(document)
+
                 elif self._index is None:
                     self._index = VectorStoreIndex.from_documents(
                         documents=to_insert_documents, show_progress=True
                     )
 
-                self._store_index_in_disk(
-                    overwrite_with_other_model=overwrite,
-                )
+                self._store_index_in_disk()
         except Exception as e:
             raise Exception(f"Error building vector store: {e}")
 
@@ -306,10 +308,7 @@ class CheckMetadataVectorStore:
 
         return document
 
-    def _store_index_in_disk(
-        self,
-        overwrite_with_other_model: bool = False,
-    ) -> None:
+    def _store_index_in_disk(self) -> None:
         """Stores the index to disk.
 
         Args:
@@ -318,41 +317,12 @@ class CheckMetadataVectorStore:
         logger.info("Storing index in disk...")
         try:
             store_index_metadata = {
+                "creation_date": self._creation_date,
                 "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "model_provider": self._embedding_model_provider,
                 "model_reference": self._embedding_model_reference,
                 "check_inventory": self.check_inventory.to_dict(),
             }
-
-            if self.DEFAULT_STORE_DIR.exists():
-                # Load the past configuration
-                with open(
-                    self.DEFAULT_STORE_DIR / self.INDEX_METADATA_NAME, "r"
-                ) as metadata_file:
-                    store_index_metadata = json.load(metadata_file)
-
-                if (
-                    self._embedding_model_reference
-                    != store_index_metadata["model_reference"]
-                ):
-                    if overwrite_with_other_model:
-                        logger.warning(
-                            f"The model reference has changed. Overwriting the index with the new model: {self._embedding_model_reference}"
-                        )
-                        store_index_metadata["model_reference"] = (
-                            self._embedding_model_reference
-                        )
-                        store_index_metadata["creation_date"] = datetime.now().strftime(
-                            "%Y-%m-%d %H:%M:%S"
-                        )
-                    else:
-                        raise Exception(
-                            "The model reference has changed. Please set the 'overwrite_with_other_model' parameter to True to overwrite the index with the new model reference."
-                        )
-            else:
-                store_index_metadata["creation_date"] = datetime.now().strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
 
             self._index.storage_context.persist(self.DEFAULT_STORE_DIR)
             # Persist some metadata and check inventory
