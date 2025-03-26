@@ -197,6 +197,14 @@ class CheckInventory:
             True if the metadata was updated, False otherwise.
         """
         if file_path.exists():
+            # If it is not set, set the default ID
+            if check_id not in self._inventory[provider][service]["checks"]:
+                self._inventory[provider][service]["checks"][check_id] = {
+                    "metadata": "",
+                    "code": "",
+                    "fixer": "",
+                }
+
             repo_content = read_file(file_path, json_load=True)
             if repo_content != self.get_check_metadata(provider, service, check_id):
                 self._inventory[provider][service]["checks"][check_id]["metadata"] = (
@@ -218,6 +226,14 @@ class CheckInventory:
             True if the code was updated, False otherwise.
         """
         if file_path.exists():
+            # If it is not set, set the default ID
+            if check_id not in self._inventory[provider][service]["checks"]:
+                self._inventory[provider][service]["checks"][check_id] = {
+                    "metadata": "",
+                    "code": "",
+                    "fixer": "",
+                }
+
             repo_content = read_file(file_path)
             if repo_content != self.get_check_code(provider, service, check_id):
                 self._inventory[provider][service]["checks"][check_id]["code"] = (
