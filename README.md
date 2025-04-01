@@ -226,7 +226,7 @@ git clone git@github.com:prowler-cloud/prowler-studio.git
 Then you can build the Docker image:
 
 ```bash
-docker build -f ./api/Dockerfile -t prowler-studio-api:latest . # Build the API image
+docker build -f ./api/workflows/check_creation/Dockerfile -t prowler-studio-api:latest . # Build the API image
 cd ./ui
 docker build -f ./Dockerfile -t prowler-studio-ui:latest .  # Build the UI image
 ```

@@ -10,5 +10,5 @@ services:
     name: Check Creation Workflow
     source:
       type: local
-      name: ./api/src/
-    path: workflow:check_kreation_workflow
+      name: ./api/workflows/check_creation/src/
+    path: workflow:check_creation_workflow
