@@ -1,29 +1,28 @@
 import asyncio
 import json
 import os
-import typer 
-
-from cli.src.views.menus import get_llm_provider, get_llm_reference
-
-from core.src.workflow import ComplianceUpdaterWorkflow
 from typing import Annotated
-from cli.src.views.output import display_markdown, display_error
-from cli.src.views.prompts import prompt_enter_compliance_path
-from cli.src.utils.config import get_config
 
+import typer
+
+from cli.src.utils.config import get_config
+from cli.src.views.menus import get_llm_provider, get_llm_reference
+from cli.src.views.output import display_error, display_markdown
+from cli.src.views.prompts import prompt_enter_compliance_path
+from core.src.workflows.compliance_updater.workflow import ComplianceUpdaterWorkflow
 
 
 async def run_compliance_updater_workflow(
     compliance_data: dict, model_provider: str, model_reference: str, api_key: str
 ) -> dict:
     """Run the compliance updater workflow asynchronously.
-    
+
     Args:
         compliance_data: The compliance data to be updated.
         model_provider: The provider of the model to be used.
         model_reference: The reference or identifier of the model.
         api_key: The LLM API key for the model provider.
-    
+
     Returns:
         The result of the compliance updater workflow.
     """
@@ -37,11 +36,12 @@ async def run_compliance_updater_workflow(
         verbose=False,
     )
     return result
-    
 
 
 def update_compliance(
-    compliance_path: Annotated[str, typer.Option(help="File path to the compliance json file")] = "",
+    compliance_path: Annotated[
+        str, typer.Option(help="File path to the compliance json file")
+    ] = "",
     model_provider: Annotated[
         str,
         typer.Option(help="The model provider to use"),
@@ -93,7 +93,7 @@ def update_compliance(
             # Write the updated compliance data to the file
             with open(compliance_path, "w") as f:
                 json.dump(result, f, indent=4)
-    
+
             display_markdown("Compliance data updated successfully. :white_check_mark:")
 
         else:
@@ -103,4 +103,3 @@ def update_compliance(
     except Exception as e:
         display_error(str(e))
         typer.Exit(code=1)
-    

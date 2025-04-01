@@ -23,7 +23,7 @@ from cli.src.views.prompts import (
     prompt_user_message,
 )
 from core.src.rag.vector_store import CheckMetadataVectorStore
-from core.src.workflow import ChecKreationWorkflow
+from core.src.workflows.check_creation.workflow import ChecKreationWorkflow
 
 
 async def run_check_creation_workflow(

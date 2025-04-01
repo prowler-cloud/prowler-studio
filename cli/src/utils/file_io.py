@@ -3,7 +3,7 @@ import re
 from pathlib import Path
 
 from cli.src.views.output import display_error
-from core.src.utils.llm_structured_outputs import CheckMetadata
+from core.src.workflows.check_creation.utils.check_metadata_model import CheckMetadata
 
 
 def write_check(path: Path, code: str, metadata: CheckMetadata) -> None:
