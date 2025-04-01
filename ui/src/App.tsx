@@ -39,7 +39,7 @@ function App() {
           requestBodyLimits={{ maxMessages: -1 }}
           requestInterceptor={(details: RequestDetails) => {
             const latestMessage = details.body.messages[details.body.messages.length - 1].text;
-            details.body.input = `{"user_query": "${latestMessage}", "model_provider": "gemini", "model_reference": "models/gemini-1.5-flash"}`;
+            details.body.input = `{"user_query": "${latestMessage}", "model_provider": "openai", "model_reference": "gpt-4o"}`;
             return details;
           }}
           responseInterceptor={(response: any) => {

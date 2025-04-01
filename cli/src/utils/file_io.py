@@ -6,7 +6,9 @@ from cli.src.views.output import display_error
 from core.src.workflows.check_creation.utils.check_metadata_model import CheckMetadata
 
 
-def write_check(path: Path, code: str, metadata: CheckMetadata) -> None:
+def write_check(
+    path: Path, code: str, metadata: CheckMetadata, modified_service_code: str = None
+):
     """Write the check code and metadata to the specified path.
 
     Args:
@@ -37,6 +39,17 @@ def write_check(path: Path, code: str, metadata: CheckMetadata) -> None:
             matches = re.findall(r"```(?:python)?\n([\s\S]*?)```", code)
             code_result = "\n".join([m.strip() for m in matches])
             f.write(code_result)
+
+        if modified_service_code:
+            with open(
+                path.joinpath(f"modified_{check_name.split('_')[0]}_service.py"),
+                "w",
+            ) as f:
+                matches = re.findall(
+                    r"```(?:python)?\n([\s\S]*?)```", modified_service_code
+                )
+                modified_service_code_result = "\n".join([m.strip() for m in matches])
+                f.write(modified_service_code_result)
     except OSError as e:
         display_error("ERROR: Unable to create the check.")
         raise e
