@@ -11,10 +11,8 @@ from core.src.workflows.check_creation.events import (
 from core.src.workflows.check_creation.utils.prompt_steps_enum import (
     ChecKreationWorkflowStep,
 )
+from core.src.workflows.check_creation.workflow import ChecKreationWorkflow
 from core.src.workflows.utils.prompt_manager import load_prompt_template
-from core.src.workflows.check_creation.workflow import (
-    ChecKreationWorkflow,
-)
 
 
 # As llamadeploy does not support return JSON, we need to use other workflow to just return parsed answer as string
