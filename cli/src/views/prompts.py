@@ -6,7 +6,7 @@ def prompt_user_message() -> str:
 
 
 def prompt_enter_compliance_path() -> str:
-    return Prompt.ask("\n[bold]Enter the path to the compliance json file[/bold]\n╰┈➤")
+    return Prompt.ask("\n[bold]Enter the path to the compliance JSON file[/bold]\n╰┈➤")
 
 
 def confirm_save_check(path: str) -> bool:
