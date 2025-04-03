@@ -97,6 +97,12 @@ poetry run ./prowler-studio create-check "Create a new Kubernetes check to ensur
 poetry run ./prowler-studio create-check "Create a new Kubernetes check to ensure that all my pods are running with a non-root user."
 ```
 
+💡 *Did you know?*
+You can use Prowler Studio to easily update your compliance requirements with the latest checks available in Prowler.
+
+```bash
+poetry run ./prowler-studio update-compliance --max-check-number 5 --confidence-threshold 0.6 compliance_test.json
+```
 ### Installation
 
 #### From Docker

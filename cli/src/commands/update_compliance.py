@@ -10,14 +10,13 @@ from cli.src.views.prompts import prompt_enter_compliance_path
 from core.src.workflows.compliance_updater.workflow import ComplianceUpdaterWorkflow
 
 
-async def run_compliance_updater_workflow(compliance_data: dict) -> dict:
+async def run_compliance_updater_workflow(compliance_data: dict, max_check_number: int, confidence_threshold: float) -> dict:
     """Run the compliance updater workflow asynchronously.
 
     Args:
         compliance_data: The compliance data to be updated.
-        model_provider: The provider of the model to be used.
-        model_reference: The reference or identifier of the model.
-        api_key: The LLM API key for the model provider.
+        max_check_number: Maximum number of checks to be added to the compliance requirements.
+        confidence_threshold: Confidence threshold for the compliance requirements.
 
     Returns:
         The result of the compliance updater workflow.
@@ -26,6 +25,8 @@ async def run_compliance_updater_workflow(compliance_data: dict) -> dict:
     workflow = ComplianceUpdaterWorkflow(timeout=300, verbose=False)
     result = await workflow.run(
         compliance_data=compliance_data,
+        max_check_number=max_check_number,
+        confidence_threshold=confidence_threshold,
         verbose=False,
     )
     return result
@@ -35,6 +36,22 @@ def update_compliance(
     compliance_path: Annotated[
         Path, typer.Argument(help="File path to the compliance json file")
     ] = None,
+    max_check_number: Annotated[
+        int,
+        typer.Option(
+            "--max-check-number",
+            "-m",
+            help="Maximum number of checks to be added to the compliance requirements",
+        ),
+    ] = 5,
+    confidence_threshold: Annotated[
+        float,
+        typer.Option(
+            "--confidence-threshold",
+            "-c",
+            help="Confidence threshold for the compliance requirements",
+        ),
+    ] = 0.6,
 ):
     """Update compliance data
 
@@ -53,6 +70,8 @@ def update_compliance(
         result = asyncio.run(
             run_compliance_updater_workflow(
                 compliance_data=compliance_data,
+                max_check_number=max_check_number,
+                confidence_threshold=confidence_threshold,
             )
         )
 
