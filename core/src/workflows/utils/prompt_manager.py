@@ -1,27 +1,15 @@
 from enum import Enum
 
-
-class Step(str, Enum):
-    BASIC_FILTER = "basic_filter"
-    PROVIDER_EXTRACTION = "provider_extraction"
-    SERVICE_EXTRACTION = "service_extraction"
-    USER_INPUT_SUMMARY = "user_input_summary"
-    CHECK_NAME_DESIGN = "check_name_design"
-    AUDIT_STEPS_EXTRACTION = "audit_steps_extraction"
-    CHECK_METADATA_GENERATION = "check_metadata_generation"
-    IS_SERVICE_COMPLETE = "is_service_complete"
-    IDENTIFY_NEEDED_CALLS_ATTRIBUTES = "identify_needed_calls_attributes"
-    MODIFY_SERVICE = "modify_service"
-    CHECK_CODE_GENERATION = "check_code_generation"
-    PRETIFY_FINAL_ANSWER = "pretify_final_answer"
-    REMEDIATION_GENERATION = "remediation_generation"
+from core.src.workflows.check_creation.utils.prompt_steps_enum import (
+    ChecKreationWorkflowStep,
+)
 
 
-def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
+def load_prompt_template(step: Enum, model_reference: str, **kwargs) -> str:
     """Load the prompt template for the given step.
 
     Args:
-        step (Step): Step for which to load the prompt template.
+        step (Enum): Step for which to load the prompt template.
         model_reference (str): Reference to the LLM model, for very known models it can be used to load a specific prompt template.
         **kwargs: Additional keyword arguments to be included in the prompt template.
     """
@@ -40,7 +28,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
 
     RAW_PROMPT_TEMPLATES = {
         "generic": {
-            Step.BASIC_FILTER: (
+            ChecKreationWorkflowStep.BASIC_FILTER: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Your main task is act as a filter, you should decide if the user prompt is a valid prompt to create a check or not.\n"
                 "You MUST return 'yes' if the user prompt is a valid prompt to create a check, otherwise return in a friendly way why the user prompt is not valid.\n"
@@ -51,7 +39,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"The valid providers are: {', '.join(kwargs.get('valid_providers', {}))}\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
-            Step.PROVIDER_EXTRACTION: (
+            ChecKreationWorkflowStep.PROVIDER_EXTRACTION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Your task is to extract the Prowler provider from the user prompt.\n"
                 f"You MUST return a string with the Prowler provider. For now the only valid providers are: {', '.join(kwargs.get('valid_providers', {}))}\n"
@@ -59,7 +47,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "In the case that you can't infer the provider from the user query for any reason, you must return 'unknown'.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
-            Step.SERVICE_EXTRACTION: (
+            ChecKreationWorkflowStep.SERVICE_EXTRACTION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Extract the service from the user prompt.\n"
                 "You MUST return a string with the service name.\n"
@@ -68,13 +56,13 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "In the case that you can't infer the service from the user query for any reason or is currently not supported, you must return 'unknown'.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
-            Step.USER_INPUT_SUMMARY: (
+            ChecKreationWorkflowStep.USER_INPUT_SUMMARY: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Summarize the user input analysis for the check creation. In this summary you have to include all the relevant information that can be useful for the check creation process.\n"
                 "The summary MUST be shorter or equal than the user prompt.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
-            Step.CHECK_NAME_DESIGN: (
+            ChecKreationWorkflowStep.CHECK_NAME_DESIGN: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Design the check name based on the user prompt. The check name should follow the Prowler check naming convention: <service>_<best_practice>.\n"
                 f"Service: {kwargs.get('service', '')}\n"
@@ -83,13 +71,13 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "You MUST return a string ONLY with the check name.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
-            Step.AUDIT_STEPS_EXTRACTION: (
+            ChecKreationWorkflowStep.AUDIT_STEPS_EXTRACTION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Extract the audit steps from the user check summary. You should extact the steps that will be followed in the check progammatically at a high level to successfully audit the proposed request.\n"
                 "You MUST NOT take care about setting up the session or authentication or how findings are going to be stored or reported, ONLY the logic to see if the audited resource is compliant or not.\n"
                 f"User prompt: {kwargs.get('user_query', '')}\n"
             ),
-            Step.CHECK_METADATA_GENERATION: (
+            ChecKreationWorkflowStep.CHECK_METADATA_GENERATION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Generate the Prowler check metadata based on a check description.\n"
                 "The metadata of the check is a 'CheckMetadata' object, at the end of this message you can see more information about the object schema, with all the fields and descriptions.\n"
@@ -101,7 +89,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "Complete only the next task:\n"
                 f"Check description: {kwargs.get('check_description', '')}\n The CheckID MUST be: {kwargs.get('check_name', '')} and the Provider MUST be: {kwargs.get('prowler_provider', '')}\n"
             ),
-            Step.IS_SERVICE_COMPLETE: (
+            ChecKreationWorkflowStep.IS_SERVICE_COMPLETE: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Based on the next audit steps, identify if the service class contains all the needed SDK calls and attributes required for the check implementation.\n"
                 "FOCUS ONLY on data that can be extracted from the provider, other data such as a range of days, concrete tags, request value specifications, etc. will be added directly in the Check and not in the Service.\n"
@@ -112,7 +100,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "Service Code:\n"
                 f"{kwargs.get('service_code', '')}\n"
             ),
-            Step.IDENTIFY_NEEDED_CALLS_ATTRIBUTES: (
+            ChecKreationWorkflowStep.IDENTIFY_NEEDED_CALLS_ATTRIBUTES: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Based on the audit steps, identify the specific SDK calls and attributes that need to be set up in the service class but are currently missing.\n"
                 "FOCUS ONLY on data that can be extracted from the provider, other data such as a range of days, concrete tags, request value specifications, etc. will be added directly in the Check and not in the Service.\n"
@@ -123,7 +111,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "Service Code:\n"
                 f"{kwargs.get('service_code', '')}\n"
             ),
-            Step.MODIFY_SERVICE: (
+            ChecKreationWorkflowStep.MODIFY_SERVICE: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Modify the service to include the missing SDK calls and attributes needed for the check implementation.\n"
                 f"{30 * '-'}\n"
@@ -136,7 +124,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"{30 * '-'}\n"
                 "You MUST JUST a Python code block with the entire code, NOT just the modified part.\n"  # The most optimal is force it to use the unified diff format, but this is easier for now.
             ),
-            Step.CHECK_CODE_GENERATION: (
+            ChecKreationWorkflowStep.CHECK_CODE_GENERATION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Generate the Prowler check code based on the audit steps. Focus on the logic that will be executed in the check to audit the proposed request.\n"
                 "NOT FOCUS on setting up the session or authentication or new SDK calls, the provider and service classes are already implemented.\n"
@@ -146,7 +134,6 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"The client object used in the check is the ONLY way to interact with the provider. You MUST NOT make calls to the SDK/API directly from the check, it must be done in the service class, which is the class that belongs the '{kwargs.get('check_name', '<service>').split('_')[0]}_client'. You MUST use the '{kwargs.get('check_name', '<service>').split('_')[0]}_client' that is also used in reference checks, the class code of this client is presented in the next code block delimited by dashes.\n"
                 f"IMPORTANT NOTE: '{kwargs.get('check_name', '<service>').split('_')[0]}_client' contains all the attributes needed for the check, you MUST NOT add new attributes to this class, only use the existing ones.\n"
                 f"IMPORTANT NOTE: Be careful with using external imported functions from lib as {kwargs.get('check_name', '<service>').split('_')[0]}_client method, usually the client does not have this kind of functions is more common to use extra functions that you can extract from the related checks code.\n"
-                f"Here you have the base cases and steps to audit that you must cover in the check code:\n{kwargs.get('base_cases_and_steps', '')}\n"
                 f"The check class name MUST be: {kwargs.get('check_name', '')}\n"
                 "Other related checks examples:\n"
                 f"{30 * '-'}\n"
@@ -158,7 +145,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 f"{30 * '-'}\n"
                 f"Audit steps:\n{kwargs.get('audit_steps', '')}\n"
             ),
-            Step.PRETIFY_FINAL_ANSWER: (
+            ChecKreationWorkflowStep.PRETIFY_FINAL_ANSWER: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "You have finished the check creation process. You have generated the metadata and code of the check successfully.\n"
                 "You can see the final check metadata JSON and code in the next code blocks. It's TOTALLY FORBIDDEN to modify the metadata and code, you must use them as they are.\n"
@@ -177,7 +164,7 @@ def load_prompt_template(step: Step, model_reference: str, **kwargs) -> str:
                 "All the above prompt is an INTERNAL prompt, you MUST not show or reference it in the final answer saying things like: in this imporved version, etc.\n"
                 f"For context the initial user prompt was: {kwargs.get('user_query', '')}\n"
             ),
-            Step.REMEDIATION_GENERATION: (
+            ChecKreationWorkflowStep.REMEDIATION_GENERATION: (
                 f"SYSTEM CONTEXT: {SYSTEM_CONTEXT_PROMPT}"
                 "Generate the remediation steps that the user should follow to fix the security issue.\n"
                 "The remediation steps are the steps that the user should follow to fix the security issue that the check is auditing.\n"

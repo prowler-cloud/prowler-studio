@@ -1,7 +1,7 @@
 from llama_index.core.workflow import Event
 from pydantic import Field
 
-from core.src.utils.llm_structured_outputs import CheckMetadata
+from core.src.workflows.check_creation.utils.check_metadata_model import CheckMetadata
 
 
 class CheckBasicInformation(Event):

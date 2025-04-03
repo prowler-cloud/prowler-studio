@@ -27,4 +27,4 @@ RUN poetry config virtualenvs.in-project true && \
 # FIX bug in llamaindex framework to allow collect events in API deployment
 RUN sed -i '0,/k: \[serializer.serialize(ev) for ev in v\]/s//str(k): \[serializer.serialize(ev) for ev in v\]/' /home/prowler_studio/.venv/lib/python3.12/site-packages/llama_index/core/workflow/context.py
 
-ENTRYPOINT [ "./api/container-entrypoint.sh" ]
+ENTRYPOINT [ "./api/workflows/check_creation/container-entrypoint.sh" ]

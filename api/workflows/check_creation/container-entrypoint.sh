@@ -18,7 +18,7 @@ fi
 
 # Deploy the workflow
 echo "Deploying workflow..."
-llamactl deploy ./api/deployment.yml
+llamactl deploy ./api/workflows/check_creation/deployment.yml
 
 # Check if the deployment was successful
 if [ $? -ne 0 ]; then
