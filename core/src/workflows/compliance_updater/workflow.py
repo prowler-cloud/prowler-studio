@@ -76,7 +76,7 @@ class ComplianceUpdaterWorkflow(Workflow):
                 check_provider = compliance_basic_info.prowler_provider
                 relevants_checks = check_metadata_vector_store.get_related_checks(
                     check_description=check_description,
-                    confidence_threshold=0.7,
+                    confidence_threshold=0.6,
                 ).get(check_provider, {})
 
                 checks = []

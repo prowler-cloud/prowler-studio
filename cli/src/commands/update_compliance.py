@@ -70,9 +70,6 @@ def is_valid_prowler_compliance(data: dict) -> bool:
         for attr in req["Attributes"]:
             if not isinstance(attr, dict):
                 return False
-            attr_keys = {"Section", "Service", "Type"}
-            if not attr_keys.issubset(attr.keys()):
-                return False
 
         for check in req["Checks"]:
             if not isinstance(check, str):
