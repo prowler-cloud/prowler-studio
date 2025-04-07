@@ -37,18 +37,18 @@ def is_valid_prowler_compliance(data: dict) -> bool:
 
     return True
 
-def validate_max_check_number(
-    max_check_number: int,
+def validate_max_check_number_per_requirement(
+    max_check_number_per_requirement: int,
 ) -> bool:
     """Validate if the max check number is a positive integer.
 
     Args:
-        max_check_number (int): The max check number to validate.
+        max_check_number_per_requirement (int): The max check number to validate.
 
     Returns:
         True if the max check number is a positive integer, False otherwise.
     """
-    return isinstance(max_check_number, int) and max_check_number > 0
+    return isinstance(max_check_number_per_requirement, int) and max_check_number_per_requirement > 0
 
 def validate_confidence_threshold(
     confidence_threshold: float,
