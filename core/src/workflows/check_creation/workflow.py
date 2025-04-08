@@ -7,7 +7,9 @@ from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, 
 from llama_index.core.workflow.retry_policy import ConstantDelayRetryPolicy
 from loguru import logger
 
-from core.src.events import (
+from core.src.rag.vector_store import CheckMetadataVectorStore
+from core.src.utils.model_chooser import llm_chooser
+from core.src.workflows.check_creation.events import (
     CheckBasicInformation,
     CheckCodeResult,
     CheckMetadataInformation,
@@ -15,10 +17,11 @@ from core.src.events import (
     CheckServiceInformation,
     CheckServiceResult,
 )
-from core.src.rag.vector_store import CheckMetadataVectorStore
-from core.src.utils.llm_structured_outputs import CheckMetadata
-from core.src.utils.model_chooser import llm_chooser
-from core.src.utils.prompt_loader import Step, load_prompt_template
+from core.src.workflows.check_creation.utils.check_metadata_model import CheckMetadata
+from core.src.workflows.check_creation.utils.prompt_steps_enum import (
+    ChecKreationWorkflowStep,
+)
+from core.src.workflows.utils.prompt_manager import load_prompt_template
 
 DEFAULT_ERROR_MESSAGE = "Sorry but I cannot create a Prowler check with that information, please try again introducing more context about the check that you want to create."
 
@@ -66,7 +69,7 @@ class ChecKreationWorkflow(Workflow):
 
                 is_prowler_check = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
-                        step=Step.BASIC_FILTER,
+                        step=ChecKreationWorkflowStep.BASIC_FILTER,
                         model_reference=start_event.get("model_reference"),
                         user_query=user_query,
                         valid_providers=available_providers,
@@ -80,7 +83,7 @@ class ChecKreationWorkflow(Workflow):
                     (
                         await Settings.llm.acomplete(
                             prompt=load_prompt_template(
-                                step=Step.PROVIDER_EXTRACTION,
+                                step=ChecKreationWorkflowStep.PROVIDER_EXTRACTION,
                                 model_reference=start_event.get("model_reference"),
                                 user_query=user_query,
                                 valid_providers=available_providers,
@@ -105,7 +108,7 @@ class ChecKreationWorkflow(Workflow):
                     (
                         await Settings.llm.acomplete(
                             prompt=load_prompt_template(
-                                step=Step.SERVICE_EXTRACTION,
+                                step=ChecKreationWorkflowStep.SERVICE_EXTRACTION,
                                 model_reference=start_event.get("model_reference"),
                                 user_query=user_query,
                                 prowler_provider=prowler_provider,
@@ -131,7 +134,7 @@ class ChecKreationWorkflow(Workflow):
 
                 user_input_summary = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
-                        step=Step.USER_INPUT_SUMMARY,
+                        step=ChecKreationWorkflowStep.USER_INPUT_SUMMARY,
                         model_reference=start_event.get("model_reference"),
                         user_query=user_query,
                         prowler_provider=prowler_provider,
@@ -216,7 +219,7 @@ class ChecKreationWorkflow(Workflow):
                 (
                     await Settings.llm.acomplete(
                         prompt=load_prompt_template(
-                            step=Step.CHECK_NAME_DESIGN,
+                            step=ChecKreationWorkflowStep.CHECK_NAME_DESIGN,
                             model_reference=await ctx.get("model_reference"),
                             user_query=check_basic_info.user_input_summary,
                             service=check_basic_info.service,
@@ -235,7 +238,7 @@ class ChecKreationWorkflow(Workflow):
             audit_steps = (
                 await Settings.llm.acomplete(
                     prompt=load_prompt_template(
-                        step=Step.AUDIT_STEPS_EXTRACTION,
+                        step=ChecKreationWorkflowStep.AUDIT_STEPS_EXTRACTION,
                         model_reference=await ctx.get("model_reference"),
                         user_query=check_basic_info.user_input_summary,
                     )
@@ -298,7 +301,7 @@ class ChecKreationWorkflow(Workflow):
                         output_cls=CheckMetadata,
                         prompt=PromptTemplate(
                             template=load_prompt_template(
-                                step=Step.CHECK_METADATA_GENERATION,
+                                step=ChecKreationWorkflowStep.CHECK_METADATA_GENERATION,
                                 model_reference=await ctx.get("model_reference"),
                                 check_name=check_metadata_base_info.check_name,
                                 check_description=check_metadata_base_info.user_input_summary,
@@ -344,7 +347,7 @@ class ChecKreationWorkflow(Workflow):
             is_service_complete = (
                 await Settings.llm.acomplete(
                     prompt=load_prompt_template(
-                        step=Step.IS_SERVICE_COMPLETE,
+                        step=ChecKreationWorkflowStep.IS_SERVICE_COMPLETE,
                         model_reference=await ctx.get("model_reference"),
                         service_code=service_code,
                         audit_steps=check_service_info.audit_steps,
@@ -357,7 +360,7 @@ class ChecKreationWorkflow(Workflow):
                 missing_service_attributes = (
                     await Settings.llm.acomplete(
                         prompt=load_prompt_template(
-                            step=Step.IDENTIFY_NEEDED_CALLS_ATTRIBUTES,
+                            step=ChecKreationWorkflowStep.IDENTIFY_NEEDED_CALLS_ATTRIBUTES,
                             model_reference=await ctx.get("model_reference"),
                             audit_steps=check_service_info.audit_steps,
                             service_code=service_code,
@@ -369,7 +372,7 @@ class ChecKreationWorkflow(Workflow):
                 service_code = (
                     await Settings.llm.acomplete(
                         prompt=load_prompt_template(
-                            step=Step.MODIFY_SERVICE,
+                            step=ChecKreationWorkflowStep.MODIFY_SERVICE,
                             model_reference=await ctx.get("model_reference"),
                             service_code=service_code,
                             missing_service_attributes=missing_service_attributes,
@@ -419,7 +422,7 @@ class ChecKreationWorkflow(Workflow):
 
             check_code = await Settings.llm.acomplete(
                 prompt=load_prompt_template(
-                    step=Step.CHECK_CODE_GENERATION,
+                    step=ChecKreationWorkflowStep.CHECK_CODE_GENERATION,
                     model_reference=await ctx.get("model_reference"),
                     check_name=check_code_info.check_name,
                     audit_steps=check_code_info.audit_steps,
@@ -504,7 +507,7 @@ class ChecKreationWorkflow(Workflow):
 
                 final_answer = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
-                        step=Step.PRETIFY_FINAL_ANSWER,
+                        step=ChecKreationWorkflowStep.PRETIFY_FINAL_ANSWER,
                         model_reference=await ctx.get("model_reference"),
                         user_query=await ctx.get("user_query"),
                         check_metadata=check[0].check_metadata,
@@ -517,7 +520,7 @@ class ChecKreationWorkflow(Workflow):
                 # Give some posible remediation steps based on the final answer
                 remediation = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
-                        step=Step.REMEDIATION_GENERATION,
+                        step=ChecKreationWorkflowStep.REMEDIATION_GENERATION,
                         model_reference=await ctx.get("model_reference"),
                         final_answer=final_answer.text,
                     )

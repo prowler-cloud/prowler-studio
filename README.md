@@ -97,6 +97,12 @@ poetry run ./prowler-studio create-check "Create a new Kubernetes check to ensur
 poetry run ./prowler-studio create-check "Create a new Kubernetes check to ensure that all my pods are running with a non-root user."
 ```
 
+💡 *Did you know?*
+You can use Prowler Studio to easily update your compliance requirements with the latest checks available in Prowler.
+
+```bash
+poetry run ./prowler-studio update-compliance --max-check-number-per-requirement 5 --confidence-threshold 0.6 compliance_test.json
+```
 ### Installation
 
 #### From Docker
@@ -194,6 +200,7 @@ poetry run ./prowler-studio --help
 
 - `create-check`: Create a new check.
 - `build-check-rag`: Build a RAG dataset updated with master (the RAG dataset is already in the repository, this command is to update it with new possible checks).
+- `update-compliance`: Update a specified compliance using the given compliance path using the Prowler Compliance Framework format.
 
 ## Prowler Studio Chatbot
 
@@ -225,7 +232,7 @@ git clone git@github.com:prowler-cloud/prowler-studio.git
 Then you can build the Docker image:
 
 ```bash
-docker build -f ./api/Dockerfile -t prowler-studio-api:latest . # Build the API image
+docker build -f ./api/workflows/check_creation/Dockerfile -t prowler-studio-api:latest . # Build the API image
 cd ./ui
 docker build -f ./Dockerfile -t prowler-studio-ui:latest .  # Build the UI image
 ```

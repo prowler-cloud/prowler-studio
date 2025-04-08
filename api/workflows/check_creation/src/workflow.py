@@ -4,12 +4,18 @@ from llama_index.core import Settings
 from llama_index.core.workflow import Context, StopEvent, step
 from loguru import logger
 
-from core.src.events import CheckCodeResult, CheckMetadataResult
-from core.src.utils.prompt_loader import Step, load_prompt_template
-from core.src.workflow import ChecKreationWorkflow
+from core.src.workflows.check_creation.events import (
+    CheckCodeResult,
+    CheckMetadataResult,
+)
+from core.src.workflows.check_creation.utils.prompt_steps_enum import (
+    ChecKreationWorkflowStep,
+)
+from core.src.workflows.check_creation.workflow import ChecKreationWorkflow
+from core.src.workflows.utils.prompt_manager import load_prompt_template
 
 
-# As llamadeploy does not support return JSON only return string, we need to use other workflow to just return string to Frontend
+# As llamadeploy does not support return JSON, we need to use other workflow to just return parsed answer as string
 class APIChecKreationWorkflow(ChecKreationWorkflow):
     @step
     async def check_return(
@@ -64,7 +70,7 @@ class APIChecKreationWorkflow(ChecKreationWorkflow):
 
                 final_answer = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
-                        step=Step.PRETIFY_FINAL_ANSWER,
+                        step=ChecKreationWorkflowStep.PRETIFY_FINAL_ANSWER,
                         model_reference=await ctx.get("model_reference"),
                         user_query=await ctx.get("user_query"),
                         check_metadata=check[0].check_metadata,
@@ -80,4 +86,4 @@ class APIChecKreationWorkflow(ChecKreationWorkflow):
             logger.exception(e)
 
 
-check_kreation_workflow = APIChecKreationWorkflow(timeout=500)
+check_creation_workflow = APIChecKreationWorkflow(timeout=500)
