@@ -86,7 +86,7 @@ class CheckMetadataVectorStore:
             prowler_directory_path: Path to the Prowler directory.
             overwrite: Whether to overwrite the existing index in the vector store.
         """
-
+        logger.info("Building check vector store...")
         try:
             if self._index is not None and not overwrite:
                 raise Exception(
@@ -97,12 +97,26 @@ class CheckMetadataVectorStore:
                     prowler_directory_path
                 )
 
-                if self._index is not None and overwrite and to_insert_documents:
+                to_delete_documents = self._load_deleted_checks_from_local_repo(
+                    prowler_directory_path
+                )
+
+                if (
+                    self._index is not None
+                    and overwrite
+                    and (to_insert_documents or to_delete_documents)
+                ):
                     for document in to_insert_documents:
                         if document.id_ in self._index.ref_doc_info:
                             self._index.update_ref_doc(document)
                         else:
                             self._index.insert(document)
+
+                    for document in to_delete_documents:
+                        if document.id_ in self._index.ref_doc_info:
+                            self._index.delete_ref_doc(
+                                document.id_, delete_from_docstore=True
+                            )
 
                 elif self._index is None:
                     self._index = VectorStoreIndex.from_documents(
@@ -231,6 +245,7 @@ class CheckMetadataVectorStore:
         self, prowler_directory_path: Path
     ) -> list[Document]:
         """Extracts only updated checks from the Prowler directory and converts them to a list of Document objects.
+        This method alse updates the check inventory with the metadata of the updated checks.
 
         Args:
             prowler_directory_path: Base path to the Prowler directory.
@@ -249,33 +264,120 @@ class CheckMetadataVectorStore:
             )
 
         updated_documents = []
-        for metadata_file in providers_dir.rglob("*.metadata.json"):
-            self.check_inventory.update_service(metadata_file.parent.parent)
-            self.check_inventory.update_check_code(
-                provider=metadata_file.parents[3].name,
-                service=metadata_file.parents[1].name,
-                check_id=metadata_file.parent.name,
-                file_path=metadata_file.parent / f"{metadata_file.parent.name}.py",
-            )
-            self.check_inventory.update_check_fixer(
-                provider=metadata_file.parents[3].name,
-                service=metadata_file.parents[1].name,
-                check_id=metadata_file.parent.name,
-                file_path=metadata_file.parent
-                / f"{metadata_file.parent.name}_fixer.py",
-            )
 
-            # Only rebuild the document if the metadata was updated because the document is only composed of metadata data
-            if self.check_inventory.update_check_metadata(
-                provider=metadata_file.parents[3].name,
-                service=metadata_file.parents[1].name,
-                check_id=metadata_file.parent.name,
-                file_path=metadata_file,
-            ):
-                document = self._create_check_document(check_dir=metadata_file.parent)
-                updated_documents.append(document)
+        for provider in providers_dir.rglob("*_provider.py"):
+            provider_name = provider.name.split("_")[0]
+
+            if provider not in self.check_inventory.get_available_providers():
+                self.check_inventory.add_provider(provider_name)
+
+            for service in provider.parent.rglob("*_service.py"):
+                service_name = service.name.split("_")[0]
+
+                self.check_inventory.update_service(
+                    file_path=service,
+                )
+
+                for check_metadata_file in service.parent.rglob("*.metadata.json"):
+                    check_id = check_metadata_file.parent.name
+
+                    self.check_inventory.update_check_code(
+                        provider=provider_name,
+                        service=service_name,
+                        check_id=check_id,
+                        file_path=check_metadata_file.parent / f"{check_id}.py",
+                    )
+                    self.check_inventory.update_check_fixer(
+                        provider=provider_name,
+                        service=service_name,
+                        check_id=check_id,
+                        file_path=check_metadata_file.parent / f"{check_id}_fixer.py",
+                    )
+                    # Only rebuild the document if the metadata was updated because the document is only composed of metadata data
+                    if self.check_inventory.update_check_metadata(
+                        provider=provider_name,
+                        service=service_name,
+                        check_id=check_id,
+                        file_path=check_metadata_file,
+                    ):
+                        document = self._create_check_document(
+                            check_dir=check_metadata_file.parent
+                        )
+                        updated_documents.append(document)
 
         return updated_documents
+
+    def _load_deleted_checks_from_local_repo(
+        self, prowler_directory_path: Path
+    ) -> list[str]:
+        """Extracts deleted checks from the Prowler directory and converts them to a list of document IDs.
+        This method also updates the check inventory deleting the providers, services or checks that were deleted in the Prowler repo.
+
+        Args:
+            prowler_directory_path: Base path to the Prowler directory.
+
+        Returns:
+            A list of Document objects containing the metadata of deleted checks.
+        """
+        logger.info("Extracting deleted checks from Prowler directory...")
+
+        # Recorer el inventario de checks y eliminar los checks que no existen en el repo
+        deleted_checks = []
+        for provider in self.check_inventory.get_available_providers():
+            provider_path = prowler_directory_path / "prowler/providers" / f"{provider}"
+            if not provider_path.exists():
+                # Before deleting the provider is needed to get all the checks and add to the deleted checks list
+                for service in self.check_inventory.get_available_services_in_provider(
+                    provider_name=provider
+                ):
+                    for (
+                        check_id
+                    ) in self.check_inventory.get_available_checks_in_service(
+                        provider_name=provider, service_name=service
+                    ):
+                        deleted_checks.append(f"{provider}_{check_id}")
+                self.check_inventory.delete_provider(provider)
+            else:
+                for service in self.check_inventory.get_available_services_in_provider(
+                    provider_name=provider
+                ):
+                    service_path = (
+                        prowler_directory_path
+                        / "prowler/providers"
+                        / provider
+                        / "services"
+                        / service
+                    )
+                    if not service_path.exists():
+                        # Before deleting the service is needed to get all the checks and add to the deleted checks list
+                        for (
+                            check_id
+                        ) in self.check_inventory.get_available_checks_in_service(
+                            provider_name=provider, service_name=service
+                        ):
+                            deleted_checks.append(f"{provider}_{check_id}")
+                        self.check_inventory.delete_service(provider, service)
+                    else:
+                        for (
+                            check_id
+                        ) in self.check_inventory.get_available_checks_in_service(
+                            provider_name=provider, service_name=service
+                        ):
+                            check_path = (
+                                prowler_directory_path
+                                / "prowler/providers"
+                                / provider
+                                / "services"
+                                / service
+                                / check_id
+                            )
+                            if not check_path.exists():
+                                deleted_checks.append(f"{provider}_{check_id}")
+                                self.check_inventory.delete_check(
+                                    provider=provider, check_id=check_id
+                                )
+
+        return deleted_checks
 
     def _create_check_document(self, check_dir: Path) -> Document:
         """Create LlamaIndex Document from check metadata.

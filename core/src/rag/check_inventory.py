@@ -151,30 +151,91 @@ class CheckInventory:
             .get("fixer", "")
         )
 
-    def update_service(self, service_dir: Path) -> bool:
+    def add_provider(self, provider: str) -> bool:
+        """Add a empty provider to the inventory.
+
+        Args:
+            provider: The Prowler provider.
+
+        Returns:
+            True if the provider was added, False otherwise.
+        """
+        if provider not in self._inventory:
+            self._inventory[provider] = {}
+            return True
+        return False
+
+    def add_service(self, provider: str, service: str) -> bool:
+        """Add a empty service to the inventory, the provider must exist.
+
+        Args:
+            provider: The Prowler provider.
+            service: The service name.
+        Returns:
+            True if the service was added, False otherwise.
+        Raises:
+            Exception: If the provider does not exist.
+        """
+        if provider not in self._inventory:
+            raise Exception(f"Provider {provider} does not exist.")
+        if service not in self._inventory[provider]:
+            self._inventory[provider][service] = {
+                "description": "",
+                "code": "",
+                "checks": {},
+            }
+            return True
+        return False
+
+    def add_check(self, provider: str, service: str, check_id: str) -> bool:
+        """Add a empty check to the inventory, the service must exist.
+
+        Args:
+            provider: The Prowler provider.
+            service: The service name.
+            check_id: The ID of the check.
+
+        Returns:
+            True if the check was added, False otherwise.
+        Raises:
+            Exception: If the service does not exist.
+        """
+        if provider not in self._inventory:
+            raise Exception(f"Provider {provider} does not exist.")
+        if service not in self._inventory[provider]:
+            raise Exception(f"Service {service} does not exist.")
+        if check_id not in self._inventory[provider][service]["checks"]:
+            self._inventory[provider][service]["checks"][check_id] = {
+                "metadata": "",
+                "code": "",
+                "fixer": "",
+            }
+            return True
+        return False
+
+    def update_service(self, file_path: Path) -> bool:
         """Update the service code in the check inventory.
 
         If the service does not exist in the inventory, it will be added. If the service already exists,
         it will be updated only if the service code is different.
 
         Args:
-            service_dir: Directory where the service is located.
+            file_path: Path to the service file.
 
         Returns:
             True if the service was updated, False otherwise.
         """
-        provider = service_dir.parent.parent.name
-        service = service_dir.name
+        provider = file_path.parents[2].name
+        service = file_path.parent.name
 
         self._inventory.setdefault(provider, {}).setdefault(
             service, {"description": "", "code": "", "checks": {}}
         )
 
         updated = False
-        service_file_path = service_dir / f"{service}_service.py"
 
-        if service_file_path.exists():
-            repo_service_code = read_file(service_file_path)
+        if file_path.exists():
+            repo_service_code = read_file(file_path)
 
             if repo_service_code != self.get_service_code(provider, service):
                 self._inventory[provider][service]["code"] = (
@@ -262,6 +323,59 @@ class CheckInventory:
                 )
                 return True
         return False
+
+    def delete_provider(self, provider: str) -> bool:
+        """Delete a provider from the inventory.
+
+        Args:
+            provider: The Prowler provider.
+
+        Returns:
+            True if the provider was deleted, False otherwise.
+        """
+        try:
+            del self._inventory[provider]
+            return True
+        except KeyError:
+            return False
+        except Exception as e:
+            raise Exception(f"Error deleting provider: {e}")
+
+    def delete_service(self, provider: str, service: str) -> bool:
+        """Delete a service from the inventory.
+
+        Args:
+            provider: The Prowler provider.
+            service: The service name.
+
+        Returns:
+            True if the service was deleted, False otherwise.
+        """
+        try:
+            del self._inventory[provider][service]
+            return True
+        except KeyError:
+            return False
+        except Exception as e:
+            raise Exception(f"Error deleting service: {e}")
+
+    def delete_check(self, provider: str, check_id: str) -> bool:
+        """Delete a check from the inventory.
+
+        Args:
+            provider: The Prowler provider.
+            check_id: The ID of the check.
+
+        Returns:
+            True if the check was deleted, False otherwise.
+        """
+        try:
+            del self._inventory[provider][check_id.split("_")[0]]["checks"][check_id]
+            return True
+        except KeyError:
+            return False
+        except Exception as e:
+            raise Exception(f"Error deleting check: {e}")
 
     # Storage format functions
 

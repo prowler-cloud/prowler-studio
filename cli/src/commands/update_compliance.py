@@ -10,7 +10,11 @@ from cli.src.views.prompts import prompt_enter_compliance_path
 from core.src.workflows.compliance_updater.workflow import ComplianceUpdaterWorkflow
 
 
-async def run_compliance_updater_workflow(compliance_data: dict, max_check_number_per_requirement: int, confidence_threshold: float) -> dict:
+async def run_compliance_updater_workflow(
+    compliance_data: dict,
+    max_check_number_per_requirement: int,
+    confidence_threshold: float,
+) -> dict:
     """Run the compliance updater workflow asynchronously.
 
     Args:
