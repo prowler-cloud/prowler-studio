@@ -9,8 +9,8 @@ from core.src.workflows.compliance_updater.events import (
 )
 from core.src.workflows.compliance_updater.utils.compliance_validator import (
     is_valid_prowler_compliance,
-    validate_max_check_number,
     validate_confidence_threshold,
+    validate_max_check_number_per_requirement,
 )
 
 
@@ -28,13 +28,17 @@ class ComplianceUpdaterWorkflow(Workflow):
         logger.info("Initializing...")
         try:
             compliance_data = start_event.get("compliance_data", "")
-            max_check_number = start_event.get("max_check_number", 5)
+            max_check_number_per_requirement = start_event.get(
+                "max_check_number_per_requirement", 5
+            )
             confidence_threshold = start_event.get("confidence_threshold", 0.6)
-            
-            if not validate_max_check_number(max_check_number):
-                    raise ValueError(
-                        f"Invalid max_check_number: {max_check_number}. It must be a value greater than 0."
-                    )
+
+            if not validate_max_check_number_per_requirement(
+                max_check_number_per_requirement
+            ):
+                raise ValueError(
+                    f"Invalid max_check_number_per_requirement: {max_check_number_per_requirement}. It must be a value greater than 0."
+                )
             if not validate_confidence_threshold(confidence_threshold):
                 raise ValueError(
                     f"Invalid confidence_threshold: {confidence_threshold}. It must be a float between 0 and 1."
@@ -44,7 +48,7 @@ class ComplianceUpdaterWorkflow(Workflow):
                 return ComplianceBasicInformation(
                     prowler_provider=compliance_data.get("Provider", "").lower(),
                     compliance_data=compliance_data,
-                    max_check_number=max_check_number,
+                    max_check_number_per_requirement=max_check_number_per_requirement,
                     confidence_threshold=confidence_threshold,
                 )
             else:
@@ -72,7 +76,7 @@ class ComplianceUpdaterWorkflow(Workflow):
                 check_provider = compliance_basic_info.prowler_provider
                 relevants_checks = check_metadata_vector_store.get_related_checks(
                     check_description=check_description,
-                    num_checks=compliance_basic_info.max_check_number,
+                    num_checks=compliance_basic_info.max_check_number_per_requirement,
                     confidence_threshold=compliance_basic_info.confidence_threshold,
                 ).get(check_provider, {})
 

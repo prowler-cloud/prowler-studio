@@ -101,7 +101,7 @@ poetry run ./prowler-studio create-check "Create a new Kubernetes check to ensur
 You can use Prowler Studio to easily update your compliance requirements with the latest checks available in Prowler.
 
 ```bash
-poetry run ./prowler-studio update-compliance --max-check-number 5 --confidence-threshold 0.6 compliance_test.json
+poetry run ./prowler-studio update-compliance --max-check-number-per-requirement 5 --confidence-threshold 0.6 compliance_test.json
 ```
 ### Installation
 

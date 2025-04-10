@@ -9,8 +9,8 @@ class ComplianceBasicInformation(Event):
         description="Prowler provider to use for the check creation"
     )
     compliance_data: dict = Field(description="Compliance data to update")
-    max_check_number: int = Field(
-        description="Maximum number of checks to create for the compliance data"
+    max_check_number_per_requirement: int = Field(
+        description="Maximum number of checks to create for each compliance requirement"
     )
     confidence_threshold: float = Field(
         description="Confidence threshold for the compliance data"
