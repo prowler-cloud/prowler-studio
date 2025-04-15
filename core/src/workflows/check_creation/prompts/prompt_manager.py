@@ -1,12 +1,6 @@
 from pathlib import Path
 
-from jinja2 import (
-    Environment,
-    FileSystemLoader,
-    StrictUndefined,
-    UndefinedError,
-    select_autoescape,
-)
+from jinja2 import Environment, FileSystemLoader, StrictUndefined, UndefinedError
 
 from core.src.workflows.check_creation.utils.prompt_steps_enum import (
     ChecKreationWorkflowStep,
@@ -53,6 +47,5 @@ class CheckCreationPromptManager(AbstractPromptManager):
         """
         return Environment(
             loader=FileSystemLoader(Path(__file__).parent / "templates"),
-            autoescape=select_autoescape(["html", "xml"]),
             undefined=StrictUndefined,
         )
