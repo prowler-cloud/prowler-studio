@@ -319,7 +319,7 @@ class ChecKreationWorkflow(Workflow):
                     )
                     if "validation error" in check_metadata:
                         raise ValueError(
-                            f"Error creating check metadata: {check_metadata.error}"
+                            "Internal error creating check metadata. Retrying..."
                         )
                 except Exception as e:
                     sleep(5)
