@@ -1,0 +1,23 @@
+{% block context_setup -%}
+# CONTEXT
+{% include 'generic/prowler_studio_context.txt' %}
+{%- endblock %}
+
+{% block task_definition -%}
+# TASK
+Your task is to extract the Prowler provider from the user prompt. Valid providers are:
+{%- for provider in prowler_providers %}
+- "{{ provider }}"
+{%- endfor %}
+If the user does not provide the provider explicitly, you can try to infer it from the user prompt service and requirements.
+{% block output_format -%}
+## OUTPUT FORMAT
+You MUST limit your answer to just one word. The name of one of the valid providers or "unknown" in the case that the provider is indicated in the prompt or cannot be infered.
+{%- endblock %}
+{%- endblock %}
+
+{% block input -%}
+# INPUT
+**User prompt**:
+{{ user_prompt }}
+{%- endblock %}

@@ -1,0 +1,33 @@
+{% block context_setup -%}
+# CONTEXT
+{% include 'generic/prowler_studio_context.txt' %}
+{%- endblock %}
+
+{% block task_definition -%}
+# TASK
+You have to decide if the user prompt is a valid prompt to create a check or not.
+You MUST return "yes" if the user prompt is a valid prompt to create a check, otherwise return in a friendly way why the user prompt is not valid.
+
+## VALID PROMPTS
+- Requests that contains a security assesment that can be audited in an automated way for one of the supported providers.
+- Requests that ask for a check that is already implemented in Prowler with some modifications.
+
+## INVALID PROMPTS
+- Requests that are not related to security or compliance.
+- Requests that request for two or more checks.
+- Requests that are not related to the supported providers. The supported providers are:
+{%- for provider in prowler_providers %}
+    - "{{ provider }}"
+{%- endfor %}
+{% block output_format -%}
+## OUTPUT FORMAT
+You MUST limit to make a simple yes/no evaluation. Just answer with "yes" or "no".
+You MUST NOT explain your answer at this step, just a simple yes/no evaluation.
+{%- endblock %}
+{%- endblock %}
+
+{% block input -%}
+# INPUT
+**User prompt**:
+{{ user_prompt }}
+{%- endblock %}
