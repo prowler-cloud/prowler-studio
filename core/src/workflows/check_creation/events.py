@@ -1,7 +1,20 @@
-from llama_index.core.workflow import Event
+from typing import Optional
+
+from llama_index.core.workflow import Event, StartEvent, StopEvent
 from pydantic import Field
 
 from core.src.workflows.check_creation.utils.check_metadata_model import CheckMetadata
+
+
+class CheckCreationInput(StartEvent):
+    """Event representing the input for the check creation process."""
+
+    user_input: str = Field(description="User input for the check creation process")
+    llm_provider: str = Field(description="Model provider to use for the LLM")
+    llm_reference: str = Field(description="Model reference to use for the LLM")
+    api_key: Optional[str] = Field(
+        description="API key to use for the LLM", default=None
+    )
 
 
 class CheckBasicInformation(Event):
@@ -70,4 +83,41 @@ class CheckCodeResult(Event):
     check_code: str = Field(description="Python code for the check")
     modified_service_code: str = Field(
         description="Python Code from modified service, if not modified it will be an empty string"
+    )
+
+
+# Custom Stop Event
+class CheckCreationResult(StopEvent):
+    """Event representing the result of the check creation process."""
+
+    status_code: int = Field(
+        description="Status code of the check creation process: 0 for success, 1 for failure, 2 for error"
+    )
+    user_answer: Optional[str] = Field(
+        description="Unified and prettified answer to display to the user",
+        default=None,
+    )
+    check_metadata: Optional[CheckMetadata] = Field(
+        description="Check metadata information",
+        default=None,
+    )
+    check_code: Optional[str] = Field(
+        description="Python code for the check",
+        default=None,
+    )
+    check_path: Optional[str] = Field(
+        description="Path to the check file in the repository",
+        default=None,
+    )
+    generic_remediation: Optional[str] = Field(
+        description="Generic remediation for the check",
+        default=None,
+    )
+    service_code: Optional[str] = Field(
+        description="Python code for the service, if not modified it will be None",
+        default=None,
+    )
+    error_message: Optional[str] = Field(
+        description="Error message for the check creation exception",
+        default=None,
     )

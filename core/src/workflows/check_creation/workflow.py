@@ -3,7 +3,7 @@ from time import sleep
 
 from llama_index.core import Settings
 from llama_index.core.prompts.base import PromptTemplate
-from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
+from llama_index.core.workflow import Context, Workflow, step
 from llama_index.core.workflow.retry_policy import ConstantDelayRetryPolicy
 from loguru import logger
 
@@ -12,6 +12,8 @@ from core.src.utils.model_chooser import llm_chooser
 from core.src.workflows.check_creation.events import (
     CheckBasicInformation,
     CheckCodeResult,
+    CheckCreationInput,
+    CheckCreationResult,
     CheckMetadataInformation,
     CheckMetadataResult,
     CheckServiceInformation,
@@ -23,39 +25,37 @@ from core.src.workflows.check_creation.utils.prompt_steps_enum import (
 )
 from core.src.workflows.utils.prompt_manager import load_prompt_template
 
-DEFAULT_ERROR_MESSAGE = "Sorry but I cannot create a Prowler check with that information, please try again introducing more context about the check that you want to create."
-
 
 class ChecKreationWorkflow(Workflow):
     """Workflow to create new Prowler check based on user input."""
 
-    @step(retry_policy=ConstantDelayRetryPolicy(delay=10, maximum_attempts=3))
+    @step(retry_policy=ConstantDelayRetryPolicy(delay=10, maximum_attempts=2))
     async def workflow_setup(
-        self, ctx: Context, start_event: StartEvent
-    ) -> CheckBasicInformation | StopEvent:
+        self, ctx: Context, start_event: CheckCreationInput
+    ) -> CheckBasicInformation | CheckCreationResult:
         """Setup the workflow and sanitize the user input for next steps.
 
         Args:
             ctx: Workflow context.
             start_event: Event that triggered the workflow. It contains:
-                - user_query: User input to create the check.
-                - model_provider: Model provider to use for the LLM.
-                - model_reference: Model reference to use for the LLM.
+                - user_input: User input to create the check.
+                - llm_provider: Model provider to use for the LLM.
+                - llm_reference: Model reference to use for the LLM.
                 - api_key (optional): API key to use for the LLM.
         """
         logger.info("Initializing...")
         try:
-            user_query = start_event.get("user_query", "")
-            await ctx.set("user_query", user_query)
+            user_input = start_event.user_input
+            await ctx.set("user_input", user_input)
 
-            if user_query:
+            if user_input:
                 Settings.llm = llm_chooser(
-                    model_provider=start_event.get("model_provider", ""),
-                    model_reference=start_event.get("model_reference", ""),
-                    api_key=start_event.get("api_key", ""),
+                    model_provider=start_event.llm_provider,
+                    model_reference=start_event.llm_reference,
+                    api_key=start_event.api_key,
                 )
 
-                await ctx.set("model_reference", start_event.get("model_reference"))
+                await ctx.set("model_reference", start_event.llm_reference)
 
                 check_metadata_vector_store = CheckMetadataVectorStore()
 
@@ -70,22 +70,25 @@ class ChecKreationWorkflow(Workflow):
                 is_prowler_check = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
                         step=ChecKreationWorkflowStep.BASIC_FILTER,
-                        model_reference=start_event.get("model_reference"),
-                        user_query=user_query,
+                        model_reference=start_event.llm_reference,
+                        user_query=user_input,
                         valid_providers=available_providers,
                     )
                 )
 
                 if is_prowler_check.text.strip().lower() != "yes":
-                    return StopEvent(result=is_prowler_check.text)
+                    return CheckCreationResult(
+                        status_code=1,
+                        user_answer=is_prowler_check.text,
+                    )
 
                 prowler_provider = (
                     (
                         await Settings.llm.acomplete(
                             prompt=load_prompt_template(
                                 step=ChecKreationWorkflowStep.PROVIDER_EXTRACTION,
-                                model_reference=start_event.get("model_reference"),
-                                user_query=user_query,
+                                model_reference=start_event.llm_reference,
+                                user_query=user_input,
                                 valid_providers=available_providers,
                             )
                         )
@@ -95,8 +98,9 @@ class ChecKreationWorkflow(Workflow):
                 )
 
                 if prowler_provider not in available_providers:
-                    return StopEvent(
-                        result=f"Sorry but I cannot create a Prowler check for that provider, please try again with a supported provider ({', '.join(available_providers)})."
+                    return CheckCreationResult(
+                        status_code=1,
+                        user_answer=f"Sorry but I cannot create a Prowler check for that provider, please try again with a supported provider ({', '.join(available_providers)}).",
                     )
 
                 # TODO: Add description for each service to improve the LLM predictions
@@ -109,8 +113,8 @@ class ChecKreationWorkflow(Workflow):
                         await Settings.llm.acomplete(
                             prompt=load_prompt_template(
                                 step=ChecKreationWorkflowStep.SERVICE_EXTRACTION,
-                                model_reference=start_event.get("model_reference"),
-                                user_query=user_query,
+                                model_reference=start_event.llm_reference,
+                                user_query=user_input,
                                 prowler_provider=prowler_provider,
                                 services=services_for_provider,
                             )
@@ -126,8 +130,9 @@ class ChecKreationWorkflow(Workflow):
                 )
 
                 if check_service not in services_for_provider:
-                    return StopEvent(
-                        result=f"Sorry but the check service that you are trying to create is not supported in {prowler_provider} provider, please try again with a supported service: {', '.join(services_for_provider)}."
+                    return CheckCreationResult(
+                        status_code=1,
+                        user_answer=f"Sorry but the check service that you are trying to create is not supported in {prowler_provider} provider, please try again with a supported service: {', '.join(services_for_provider)}.",
                     )
 
                 # Summary of the user input to create the check
@@ -135,8 +140,8 @@ class ChecKreationWorkflow(Workflow):
                 user_input_summary = await Settings.llm.acomplete(
                     prompt=load_prompt_template(
                         step=ChecKreationWorkflowStep.USER_INPUT_SUMMARY,
-                        model_reference=start_event.get("model_reference"),
-                        user_query=user_query,
+                        model_reference=start_event.llm_reference,
+                        user_query=user_input,
                         prowler_provider=prowler_provider,
                         service=check_service,
                     )
@@ -152,20 +157,23 @@ class ChecKreationWorkflow(Workflow):
                 raise ValueError("The provided user query is empty.")
 
         except ValueError as e:
-            logger.error(str(e))
-            return StopEvent(
-                result="An error occurred while processing the user input. Please try again."
+            logger.error(e)
+            return CheckCreationResult(
+                status_code=1,
+                user_answer="An error occurred while processing the user input. Please try again.",
+                error_message=str(e),
             )
         except Exception as e:
             logger.exception(e)
-            return StopEvent(
-                result="An error occurred while processing the user input. Please try again."
+            return CheckCreationResult(
+                status_code=2,
+                error_message=f"Unexpected error occurred while processing the user input: {e}",
             )
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=3))
     async def user_input_analysis(
         self, ctx: Context, check_basic_info: CheckBasicInformation
-    ) -> CheckMetadataInformation | CheckServiceInformation | StopEvent:
+    ) -> CheckMetadataInformation | CheckServiceInformation | CheckCreationResult:
         """Analyze the user input to extract the security best practices, kind of resource to audit and base cases to cover.
 
         Args:
@@ -198,8 +206,9 @@ class ChecKreationWorkflow(Workflow):
 
                 if not reference_check_names:
                     # TODO: Add a way to create a new check from scratch or searching other checks from other services
-                    return StopEvent(
-                        result="Sorry but I cannot create a new check for this service because there are no checks available for it."
+                    return CheckCreationResult(
+                        status_code=1,
+                        user_answer="Sorry but I cannot create a new check for this service because there are no checks available for it.",
                     )
 
             if check_already_exists:
@@ -213,7 +222,10 @@ class ChecKreationWorkflow(Workflow):
                         + "\n".join(f"- {check}" for check in reference_check_names[:3])
                     )
 
-                return StopEvent(result=check_already_exists_message)
+                return CheckCreationResult(
+                    status_code=1,
+                    user_answer=check_already_exists_message,
+                )
 
             check_name = (
                 (
@@ -233,7 +245,10 @@ class ChecKreationWorkflow(Workflow):
             )
 
             if check_name.split("_")[0] != check_basic_info.service:
-                return StopEvent(result=DEFAULT_ERROR_MESSAGE)
+                return CheckCreationResult(
+                    status_code=1,
+                    user_answer="Sorry but there was an internal error while designing the check name, please try again.",
+                )
 
             audit_steps = (
                 await Settings.llm.acomplete(
@@ -266,13 +281,14 @@ class ChecKreationWorkflow(Workflow):
             )
 
         except Exception as e:
-            logger.exception(f"An error occurred while analyzing the user input: {e}")
-            return StopEvent(result="An error occurred while analyzing the user input.")
+            exception_message = f"An error occurred while analyzing the user input: {e}"
+            logger.exception(exception_message)
+            return CheckCreationResult(status_code=2, error_message=exception_message)
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=5))
     async def create_check_metadata(
         self, ctx: Context, check_metadata_base_info: CheckMetadataInformation
-    ) -> CheckMetadataResult | StopEvent:
+    ) -> CheckMetadataResult | CheckCreationResult:
         """Create the Prowler check based on the user input.
 
         Args:
@@ -318,17 +334,17 @@ class ChecKreationWorkflow(Workflow):
 
             return CheckMetadataResult(check_metadata=check_metadata)
 
-        except ValueError as e:
-            logger.error(str(e))
-            return StopEvent(result=DEFAULT_ERROR_MESSAGE)
         except Exception as e:
             logger.exception(e)
-            return StopEvent(result=DEFAULT_ERROR_MESSAGE)
+            return CheckCreationResult(
+                status_code=2,
+                error_message=f"An error occurred while creating the check metadata: {e}",
+            )
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=5))
     async def modify_service(
         self, ctx: Context, check_service_info: CheckServiceInformation
-    ) -> CheckServiceResult | StopEvent:
+    ) -> CheckServiceResult | CheckCreationResult:
         """Ensure if the service needs to be modified to create a new check and modify it if needed.
 
         Args:
@@ -388,15 +404,17 @@ class ChecKreationWorkflow(Workflow):
                 audit_steps=check_service_info.audit_steps,
             )
 
-        except ValueError as e:
-            logger.error(str(e))
         except Exception as e:
             logger.exception(e)
+            return CheckCreationResult(
+                status_code=2,
+                error_message=f"An error occurred while modifying the service: {e}",
+            )
 
     @step(retry_policy=ConstantDelayRetryPolicy(delay=5, maximum_attempts=8))
     async def create_check_code(
         self, ctx: Context, check_code_info: CheckServiceResult
-    ) -> CheckCodeResult:
+    ) -> CheckCodeResult | CheckCreationResult:
         """Create the Prowler check code based on the user input.
 
         Args:
@@ -449,17 +467,19 @@ class ChecKreationWorkflow(Workflow):
                 ),
             )
 
-        except ValueError as e:
-            logger.error(str(e))
         except Exception as e:
             logger.exception(e)
+            return CheckCreationResult(
+                status_code=2,
+                error_message=f"An error occurred while creating the check code: {e}",
+            )
 
     @step
     async def check_return(
         self,
         ctx: Context,
         trigger_events: CheckMetadataResult | CheckCodeResult,
-    ) -> StopEvent:
+    ) -> CheckCreationResult:
         """Return full check to user and stop the workflow.
 
         Args:
@@ -509,7 +529,7 @@ class ChecKreationWorkflow(Workflow):
                     prompt=load_prompt_template(
                         step=ChecKreationWorkflowStep.PRETIFY_FINAL_ANSWER,
                         model_reference=await ctx.get("model_reference"),
-                        user_query=await ctx.get("user_query"),
+                        user_query=await ctx.get("user_input"),
                         check_metadata=check[0].check_metadata,
                         check_code=check[1].check_code,
                         modified_service_code=code_diff,
@@ -526,16 +546,23 @@ class ChecKreationWorkflow(Workflow):
                     )
                 )
 
-                return StopEvent(
-                    result={
-                        "answer": final_answer.text,
-                        "metadata": check[0].check_metadata,
-                        "code": check[1].check_code,
-                        "check_path": await ctx.get("check_path"),
-                        "remediation": remediation.text,
-                        "modified_service_code": check[1].modified_service_code,
-                    }
+                return CheckCreationResult(
+                    status_code=0,
+                    user_answer=final_answer.text,
+                    check_metadata=check[0].check_metadata,
+                    check_code=check[1].check_code,
+                    check_path=check_path,
+                    generic_remediation=remediation.text,
+                    service_code=(
+                        check[1].modified_service_code
+                        if check[1].modified_service_code
+                        else None
+                    ),
                 )
 
         except Exception as e:
             logger.exception(e)
+            return CheckCreationResult(
+                status_code=2,
+                error_message=f"An error occurred while returning the check: {e}",
+            )
