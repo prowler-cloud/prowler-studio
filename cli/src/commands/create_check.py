@@ -23,6 +23,7 @@ from cli.src.views.prompts import (
     prompt_user_message,
 )
 from core.src.rag.vector_store import CheckMetadataVectorStore
+from core.src.workflows.check_creation.events import CheckCreationInput
 from core.src.workflows.check_creation.workflow import ChecKreationWorkflow
 
 
@@ -42,10 +43,12 @@ async def run_check_creation_workflow(
     """
     workflow = ChecKreationWorkflow(timeout=300, verbose=False)
     result = await workflow.run(
-        user_query=user_query,
-        model_provider=model_provider,
-        model_reference=model_reference,
-        api_key=api_key,
+        start_event=CheckCreationInput(
+            user_input=user_query,
+            llm_provider=model_provider,
+            llm_reference=model_reference,
+            api_key=api_key,
+        ),
         verbose=False,
     )
     return result
@@ -123,15 +126,16 @@ def create_new_check(
                     )
                 )
 
-                if isinstance(
-                    result, str
-                ):  # TODO: Implement a generic dict with the possible return values of the workflow
-                    display_warning(result)
-                else:
-                    display_markdown(result["answer"])
+                if result.status_code == 2:
+                    display_error(result.error_message)
+                    typer.Exit(code=1)
+                elif result.status_code == 1:
+                    display_warning(result.user_answer)
+                    typer.Exit(code=1)
+                elif result.status_code == 0:
+                    display_markdown(result.user_answer)
 
                     # Ask to the user to save the check code and metadata in his local Prowler repository
-
                     save_check = (
                         confirm_save_check(output_directory.resolve())
                         if not save_check
@@ -139,8 +143,8 @@ def create_new_check(
                     )
 
                     if save_check:
-                        check_name = result["check_path"].split("/")[-1]
-                        check_provider = result["check_path"].split("/")[2]
+                        check_name = result.check_path.split("/")[-1]
+                        check_provider = result.check_path.split("/")[2]
 
                         output_directory = Path(output_directory, check_name).resolve()
 
@@ -153,13 +157,13 @@ def create_new_check(
                             # If the check path does not exist, save the check
                             write_check(
                                 path=output_directory,
-                                code=result["code"],
-                                metadata=result["metadata"],
-                                modified_service_code=result["modified_service_code"],
+                                code=result.check_code,
+                                metadata=result.check_metadata,
+                                modified_service_code=result.service_code,
                             )
 
                             if (
-                                result["modified_service_code"] == ""
+                                not result.service_code
                                 and check_provider == "aws"
                                 and ask_execute_new_check()
                             ):
@@ -199,7 +203,7 @@ def create_new_check(
                                         display_warning(
                                             "It seems that your cloud is not secure! My recommendations to remediate the issues are:"
                                         )
-                                        display_markdown(result["remediation"])
+                                        display_markdown(result.generic_remediation)
                                 except FileNotFoundError:
                                     display_error(
                                         "Prowler command not found. Please ensure Prowler is installed and available in your PATH."
