@@ -48,4 +48,5 @@ class CheckCreationPromptManager(AbstractPromptManager):
         return Environment(
             loader=FileSystemLoader(Path(__file__).parent / "templates"),
             undefined=StrictUndefined,
+            autoescape=True,
         )
