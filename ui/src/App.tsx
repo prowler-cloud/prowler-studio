@@ -11,7 +11,8 @@ declare global {
 }
 
 function App() {
-  const baseApiUrl: string = process.env.BASE_API_URL || 'http://localhost:8000';
+  const baseApiUrl: string = process.env.BASE_API_URL || 'http://localhost';
+  const apiPort: string = process.env.API_PORT || '8000';
 
   React.useEffect(() => {
     if (!window.hljs) {
@@ -30,7 +31,7 @@ function App() {
           inputAreaStyle={{fontSize: '1rem'}}
           introMessage={{text: 'Request any new check to Prowler Studio by typing in the chat box below.'}}
           connect={{
-            url: baseApiUrl + '/new-check',
+            url: baseApiUrl + ':' + apiPort + '/new-check',
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
