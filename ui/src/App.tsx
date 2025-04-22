@@ -11,7 +11,7 @@ declare global {
 }
 
 function App() {
-  const baseApiUrl: string = process.env.BASE_API_URL || 'http://localhost:4501';
+  const baseApiUrl: string = process.env.BASE_API_URL || 'http://localhost:8000';
 
   React.useEffect(() => {
     if (!window.hljs) {
@@ -30,7 +30,7 @@ function App() {
           inputAreaStyle={{fontSize: '1rem'}}
           introMessage={{text: 'Request any new check to Prowler Studio by typing in the chat box below.'}}
           connect={{
-            url: baseApiUrl + '/deployments/ChecKreationWorkflow/tasks/run',
+            url: baseApiUrl + '/new-check',
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -39,12 +39,16 @@ function App() {
           requestBodyLimits={{ maxMessages: -1 }}
           requestInterceptor={(details: RequestDetails) => {
             const latestMessage = details.body.messages[details.body.messages.length - 1].text;
-            details.body.input = `{"user_query": "${latestMessage}", "model_provider": "openai", "model_reference": "gpt-4o"}`;
+            details.body = {
+              "user_query": latestMessage,
+              "llm_provider": "openai",
+              "llm_reference": "gpt-4o-mini"
+            };
             return details;
           }}
           responseInterceptor={(response: any) => {
             return {
-              text: response
+              text: response.user_answer
             }
           }}
         />
