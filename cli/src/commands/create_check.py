@@ -49,7 +49,6 @@ async def run_check_creation_workflow(
             llm_reference=model_reference,
             api_key=api_key,
         ),
-        verbose=False,
     )
     return result
 
