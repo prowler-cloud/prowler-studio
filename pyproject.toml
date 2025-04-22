@@ -26,3 +26,4 @@ vulture = "^2.13"
 
 [tool.poetry.group.api.dependencies]
 fastapi = "^0.115.12"
+uvicorn = "^0.34.2"
