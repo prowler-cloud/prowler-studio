@@ -25,4 +25,5 @@ typer = "^0.15.1"
 vulture = "^2.13"
 
 [tool.poetry.group.api.dependencies]
-llama-deploy = "^0.3.6"
+fastapi = "^0.115.12"
+uvicorn = "^0.34.2"
