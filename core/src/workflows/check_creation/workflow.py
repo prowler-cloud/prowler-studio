@@ -19,11 +19,13 @@ from core.src.workflows.check_creation.events import (
     CheckServiceInformation,
     CheckServiceResult,
 )
+from core.src.workflows.check_creation.prompts.prompt_manager import (
+    CheckCreationPromptManager,
+)
 from core.src.workflows.check_creation.utils.check_metadata_model import CheckMetadata
 from core.src.workflows.check_creation.utils.prompt_steps_enum import (
     ChecKreationWorkflowStep,
 )
-from core.src.workflows.utils.prompt_manager import load_prompt_template
 
 
 class ChecKreationWorkflow(Workflow):
@@ -38,17 +40,17 @@ class ChecKreationWorkflow(Workflow):
         Args:
             ctx: Workflow context.
             start_event: Event that triggered the workflow. It contains:
-                - user_input: User input to create the check.
+                - user_query: User input to create the check.
                 - llm_provider: Model provider to use for the LLM.
                 - llm_reference: Model reference to use for the LLM.
                 - api_key (optional): API key to use for the LLM.
         """
         logger.info("Initializing...")
         try:
-            user_input = start_event.user_input
-            await ctx.set("user_input", user_input)
+            user_query = start_event.user_query
+            await ctx.set("user_query", user_query)
 
-            if user_input:
+            if user_query:
                 Settings.llm = llm_chooser(
                     model_provider=start_event.llm_provider,
                     model_reference=start_event.llm_reference,
@@ -67,12 +69,17 @@ class ChecKreationWorkflow(Workflow):
                     check_metadata_vector_store.check_inventory.get_available_providers()
                 )
 
+                # Initialize prompt manager
+                prompt_manager = CheckCreationPromptManager(
+                    model_reference=start_event.get("model_reference", "")
+                )
+                await ctx.set("prompt_manager", prompt_manager)
+
                 is_prowler_check = await Settings.llm.acomplete(
-                    prompt=load_prompt_template(
+                    prompt=prompt_manager.get_prompt(
                         step=ChecKreationWorkflowStep.BASIC_FILTER,
-                        model_reference=start_event.llm_reference,
-                        user_query=user_input,
-                        valid_providers=available_providers,
+                        user_prompt=user_query,
+                        prowler_providers=available_providers,
                     )
                 )
 
@@ -85,11 +92,10 @@ class ChecKreationWorkflow(Workflow):
                 prowler_provider = (
                     (
                         await Settings.llm.acomplete(
-                            prompt=load_prompt_template(
+                            prompt=prompt_manager.get_prompt(
                                 step=ChecKreationWorkflowStep.PROVIDER_EXTRACTION,
-                                model_reference=start_event.llm_reference,
-                                user_query=user_input,
-                                valid_providers=available_providers,
+                                user_prompt=user_query,
+                                prowler_providers=available_providers,
                             )
                         )
                     )
@@ -111,11 +117,10 @@ class ChecKreationWorkflow(Workflow):
                 check_service = (
                     (
                         await Settings.llm.acomplete(
-                            prompt=load_prompt_template(
+                            prompt=prompt_manager.get_prompt(
                                 step=ChecKreationWorkflowStep.SERVICE_EXTRACTION,
-                                model_reference=start_event.llm_reference,
-                                user_query=user_input,
-                                prowler_provider=prowler_provider,
+                                user_prompt=user_query,
+                                provider=prowler_provider,
                                 services=services_for_provider,
                             )
                         )
@@ -130,18 +135,22 @@ class ChecKreationWorkflow(Workflow):
                 )
 
                 if check_service not in services_for_provider:
-                    return CheckCreationResult(
-                        status_code=1,
-                        user_answer=f"Sorry but the check service that you are trying to create is not supported in {prowler_provider} provider, please try again with a supported service: {', '.join(services_for_provider)}.",
-                    )
-
+                    if check_service == "unknown":
+                        return CheckCreationResult(
+                            status_code=1,
+                            user_answer=f"Sorry but I am not being able to detect the service you want to create the check for, could you be more specific and make sure that the service is currently supported for Prowler. The supported services for {prowler_provider} are: {', '.join(services_for_provider)}.",
+                        )
+                    else:
+                        return CheckCreationResult(
+                            status_code=1,
+                            user_answer=f"Sorry but the check service that you are trying to create is not supported in {prowler_provider} provider, please try again with a supported service: {', '.join(services_for_provider)}.",
+                        )
                 # Summary of the user input to create the check
 
                 user_input_summary = await Settings.llm.acomplete(
-                    prompt=load_prompt_template(
+                    prompt=prompt_manager.get_prompt(
                         step=ChecKreationWorkflowStep.USER_INPUT_SUMMARY,
-                        model_reference=start_event.llm_reference,
-                        user_query=user_input,
+                        user_prompt=user_query,
                         prowler_provider=prowler_provider,
                         service=check_service,
                     )
@@ -182,6 +191,8 @@ class ChecKreationWorkflow(Workflow):
         """
         logger.info("Analyzing user input...")
         try:
+            prompt_manager = await ctx.get("prompt_manager")
+
             check_metadata_vector_store = await ctx.get("check_metadata_vector_store")
             check_already_exists = check_metadata_vector_store.check_exists(
                 check_description=check_basic_info.user_input_summary
@@ -230,11 +241,9 @@ class ChecKreationWorkflow(Workflow):
             check_name = (
                 (
                     await Settings.llm.acomplete(
-                        prompt=load_prompt_template(
+                        prompt=prompt_manager.get_prompt(
                             step=ChecKreationWorkflowStep.CHECK_NAME_DESIGN,
-                            model_reference=await ctx.get("model_reference"),
-                            user_query=check_basic_info.user_input_summary,
-                            service=check_basic_info.service,
+                            prowler_service=check_basic_info.service,
                             check_description=check_basic_info.user_input_summary,
                             relevant_related_checks=reference_check_names,
                         )
@@ -252,10 +261,9 @@ class ChecKreationWorkflow(Workflow):
 
             audit_steps = (
                 await Settings.llm.acomplete(
-                    prompt=load_prompt_template(
+                    prompt=prompt_manager.get_prompt(
                         step=ChecKreationWorkflowStep.AUDIT_STEPS_EXTRACTION,
-                        model_reference=await ctx.get("model_reference"),
-                        user_query=check_basic_info.user_input_summary,
+                        check_description=check_basic_info.user_input_summary,
                     )
                 )
             ).text.strip()
@@ -311,22 +319,24 @@ class ChecKreationWorkflow(Workflow):
                 )
                 relevant_checks_metadata.append(metadata)
 
+            metadata_generation_prompt = (await ctx.get("prompt_manager")).get_prompt(
+                step=ChecKreationWorkflowStep.CHECK_METADATA_GENERATION,
+                check_name=check_metadata_base_info.check_name,
+                check_description=check_metadata_base_info.user_input_summary,
+                prowler_provider=check_metadata_base_info.prowler_provider,
+                relevant_related_checks_metadata=relevant_checks_metadata,
+            )
+
             for i in range(MAX_STRUCTURED_ATTEMPS):
                 try:
                     check_metadata = await Settings.llm.astructured_predict(
                         output_cls=CheckMetadata,
-                        prompt=PromptTemplate(
-                            template=load_prompt_template(
-                                step=ChecKreationWorkflowStep.CHECK_METADATA_GENERATION,
-                                model_reference=await ctx.get("model_reference"),
-                                check_name=check_metadata_base_info.check_name,
-                                check_description=check_metadata_base_info.user_input_summary,
-                                prowler_provider=check_metadata_base_info.prowler_provider,
-                                relevant_related_checks_metadata=relevant_checks_metadata,
-                            )
-                        ),
+                        prompt=PromptTemplate(template=metadata_generation_prompt),
                     )
-                    break
+                    if "validation error" in check_metadata:
+                        raise ValueError(
+                            "Internal error creating check metadata. Retrying..."
+                        )
                 except Exception as e:
                     sleep(5)
                     if i == MAX_STRUCTURED_ATTEMPS - 1:
@@ -353,6 +363,8 @@ class ChecKreationWorkflow(Workflow):
         """
         logger.info("Checking service...")
         try:
+            prompt_manager = await ctx.get("prompt_manager")
+
             check_metadata_vector_store = await ctx.get("check_metadata_vector_store")
 
             service_code = check_metadata_vector_store.check_inventory.get_service_code(
@@ -362,10 +374,9 @@ class ChecKreationWorkflow(Workflow):
 
             is_service_complete = (
                 await Settings.llm.acomplete(
-                    prompt=load_prompt_template(
+                    prompt=prompt_manager.get_prompt(
                         step=ChecKreationWorkflowStep.IS_SERVICE_COMPLETE,
-                        model_reference=await ctx.get("model_reference"),
-                        service_code=service_code,
+                        service_class_code=service_code,
                         audit_steps=check_service_info.audit_steps,
                     )
                 )
@@ -375,23 +386,21 @@ class ChecKreationWorkflow(Workflow):
                 # Identify the missing parts of the service
                 missing_service_attributes = (
                     await Settings.llm.acomplete(
-                        prompt=load_prompt_template(
+                        prompt=prompt_manager.get_prompt(
                             step=ChecKreationWorkflowStep.IDENTIFY_NEEDED_CALLS_ATTRIBUTES,
-                            model_reference=await ctx.get("model_reference"),
                             audit_steps=check_service_info.audit_steps,
-                            service_code=service_code,
+                            service_class_code=service_code,
                         )
                     )
                 ).text.strip()
 
                 # Add the missing parts to the service
-                service_code = (
+                service_code = (  # TODO: FOR SOME REASON THE EXECUTION (AT LEAST THE DEBUGGER) IS FREEZING HERE
                     await Settings.llm.acomplete(
-                        prompt=load_prompt_template(
+                        prompt=prompt_manager.get_prompt(
                             step=ChecKreationWorkflowStep.MODIFY_SERVICE,
-                            model_reference=await ctx.get("model_reference"),
-                            service_code=service_code,
-                            missing_service_attributes=missing_service_attributes,
+                            service_class_code=service_code,
+                            missing_service_calls_attributes=missing_service_attributes,
                         )
                     )
                 ).text
@@ -434,23 +443,18 @@ class ChecKreationWorkflow(Workflow):
                 )
                 relevant_related_checks.append(code)
 
-            # Ensure if the service code has been modified
-
-            relevant_related_checks = "\n\n--------\n\n".join(relevant_related_checks)
-
             check_code = await Settings.llm.acomplete(
-                prompt=load_prompt_template(
+                prompt=(await ctx.get("prompt_manager")).get_prompt(
                     step=ChecKreationWorkflowStep.CHECK_CODE_GENERATION,
-                    model_reference=await ctx.get("model_reference"),
                     check_name=check_code_info.check_name,
+                    service_name=check_code_info.check_name.split("_")[0],
                     audit_steps=check_code_info.audit_steps,
-                    relevant_related_checks=relevant_related_checks,
-                    service_code=check_code_info.service_code,
+                    relevant_related_checks_code=relevant_related_checks,
+                    service_class_code=check_code_info.service_code,
                 )
             )
 
             # TODO: Syntax check the code before returning it
-
             original_service_code = (
                 check_metadata_vector_store.check_inventory.get_service_code(
                     provider=check_code_info.prowler_provider,
@@ -525,23 +529,25 @@ class ChecKreationWorkflow(Workflow):
                 else:
                     code_diff = ""
 
+                prompt_manager = await ctx.get("prompt_manager")
+
                 final_answer = await Settings.llm.acomplete(
-                    prompt=load_prompt_template(
+                    prompt=prompt_manager.get_prompt(
                         step=ChecKreationWorkflowStep.PRETIFY_FINAL_ANSWER,
-                        model_reference=await ctx.get("model_reference"),
-                        user_query=await ctx.get("user_input"),
-                        check_metadata=check[0].check_metadata,
+                        check_metadata=check[0].check_metadata.dict(),
                         check_code=check[1].check_code,
-                        modified_service_code=code_diff,
+                        service_class_code_diff=code_diff,
                         check_path=check_path,
+                        check_name=check_path.split("/")[-1],
+                        service_class_path="/".join(check_path.split("/")[:-1]),
+                        service_name=check_path.split("/")[4],
                     )
                 )
 
                 # Give some posible remediation steps based on the final answer
                 remediation = await Settings.llm.acomplete(
-                    prompt=load_prompt_template(
+                    prompt=prompt_manager.get_prompt(
                         step=ChecKreationWorkflowStep.REMEDIATION_GENERATION,
-                        model_reference=await ctx.get("model_reference"),
                         final_answer=final_answer.text,
                     )
                 )

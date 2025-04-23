@@ -1,0 +1,21 @@
+{% block context_setup -%}
+# CONTEXT
+{% include 'generic/prowler_studio_context.txt' %}
+{%- endblock %}
+
+{% block task_definition -%}
+# TASK
+Summarize the user input analysis for the check creation. In this summary you have to include all the relevant information that can be useful for the check creation process.
+{% block output_format -%}
+## OUTPUT FORMAT
+Please follow the format below, inserting the needed information in the placeholders (the placeholders are indicated with <placeholder>):
+The title of the check is <title> applies to the service {{ service }} in the provider {{ prowler_provider}}. It has a severity of <severity>.
+The description states: <description>
+The risk is <risk>.
+{%- endblock %}
+{%- endblock %}
+{% block input -%}
+# INPUT
+**User prompt**:
+{{ user_prompt }}
+{%- endblock %}

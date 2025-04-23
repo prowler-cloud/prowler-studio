@@ -37,7 +37,7 @@ async def create_check(request: CheckCreationRequest):
         workflow = ChecKreationWorkflow(timeout=300, verbose=False)
         result = await workflow.run(
             start_event=CheckCreationInput(
-                user_input=request.user_query,
+                user_query=request.user_query,
                 llm_provider=request.llm_provider,
                 llm_reference=request.llm_reference,
                 api_key=request.llm_api_key,

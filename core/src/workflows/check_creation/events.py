@@ -9,7 +9,7 @@ from core.src.workflows.check_creation.utils.check_metadata_model import CheckMe
 class CheckCreationInput(StartEvent):
     """Event representing the input for the check creation process."""
 
-    user_input: str = Field(description="User input for the check creation process")
+    user_query: str = Field(description="User query to create the check")
     llm_provider: str = Field(description="Model provider to use for the LLM")
     llm_reference: str = Field(description="Model reference to use for the LLM")
     api_key: Optional[str] = Field(

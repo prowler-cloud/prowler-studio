@@ -1,0 +1,21 @@
+{% block context_setup -%}
+# CONTEXT
+{% include 'generic/prowler_studio_context.txt' %}
+{%- endblock %}
+
+{% block task_definition -%}
+# TASK
+Generate the remediation steps that the user should follow to fix the security issue.
+The remediation steps are the steps that the user should follow to fix the security issue if the check find vulnerable resources.
+{% block output_format -%}
+## OUTPUT FORMAT
+Give the result in Markdown format.
+Please try to be as concise as possible and you MUST add commands that the user should follow to fix the issue.
+{%- endblock %}
+{%- endblock %}
+
+{% block input -%}
+# INPUT
+**Generated Check**:
+{{ final_answer }}
+{%- endblock %}

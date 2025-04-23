@@ -44,7 +44,7 @@ async def run_check_creation_workflow(
     workflow = ChecKreationWorkflow(timeout=300, verbose=False)
     result = await workflow.run(
         start_event=CheckCreationInput(
-            user_input=user_query,
+            user_query=user_query,
             llm_provider=model_provider,
             llm_reference=model_reference,
             api_key=api_key,
