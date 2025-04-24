@@ -1,4 +1,4 @@
-FROM node:20-alpine AS build
+FROM node:23-alpine AS build
 
 LABEL maintainer="https://github.com/prowler-cloud"
 
