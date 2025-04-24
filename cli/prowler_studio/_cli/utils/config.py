@@ -1,11 +1,9 @@
-import os
+from pathlib import Path
 from typing import Dict
 
 import yaml
 
-CONFIG_RELATIVE_PATH = os.path.join(
-    os.path.dirname(__file__), "../../config/config.yaml"
-)
+CONFIG_RELATIVE_PATH = Path(__file__).parents[3] / "config" / "config.yaml"
 
 
 def get_config() -> Dict:

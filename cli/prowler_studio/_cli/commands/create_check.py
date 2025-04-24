@@ -1,5 +1,4 @@
 import asyncio
-import os
 import subprocess
 from pathlib import Path
 from typing import Annotated, Dict, Union
@@ -74,13 +73,10 @@ def create_new_check(
     output_directory: Annotated[
         Path,
         typer.Option(
-            help="Output directory to save the check, code and metadata will be saved in a directory with the check name. By default is the root of the project, in the generated_checks folder."
+            help="Output directory to save the check, code and metadata will be saved in a directory with the check name. By default is the current directory, in the generated_checks folder."
         ),
-    ] = Path(
-        os.path.join(
-            os.path.abspath(os.path.dirname(__file__)), "../../../generated_checks"
-        )
-    ),
+    ] = Path.cwd()
+    / "generated_checks",
     save_check: Annotated[
         bool, typer.Option(help="Save the check in the output directory")
     ] = False,
@@ -114,7 +110,7 @@ def create_new_check(
             user_query = prompt_user_message()
 
         if user_query:
-            if os.path.exists(CheckMetadataVectorStore.DEFAULT_STORE_DIR):
+            if Path(CheckMetadataVectorStore.DEFAULT_STORE_DIR).exists():
                 set_app_log_level(log_level)
 
                 result = asyncio.run(
