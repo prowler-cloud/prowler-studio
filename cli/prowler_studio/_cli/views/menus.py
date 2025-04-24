@@ -1,6 +1,9 @@
 from simple_term_menu import TerminalMenu
 
-from core.src.utils.model_chooser import SUPPORTED_EMBEDDING_MODELS, SUPPORTED_LLMS
+from prowler_studio.core.utils.model_chooser import (
+    SUPPORTED_EMBEDDING_MODELS,
+    SUPPORTED_LLMS,
+)
 
 
 def get_llm_provider() -> str:

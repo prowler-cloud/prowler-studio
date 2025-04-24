@@ -6,25 +6,26 @@ from typing import Annotated, Dict, Union
 
 import typer
 
-from cli.src.utils.config import get_config
-from cli.src.utils.file_io import write_check
-from cli.src.utils.logging import set_app_log_level
-from cli.src.views.menus import get_llm_provider, get_llm_reference
-from cli.src.views.output import (
+from prowler_studio.core.rag.vector_store import CheckMetadataVectorStore
+from prowler_studio.core.workflows.check_creation.events import CheckCreationInput
+from prowler_studio.core.workflows.check_creation.workflow import ChecKreationWorkflow
+
+from ..utils.config import get_config
+from ..utils.file_io import write_check
+from ..utils.logging import set_app_log_level
+from ..views.menus import get_llm_provider, get_llm_reference
+from ..views.output import (
     display_error,
     display_markdown,
     display_success,
     display_warning,
 )
-from cli.src.views.prompts import (
+from ..views.prompts import (
     ask_execute_new_check,
     confirm_overwrite,
     confirm_save_check,
     prompt_user_message,
 )
-from core.src.rag.vector_store import CheckMetadataVectorStore
-from core.src.workflows.check_creation.events import CheckCreationInput
-from core.src.workflows.check_creation.workflow import ChecKreationWorkflow
 
 
 async def run_check_creation_workflow(

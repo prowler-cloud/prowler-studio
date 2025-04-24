@@ -4,13 +4,11 @@ from typing import Annotated
 import typer
 from click.exceptions import Exit
 
-from cli.src.utils.config import get_config
-from cli.src.views.menus import (
-    get_embedding_model_provider,
-    get_embedding_model_reference,
-)
-from cli.src.views.output import display_error, display_success, display_warning
-from core.src.rag.vector_store import CheckMetadataVectorStore
+from prowler_studio.core.rag.vector_store import CheckMetadataVectorStore
+
+from ..utils.config import get_config
+from ..views.menus import get_embedding_model_provider, get_embedding_model_reference
+from ..views.output import display_error, display_success, display_warning
 
 
 def build_check_rag(

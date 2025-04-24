@@ -1,6 +1,6 @@
 from rich.markdown import Markdown
 
-from cli.src.views.console import console
+from ..views.console import console
 
 
 def display_markdown(content: str) -> None:

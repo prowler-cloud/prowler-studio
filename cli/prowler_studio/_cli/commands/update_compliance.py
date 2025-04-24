@@ -5,9 +5,12 @@ from typing import Annotated
 
 import typer
 
-from cli.src.views.output import display_error, display_success
-from cli.src.views.prompts import prompt_enter_compliance_path
-from core.src.workflows.compliance_updater.workflow import ComplianceUpdaterWorkflow
+from prowler_studio.core.workflows.compliance_updater.workflow import (
+    ComplianceUpdaterWorkflow,
+)
+
+from ..views.output import display_error, display_success
+from ..views.prompts import prompt_enter_compliance_path
 
 
 async def run_compliance_updater_workflow(

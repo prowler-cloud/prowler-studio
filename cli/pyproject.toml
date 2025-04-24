@@ -16,8 +16,11 @@ name = "prowler-studio-cli"
 requires-python = ">=3.12"
 version = "0.0.1"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src"]
+[project.scripts]
+prowler-studio = "prowler_studio._cli.__main__:app"
+
+[tool.hatch.build]
+packages = ["prowler_studio"]
 
 [tool.uv.sources]
 prowler-studio-core = {workspace = true}

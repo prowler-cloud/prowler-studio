@@ -2,8 +2,11 @@ import os
 import re
 from pathlib import Path
 
-from cli.src.views.output import display_error
-from core.src.workflows.check_creation.utils.check_metadata_model import CheckMetadata
+from prowler_studio.core.workflows.check_creation.utils.check_metadata_model import (
+    CheckMetadata,
+)
+
+from ..views.output import display_error
 
 
 def write_check(
