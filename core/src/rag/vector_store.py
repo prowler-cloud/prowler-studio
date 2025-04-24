@@ -112,10 +112,10 @@ class CheckMetadataVectorStore:
                         else:
                             self._index.insert(document)
 
-                    for document in to_delete_documents:
-                        if document.id_ in self._index.ref_doc_info:
+                    for document_id in to_delete_documents:
+                        if document_id in self._index.ref_doc_info:
                             self._index.delete_ref_doc(
-                                document.id_, delete_from_docstore=True
+                                document_id, delete_from_docstore=True
                             )
 
                 elif self._index is None:
