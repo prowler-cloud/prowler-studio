@@ -1,0 +1,23 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+authors = [
+  {name = "Prowler Team"}
+]
+dependencies = [
+  "prowler-studio-core==0.0.1",
+  "typer>=0.15.1",
+  "simple-term-menu>=1.6.6"
+]
+description = "Command Line Interface for Prowler Studio"
+name = "prowler-studio-cli"
+requires-python = ">=3.12"
+version = "0.0.1"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.uv.sources]
+prowler-studio-core = {workspace = true}
