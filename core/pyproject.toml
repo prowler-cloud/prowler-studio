@@ -14,9 +14,9 @@ dependencies = [
   "loguru>=0.7.3"
 ]
 description = "Core functionalities for Prowler Studio"
-name = "prowler-studio-core"
+name = "prowler_studio_core"
 requires-python = ">=3.12"
 version = "0.0.1"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src"]
+packages = ["prowler_studio"]

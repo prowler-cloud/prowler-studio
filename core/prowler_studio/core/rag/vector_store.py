@@ -14,9 +14,9 @@ from llama_index.core.query_engine.retriever_query_engine import RetrieverQueryE
 from llama_index.core.schema import Document
 from loguru import logger
 
-from core.src.rag.check_inventory import CheckInventory
-from core.src.rag.utils import read_file
-from core.src.utils.model_chooser import embedding_model_chooser
+from ..utils.model_chooser import embedding_model_chooser
+from .check_inventory import CheckInventory
+from .utils import read_file
 
 
 class CheckMetadataVectorStore:
@@ -37,7 +37,7 @@ class CheckMetadataVectorStore:
 
     INDEX_METADATA_NAME = "db_metadata.json"
     DEFAULT_STORE_DIR = (
-        Path(__file__).resolve().parent.parent.parent / "indexed_check_metadata_db"
+        Path(__file__).resolve().parents[3] / "indexed_check_metadata_db"
     )
 
     def __init__(

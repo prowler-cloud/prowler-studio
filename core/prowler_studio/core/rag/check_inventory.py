@@ -3,7 +3,7 @@ import gzip
 import json
 from pathlib import Path
 
-from core.src.rag.utils import read_file
+from .utils import read_file
 
 
 class CheckInventory:

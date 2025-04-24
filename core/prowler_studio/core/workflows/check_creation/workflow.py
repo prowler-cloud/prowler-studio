@@ -7,9 +7,9 @@ from llama_index.core.workflow import Context, Workflow, step
 from llama_index.core.workflow.retry_policy import ConstantDelayRetryPolicy
 from loguru import logger
 
-from core.src.rag.vector_store import CheckMetadataVectorStore
-from core.src.utils.model_chooser import llm_chooser
-from core.src.workflows.check_creation.events import (
+from ...rag.vector_store import CheckMetadataVectorStore
+from ...utils.model_chooser import llm_chooser
+from .events import (
     CheckBasicInformation,
     CheckCodeResult,
     CheckCreationInput,
@@ -19,13 +19,9 @@ from core.src.workflows.check_creation.events import (
     CheckServiceInformation,
     CheckServiceResult,
 )
-from core.src.workflows.check_creation.prompts.prompt_manager import (
-    CheckCreationPromptManager,
-)
-from core.src.workflows.check_creation.utils.check_metadata_model import CheckMetadata
-from core.src.workflows.check_creation.utils.prompt_steps_enum import (
-    ChecKreationWorkflowStep,
-)
+from .prompts.prompt_manager import CheckCreationPromptManager
+from .utils.check_metadata_model import CheckMetadata
+from .utils.prompt_steps_enum import ChecKreationWorkflowStep
 
 
 class ChecKreationWorkflow(Workflow):

@@ -3,7 +3,7 @@ from typing import Optional
 from llama_index.core.workflow import Event, StartEvent, StopEvent
 from pydantic import Field
 
-from core.src.workflows.check_creation.utils.check_metadata_model import CheckMetadata
+from .utils.check_metadata_model import CheckMetadata
 
 
 class CheckCreationInput(StartEvent):

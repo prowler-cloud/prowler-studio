@@ -2,12 +2,9 @@ from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
 from llama_index.core.workflow.retry_policy import ConstantDelayRetryPolicy
 from loguru import logger
 
-from core.src.rag.vector_store import CheckMetadataVectorStore
-from core.src.workflows.compliance_updater.events import (
-    ComplianceBasicInformation,
-    ComplianceDataResult,
-)
-from core.src.workflows.compliance_updater.utils.compliance_validator import (
+from ...rag.vector_store import CheckMetadataVectorStore
+from .events import ComplianceBasicInformation, ComplianceDataResult
+from .utils.compliance_validator import (
     is_valid_prowler_compliance,
     validate_confidence_threshold,
     validate_max_check_number_per_requirement,

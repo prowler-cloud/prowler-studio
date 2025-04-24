@@ -2,10 +2,8 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader, StrictUndefined, UndefinedError
 
-from core.src.workflows.check_creation.utils.prompt_steps_enum import (
-    ChecKreationWorkflowStep,
-)
-from core.src.workflows.utils.prompt_manager import AbstractPromptManager
+from ...utils.prompt_manager import AbstractPromptManager
+from ..utils.prompt_steps_enum import ChecKreationWorkflowStep
 
 
 class CheckCreationPromptManager(AbstractPromptManager):
