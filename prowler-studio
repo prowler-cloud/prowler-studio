@@ -1,7 +1,0 @@
-#!/usr/bin/env python3
-import sys
-
-from cli.src.__main__ import app
-
-if __name__ == "__main__":
-    sys.exit(app())
