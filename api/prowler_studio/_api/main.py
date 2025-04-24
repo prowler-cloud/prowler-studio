@@ -4,8 +4,8 @@ import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from core.src.workflows.check_creation.events import CheckCreationInput
-from core.src.workflows.check_creation.workflow import ChecKreationWorkflow
+from prowler_studio.core.workflows.check_creation.events import CheckCreationInput
+from prowler_studio.core.workflows.check_creation.workflow import ChecKreationWorkflow
 
 app = FastAPI(
     title="Prowler Studio API",
@@ -70,5 +70,10 @@ async def create_check(request: CheckCreationRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-if __name__ == "__main__":
+def run_server():
+    """Entry point for the API server."""
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+if __name__ == "__main__":
+    run_server()
