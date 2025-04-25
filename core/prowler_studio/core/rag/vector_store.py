@@ -324,7 +324,12 @@ class CheckMetadataVectorStore:
         # Recorer el inventario de checks y eliminar los checks que no existen en el repo
         deleted_checks = []
         for provider in self.check_inventory.get_available_providers():
-            provider_path = prowler_directory_path / "prowler/providers" / f"{provider}"
+            provider_path = (
+                prowler_directory_path
+                / "prowler/providers"
+                / f"{provider}"
+                / "__init__.py"
+            )
             if not provider_path.exists():
                 # Before deleting the provider is needed to get all the checks and add to the deleted checks list
                 for service in self.check_inventory.get_available_services_in_provider(
@@ -347,6 +352,7 @@ class CheckMetadataVectorStore:
                         / provider
                         / "services"
                         / service
+                        / "__init__.py"
                     )
                     if not service_path.exists():
                         # Before deleting the service is needed to get all the checks and add to the deleted checks list
@@ -370,6 +376,7 @@ class CheckMetadataVectorStore:
                                 / "services"
                                 / service
                                 / check_id
+                                / "__init__.py"
                             )
                             if not check_path.exists():
                                 deleted_checks.append(f"{provider}_{check_id}")
