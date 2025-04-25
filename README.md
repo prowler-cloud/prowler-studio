@@ -67,6 +67,7 @@ The CLI is a command-line tool that allows you to ask questions to the AI model 
 - RAG dataset creation
 - Configurable
 - Save checks in your Prowler local installation
+- Update compliance requirements
 
 ### Demo time!
 
@@ -76,32 +77,32 @@ The CLI is a command-line tool that allows you to ask questions to the AI model 
 
 ```bash
 # AWS checks
-poetry run ./prowler-studio create-check "Create a new AWS check to ensure EC2 security groups with inbound rules allowing unrestricted ICMP access are not present."
-poetry run ./prowler-studio create-check "Create a new AWS check to ensure ACM certificates for specific domain names are used over wildcard certificates to adhere to best security practices, providing unique private keys for each domain/subdomain."
-poetry run ./prowler-studio create-check "Create a new AWS check to ensure that each Amazon SQS queue is configured to use a Dead-Letter Queue (DLQ) in order to help maintain the queue flow and avoid losing data by detecting and mitigating failures and service disruptions on time."
-poetry run ./prowler-studio create-check "Create a new AWS check to detect EC2 instances with TCP port 9000 open to the Internet."
+prowler-studio create-check "Create a new AWS check to ensure EC2 security groups with inbound rules allowing unrestricted ICMP access are not present."
+prowler-studio create-check "Create a new AWS check to ensure ACM certificates for specific domain names are used over wildcard certificates to adhere to best security practices, providing unique private keys for each domain/subdomain."
+prowler-studio create-check "Create a new AWS check to ensure that each Amazon SQS queue is configured to use a Dead-Letter Queue (DLQ) in order to help maintain the queue flow and avoid losing data by detecting and mitigating failures and service disruptions on time."
+prowler-studio create-check "Create a new AWS check to detect EC2 instances with TCP port 9000 open to the Internet."
 
 # Azure checks
-poetry run ./prowler-studio create-check "Create a new Azure check to ensure that all my clusters from AKS (Azure Kubernetes Service) has the latest Kubernetes API Version."
-poetry run ./prowler-studio create-check "Create a new Azure check to ensure that all my Azure Web Apps has a backup retention policy configured."
-poetry run ./prowler-studio create-check "Please, could create an Azure check for storage service to ensure that lifecycle management is enabled for blob storage accounts?"
-poetry run ./prowler-studio create-check "Create a new Azure check to ensure that all my Azure VNets have DDoS protection enabled."
+prowler-studio create-check "Create a new Azure check to ensure that all my clusters from AKS (Azure Kubernetes Service) has the latest Kubernetes API Version."
+prowler-studio create-check "Create a new Azure check to ensure that all my Azure Web Apps has a backup retention policy configured."
+prowler-studio create-check "Please, could create an Azure check for storage service to ensure that lifecycle management is enabled for blob storage accounts?"
+prowler-studio create-check "Create a new Azure check to ensure that all my Azure VNets have DDoS protection enabled."
 
 # GCP checks
-poetry run ./prowler-studio create-check "Create a check fot GCP to ensure that my Dataproc cluster instances are not accessible from the Internet."
-poetry run ./prowler-studio create-check "Ensure for all backups for Google Kubernetes Engine (GKE) clusters have a backup configured."
-poetry run ./prowler-studio create-check "To improve reliability, ensure that Google Cloud Compute Engine service restarts automatically your virtual machine instances when they are terminated due to non-user initiated reasons such as maintenance events, hardware, and software failures."
+prowler-studio create-check "Create a check fot GCP to ensure that my Dataproc cluster instances are not accessible from the Internet."
+prowler-studio create-check "Ensure for all backups for Google Kubernetes Engine (GKE) clusters have a backup configured."
+prowler-studio create-check "To improve reliability, ensure that Google Cloud Compute Engine service restarts automatically your virtual machine instances when they are terminated due to non-user initiated reasons such as maintenance events, hardware, and software failures."
 
 # K8s checks
-poetry run ./prowler-studio create-check "Create a new Kubernetes check to ensure that default service accounts are not actively used."
-poetry run ./prowler-studio create-check "Create a new Kubernetes check to ensure that all my pods are running with a non-root user."
+prowler-studio create-check "Create a new Kubernetes check to ensure that default service accounts are not actively used."
+prowler-studio create-check "Create a new Kubernetes check to ensure that all my pods are running with a non-root user."
 ```
 
 💡 *Did you know?*
 You can use Prowler Studio to easily update your compliance requirements with the latest checks available in Prowler.
 
 ```bash
-poetry run ./prowler-studio update-compliance --max-check-number-per-requirement 5 --confidence-threshold 0.6 compliance_test.json
+prowler-studio update-compliance --max-check-number-per-requirement 5 --confidence-threshold 0.6 compliance_test.json
 ```
 ### Installation
 
@@ -120,13 +121,13 @@ docker build -f ./cli/Dockerfile -t prowler-studio-cli:latest .
 To use it just run the Docker container:
 
 ```bash
-docker run --rm -it --env-file .env prowler-studio-cli create-check
+docker run --rm -it --env-file .env prowler-studio-cli
 ```
 
-If you want to save the generated checks in your local Prowler installation you can mount the Prowler repository in the container:
+If you want to save the generated checks in your local machine you can mount use a Docker volume:
 
 ```bash
-docker run --rm -it --env-file .env -v ./generated_checks:/home/prowler_studio/generated_checks prowler-studio-cli create-check
+docker run --rm -it --env-file .env -v ./generated_checks:/home/prowler_studio/generated_checks prowler-studio-cli
 ```
 
 > [!WARNING]
@@ -137,16 +138,15 @@ docker run --rm -it --env-file .env -v ./generated_checks:/home/prowler_studio/g
 
 **Requirements:**
 - `git`
-- `poetry`
+- `uv` (Installation tutorial can be found [here](https://docs.astral.sh/uv/getting-started/installation/))
 - At least Python 3.12
 
 ```bash
 git clone git@github.com:prowler-cloud/prowler-studio.git
 cd prowler-studio
-poetry install --no-root
+uv sync
+uv tool install -e ./cli/
 ```
-
-Next set the environment variables for the LLM provider that you want to use. The easiest way is to set the environment variables in the `.env` file:
 
 ```bash
 cp .env.template .env
@@ -165,10 +165,12 @@ source .env
 set +a
 ```
 
-### Configuration
+> [!IMPORTANT]
+> In order to work some environment variables are needed. Use the `.env.template` file as a template to create a `.env` file with the needed variables.
+> For now is only supported Google embedding model, so the `GOOGLE_API_KEY` must be set always.
+> To get one go to [Gemini's documentation](https://ai.google.dev/gemini-api/docs/api-key) and follow the instructions to get one.
 
-If you do not want to type all the variable parameters every time you can use the configuration file. You can keep the configuration file empty (as default) and the CLI still works,
-but you will need to select the provider, model and the folder where save the checks interactively every time you run the CLI.
+### Configuration File
 
 The CLI can be configured using the `cli/config/config.yml` file. The file is already created in the repository and you can change the values to fit your needs.
 The supported values for the configuration are:
@@ -190,11 +192,12 @@ The supported values for the configuration are:
 
 ### Usage
 
-Use the following command to consult the help message for the CLI:
+Now you have to ways of using the `prowler-studio` command.
+- With `uvx` typing `uvx run prowler-studio`
+- Just typing `prowler-studio`. If this is not working the problem may be related with your `$PATH`, try to run `uv tool update-shell` to update the `$PATH` correctly.
 
-```bash
-poetry run ./prowler-studio --help
-```
+**Remember that the API keys has to be passed to the CLI through env variables (recommended) or arguments**. The recommended way is to set the environment variables in the `.env` file
+but if you are going to use the Prowler Studio CLI in different locations than the reopsitory maybe is good idea to set them in your SHELL configuration `~/.bashrc`, `~/.zshrc`, etc.
 
 #### Aviable commands
 
@@ -209,7 +212,7 @@ The Prowler Studio Chatbot is a web application that allows you to generate chec
 ### Features
 
 - Get the answer in a more user-friendly way
-- API powered by LlamaDeploy
+- API powered by FastAPI
 
 ### Demo time!
 
@@ -217,7 +220,7 @@ The Prowler Studio Chatbot is a web application that allows you to generate chec
 
 ### Installation
 
-#### Docker
+#### Docker (Recommended)
 
 **Requirements:**
 - `git`
@@ -232,16 +235,14 @@ git clone git@github.com:prowler-cloud/prowler-studio.git
 Then you can build the Docker image:
 
 ```bash
-docker build -f ./api/workflows/check_creation/Dockerfile -t prowler-studio-api:latest . # Build the API image
-cd ./ui
-docker build -f ./Dockerfile -t prowler-studio-ui:latest .  # Build the UI image
+docker compose build
 ```
 
 Now you can run the Docker containers using `docker-compose` from the root of the repository:
 
 > [!IMPORTANT]
 > In order to work some environment variables are needed. Use the `.env.template` file as a template to create a `.env` file with the needed variables.
-> For now is only supported Gemini and Google embedding model, so the `GOOGLE_API_KEY` and `EMBEDDING_MODEL_API_KEY` must be the same.
+> For now is only supported Google embedding model, so the `GOOGLE_API_KEY` must be set always.
 > To get one go to [Gemini's documentation](https://ai.google.dev/gemini-api/docs/api-key) and follow the instructions to get one.
 
 ```bash
@@ -256,26 +257,18 @@ Once the containers are running you can access the UI from your browser at `http
 
 **Requirements:**
 - `git`
-- `poetry`
+- `uv`
 - At least Python 3.12
 
 ```bash
 git clone git@github.com:prowler-cloud/prowler-studio.git
 cd studio
-poetry install --with api
+uv install --no-dev --extra api
 ```
 
-To start the API server run:
-
-```bash
-poetry run python -m llama_deploy.apiserver
-```
-
-From another terminal, deploy the workflow to get the answer from the AI model
-
-```bash
-poetry run llamactl deploy api/deployment.yml
-```
+To start the API server you have multiple options:
+- Run the main directly: `uv run python -m uvicorn api.prowler_studio._api.main:app --host 0.0.0.0 --port 8000`
+- Using the `uv` runner: `uv run --no-dev prowler-studio-api`
 
 ##### UI
 
