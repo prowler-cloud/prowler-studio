@@ -733,11 +733,11 @@ wheels = [
 
 [[package]]
 name = "isort"
-version = "6.0.1"
+version = "5.13.2"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b8/21/1e2a441f74a653a144224d7d21afe8f4169e6c7c20bb13aec3a2dc3815e0/isort-6.0.1.tar.gz", hash = "sha256:1cb5df28dfbc742e490c5e41bad6da41b805b0a8be7bc93cd0fb2a8a890ac450", size = 821955, upload_time = "2025-02-26T21:13:16.955Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/87/f9/c1eb8635a24e87ade2efce21e3ce8cd6b8630bb685ddc9cdaca1349b2eb5/isort-5.13.2.tar.gz", hash = "sha256:48fdfcb9face5d58a4f6dde2e72a1fb8dcaf8ab26f95ab49fab84c2ddefb0109", size = 175303, upload_time = "2023-12-13T20:37:26.124Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c1/11/114d0a5f4dabbdcedc1125dee0888514c3c3b16d3e9facad87ed96fad97c/isort-6.0.1-py3-none-any.whl", hash = "sha256:2dc5d7f65c9678d94c88dfc29161a320eec67328bc97aad576874cb4be1e9615", size = 94186, upload_time = "2025-02-26T21:13:14.911Z" },
+    { url = "https://files.pythonhosted.org/packages/d1/b3/8def84f539e7d2289a02f0524b944b15d7c75dab7628bedf1c4f0992029c/isort-5.13.2-py3-none-any.whl", hash = "sha256:8ca5e72a8d85860d5a3fa69b8745237f2939afe12dbf656afbcb47fe72d947a6", size = 92310, upload_time = "2023-12-13T20:37:23.244Z" },
 ]
 
 [[package]]
@@ -1297,10 +1297,10 @@ provides-extras = ["api"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "bandit", specifier = ">=1.7.10" },
-    { name = "pylint", specifier = ">=3.3.1" },
-    { name = "safety", specifier = ">=3.2.10" },
-    { name = "vulture", specifier = ">=2.13" },
+    { name = "bandit", specifier = "==1.8.3" },
+    { name = "pylint", specifier = "==3.3.1" },
+    { name = "safety", specifier = "==3.4.0" },
+    { name = "vulture", specifier = "==2.14" },
 ]
 
 [[package]]
@@ -1315,9 +1315,9 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", specifier = ">=0.115.12" },
+    { name = "fastapi", specifier = "==0.115.12" },
     { name = "prowler-studio-core", editable = "core" },
-    { name = "uvicorn", specifier = ">=0.34.2" },
+    { name = "uvicorn", specifier = "==0.34.2" },
 ]
 
 [[package]]
@@ -1333,8 +1333,8 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "prowler-studio-core", editable = "core" },
-    { name = "simple-term-menu", specifier = ">=1.6.6" },
-    { name = "typer", specifier = ">=0.15.1" },
+    { name = "simple-term-menu", specifier = "==1.6.6" },
+    { name = "typer", specifier = "==0.15.2" },
 ]
 
 [[package]]
@@ -1351,11 +1351,11 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "llama-index-core", specifier = ">=0.12.0" },
-    { name = "llama-index-embeddings-gemini", specifier = ">=0.3.0" },
-    { name = "llama-index-llms-gemini", specifier = ">=0.4.0" },
-    { name = "llama-index-llms-openai", specifier = ">=0.3.16" },
-    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "llama-index-core", specifier = "==0.12.33.post1" },
+    { name = "llama-index-embeddings-gemini", specifier = "==0.3.2" },
+    { name = "llama-index-llms-gemini", specifier = "==0.4.14" },
+    { name = "llama-index-llms-openai", specifier = "==0.3.38" },
+    { name = "loguru", specifier = "==0.7.3" },
 ]
 
 [[package]]
@@ -1463,7 +1463,7 @@ wheels = [
 
 [[package]]
 name = "pylint"
-version = "3.3.6"
+version = "3.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "astroid" },
@@ -1474,9 +1474,9 @@ dependencies = [
     { name = "platformdirs" },
     { name = "tomlkit" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/69/a7/113d02340afb9dcbb0c8b25454e9538cd08f0ebf3e510df4ed916caa1a89/pylint-3.3.6.tar.gz", hash = "sha256:b634a041aac33706d56a0d217e6587228c66427e20ec21a019bc4cdee48c040a", size = 1519586, upload_time = "2025-03-20T11:25:38.207Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/3a/13e90e29777e695d90f422cf4fadb81c999e4755a9089838561bd0590cac/pylint-3.3.1.tar.gz", hash = "sha256:9f3dcc87b1203e612b78d91a896407787e708b3f189b5fa0b307712d49ff0c6e", size = 1516703, upload_time = "2024-09-24T11:10:50.183Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/31/21/9537fc94aee9ec7316a230a49895266cf02d78aa29b0a2efbc39566e0935/pylint-3.3.6-py3-none-any.whl", hash = "sha256:8b7c2d3e86ae3f94fb27703d521dd0b9b6b378775991f504d7c3a6275aa0a6a6", size = 522462, upload_time = "2025-03-20T11:25:36.13Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/11/4a3f814eee14593f3cfcf7046bc765bf1646d5c88132c08c45310fc7d85f/pylint-3.3.1-py3-none-any.whl", hash = "sha256:2f846a466dd023513240bc140ad2dd73bfc080a5d85a710afdb728c420a5a2b9", size = 521768, upload_time = "2024-09-24T11:10:47.811Z" },
 ]
 
 [[package]]

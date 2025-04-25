@@ -4,10 +4,10 @@ requires = ["hatchling"]
 
 [dependency-groups]
 dev = [
-  "bandit>=1.7.10",
-  "pylint>=3.3.1",
-  "safety>=3.2.10",  # If there is problems with httpcore, try to run: "uv pip uninstall httpcore && uv pip install httpcore[http2]"
-  "vulture>=2.13"
+  "bandit==1.8.3",
+  "pylint==3.3.1",
+  "safety==3.4.0",  # If there is problems with httpcore, try to run: "uv pip uninstall httpcore && uv pip install httpcore[http2]"
+  "vulture==2.14"
 ]
 
 [project]

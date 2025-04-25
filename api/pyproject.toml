@@ -8,8 +8,8 @@ authors = [
 ]
 dependencies = [
   "prowler-studio-core==0.0.1",
-  "fastapi>=0.115.12",
-  "uvicorn>=0.34.2"
+  "fastapi==0.115.12",
+  "uvicorn==0.34.2"
 ]
 description = "API Server for Prowler Studio"
 name = "prowler-studio-api"

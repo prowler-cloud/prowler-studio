@@ -7,11 +7,11 @@ authors = [
   {name = "Prowler Team"}
 ]
 dependencies = [
-  "llama-index-core>=0.12.0",
-  "llama-index-embeddings-gemini>=0.3.0",
-  "llama-index-llms-gemini>=0.4.0",
-  "llama-index-llms-openai>=0.3.16",
-  "loguru>=0.7.3"
+  "llama-index-core==0.12.33.post1",
+  "llama-index-embeddings-gemini==0.3.2",
+  "llama-index-llms-gemini==0.4.14",
+  "llama-index-llms-openai==0.3.38",
+  "loguru==0.7.3"
 ]
 description = "Core functionalities for Prowler Studio"
 name = "prowler_studio_core"
