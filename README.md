@@ -193,7 +193,7 @@ The supported values for the configuration are:
 ### Usage
 
 Now you have to ways of using the `prowler-studio` command.
-- With `uvx` typing `uvx run prowler-studio`
+- With `uvx` typing `uvx prowler-studio`
 - Just typing `prowler-studio`. If this is not working the problem may be related with your `$PATH`, try to run `uv tool update-shell` to update the `$PATH` correctly.
 
 **Remember that the API keys has to be passed to the CLI through env variables (recommended) or arguments**. The recommended way is to set the environment variables in the `.env` file

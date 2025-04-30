@@ -3,7 +3,7 @@ from typing import Dict
 
 import yaml
 
-CONFIG_RELATIVE_PATH = Path(__file__).parents[3] / "config" / "config.yaml"
+CONFIG_RELATIVE_PATH = Path(__file__).parents[1] / "config.yaml"
 
 
 def get_config() -> Dict:
