@@ -1,4 +1,3 @@
-
 # Prowler Studio
 
 Prowler Studio is an AI assistant that helps you to create checks for Prowler. It can be used as a CLI tool or as a web application.
@@ -294,3 +293,92 @@ Just type your check creation request in the input field and press "Enter"!
 
 
 ![Prowler Studio Check Creation](docs/img/prowler_studio_web_interface.png)
+
+## MCP Server
+
+The Prowler Studio MCP Server is a server implementation that allows you to integrate Prowler Studio's capabilities directly into your development environment through the Model Control Protocol (MCP).
+
+### Features
+
+- Direct integration with development environments
+- Real-time check generation
+- Same powerful capabilities as CLI and Chatbot for check creation
+- Seamless workflow integration
+
+### Installation
+
+#### Docker
+
+**Requirements:**
+- `git`
+- `docker`
+
+First, clone the repository and build the Docker image:
+
+```bash
+git clone git@github.com:prowler-cloud/prowler-studio.git
+cd prowler-studio
+docker build -f ./mcp_server/Dockerfile -t prowler-studio-mcp-server:latest .
+```
+
+#### Local Installation
+
+**Requirements:**
+- `git`
+- `uv`
+- At least Python 3.12
+
+```bash
+git clone git@github.com:prowler-cloud/prowler-studio.git
+cd prowler-studio/mcp_server
+uv sync --no-dev --extra mcp_server
+```
+
+### Configuration
+
+To use the MCP Server, you need to configure your MCP-compatible development environment. Add the following configuration to your MCP settings:
+
+#### Using Docker
+
+##### Cursor
+
+```json
+{
+  "mcpServers": {
+    "prowler-studio": {
+      "command": "docker",
+      "args": ["run", "--rm", "-e", "OPENAI_API_KEY=your_openai_api_key", "-e", "GOOGLE_API_KEY=your_google_api_key", "-i", "prowler-studio-mcp-server:latest"]
+    }
+  }
+}
+```
+
+#### Using Local Installation
+
+##### Cursor
+
+```json
+{
+  "mcpServers": {
+    "prowler-studio": {
+      "command": "uvx",
+      "args": ["/path/to/prowler_studio/mcp_server/"],
+      "env": {
+        "OPENAI_API_KEY": "your_openai_api_key",
+        "GOOGLE_API_KEY": "your_google_api_key"
+      }
+    }
+  }
+}
+```
+
+
+### Usage
+
+Once configured, the MCP Server will be available through your development environment's AI assistance features. You can use it to:
+
+- Generate new Prowler checks
+- Update compliance requirements
+- Access all Prowler Studio features directly from your IDE
+
+The interaction will be handled through your development environment's interface, providing the same powerful capabilities as the CLI and Chatbot implementations.
