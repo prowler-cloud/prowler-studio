@@ -127,7 +127,7 @@ docker run --rm -it --env-file .env prowler-studio-cli
 If you want to save the generated checks in your local machine you can mount use a Docker volume:
 
 ```bash
-docker run --rm -it --env-file .env -v ./generated_checks:/home/prowler_studio/generated_checks prowler-studio-cli
+docker run --rm -it --env-file .env -v ./generated_checks:/home/prowler_studio/prowler_studio/cli/generated_checks prowler-studio-cli
 ```
 
 > [!WARNING]
