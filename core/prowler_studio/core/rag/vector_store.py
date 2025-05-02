@@ -36,9 +36,7 @@ class CheckMetadataVectorStore:
     """
 
     INDEX_METADATA_NAME = "db_metadata.json"
-    DEFAULT_STORE_DIR = (
-        Path(__file__).resolve().parents[3] / "indexed_check_metadata_db"
-    )
+    DEFAULT_STORE_DIR = Path(__file__).resolve().parent / "indexed_check_metadata_db"
 
     def __init__(
         self,

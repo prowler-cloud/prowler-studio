@@ -7,18 +7,13 @@ RUN addgroup -g 1000 prowler_studio && \
 
 USER prowler_studio
 
-COPY --chown=prowler_studio:prowler_studio ./api /home/prowler_studio/api
-COPY --chown=prowler_studio:prowler_studio ./core /home/prowler_studio/core
-COPY --chown=prowler_studio:prowler_studio ./uv.lock /home/prowler_studio/uv.lock
-COPY --chown=prowler_studio:prowler_studio ./pyproject.toml /home/prowler_studio/pyproject.toml
+COPY --chown=prowler_studio:prowler_studio ./api /home/prowler_studio/prowler_studio/api
+COPY --chown=prowler_studio:prowler_studio ./core /home/prowler_studio/prowler_studio/core
+COPY --chown=prowler_studio:prowler_studio ./uv.lock /home/prowler_studio/prowler_studio/uv.lock
+COPY --chown=prowler_studio:prowler_studio ./pyproject.toml /home/prowler_studio/prowler_studio/pyproject.toml
 
-WORKDIR /home/prowler_studio/
+WORKDIR /home/prowler_studio/prowler_studio/api
 
-# With sed remoce all no need files (cli, README.md, LICENSE)
-RUN sed -i '/cli/d' /home/prowler_studio/pyproject.toml && \
-    sed -i '/README.md/d' /home/prowler_studio/pyproject.toml && \
-    sed -i '/LICENSE/d' /home/prowler_studio/pyproject.toml
+RUN uv sync --frozen --no-dev --no-editable && rm -rf /home/prowler_studio/prowler_studio/core
 
-RUN uv sync --no-dev --extra api
-
-ENTRYPOINT ["uv", "run", "--no-dev", "prowler-studio-api"]
+ENTRYPOINT ["/home/prowler_studio/prowler_studio/.venv/bin/prowler-studio-api"]

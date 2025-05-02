@@ -93,7 +93,6 @@ def create_new_check(
     """
     try:
         config = get_config()
-
         if not model_provider:
             model_provider = (
                 get_llm_provider()

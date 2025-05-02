@@ -62,9 +62,9 @@ The CLI is a command-line tool that allows you to ask questions to the AI model 
 
 ### Features
 
-- Ask questions to the AI system
-- RAG dataset creation
-- Configurable
+- Create new checks
+- RAG dataset based on your Prowler local installation
+- Multiple LLM providers supported
 - Save checks in your Prowler local installation
 - Update compliance requirements
 
@@ -126,7 +126,7 @@ docker run --rm -it --env-file .env prowler-studio-cli
 If you want to save the generated checks in your local machine you can mount use a Docker volume:
 
 ```bash
-docker run --rm -it --env-file .env -v ./generated_checks:/home/prowler_studio/generated_checks prowler-studio-cli
+docker run --rm -it --env-file .env -v ./generated_checks:/home/prowler_studio/prowler_studio/cli/generated_checks prowler-studio-cli
 ```
 
 > [!WARNING]
@@ -171,7 +171,7 @@ set +a
 
 ### Configuration File
 
-The CLI can be configured using the `cli/config/config.yml` file. The file is already created in the repository and you can change the values to fit your needs.
+The CLI can be configured using the `cli/prowler_studio/_cli/config.yml` file. The file is already created in the repository and you can change the values to fit your needs.
 The supported values for the configuration are:
 
 - `llm_provider`: The LLM provider to use. The supported values are:
@@ -191,17 +191,21 @@ The supported values for the configuration are:
 
 ### Usage
 
-Now you have to ways of using the `prowler-studio` command.
-- With `uvx` typing `uvx run prowler-studio`
-- Just typing `prowler-studio`. If this is not working the problem may be related with your `$PATH`, try to run `uv tool update-shell` to update the `$PATH` correctly.
+The CLI comes with a help command to show the available commands and their usage:
+
+```bash
+prowler-studio --help
+```
+
+If you installed it as a `uv` tool and the command is not working you can try to run `uv tool update-shell` to update the `$PATH` correctly.
 
 **Remember that the API keys has to be passed to the CLI through env variables (recommended) or arguments**. The recommended way is to set the environment variables in the `.env` file
 but if you are going to use the Prowler Studio CLI in different locations than the reopsitory maybe is good idea to set them in your SHELL configuration `~/.bashrc`, `~/.zshrc`, etc.
 
 #### Aviable commands
 
-- `create-check`: Create a new check.
-- `build-check-rag`: Build a RAG dataset updated with master (the RAG dataset is already in the repository, this command is to update it with new possible checks).
+- `create-check`: Create a new check based on the input prompt.
+- `build-check-rag`: Update the knowledge base with new checks (you need to have the Prowler repository cloned in your machine).
 - `update-compliance`: Update a specified compliance using the given compliance path using the Prowler Compliance Framework format.
 
 ## Prowler Studio Chatbot
@@ -296,14 +300,13 @@ Just type your check creation request in the input field and press "Enter"!
 
 ## MCP Server
 
-The Prowler Studio MCP Server is a server implementation that allows you to integrate Prowler Studio's capabilities directly into your development environment through the Model Control Protocol (MCP).
+The Prowler Studio MCP Server is a server implementation that allows you to integrate Prowler Studio's capabilities directly into your development environment through the Model Context Protocol (MCP).
 
 ### Features
 
-- Direct integration with development environments
-- Real-time check generation
-- Same powerful capabilities as CLI and Chatbot for check creation
-- Seamless workflow integration
+- Direct integration with development environments.
+- Help your favorite IDE to generate checks in the correct way.
+- Seamless workflow integration.
 
 ### Installation
 
@@ -338,6 +341,10 @@ uv sync --no-dev --extra mcp_server
 
 To use the MCP Server, you need to configure your MCP-compatible development environment. Add the following configuration to your MCP settings:
 
+> [!IMPORTANT]
+> The MCP Server `OPENAI_API_KEY` is optional, if you don't want to use OpenAI models you can leave it empty.
+> The MCP Server `GOOGLE_API_KEY` is required, it is used for the embedding model.
+
 #### Using Docker
 
 ##### Cursor
@@ -371,14 +378,3 @@ To use the MCP Server, you need to configure your MCP-compatible development env
   }
 }
 ```
-
-
-### Usage
-
-Once configured, the MCP Server will be available through your development environment's AI assistance features. You can use it to:
-
-- Generate new Prowler checks
-- Update compliance requirements
-- Access all Prowler Studio features directly from your IDE
-
-The interaction will be handled through your development environment's interface, providing the same powerful capabilities as the CLI and Chatbot implementations.
