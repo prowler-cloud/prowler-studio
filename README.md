@@ -345,9 +345,11 @@ To use the MCP Server, you need to configure your MCP-compatible development env
 > The MCP Server `OPENAI_API_KEY` is optional, if you don't want to use OpenAI models you can leave it empty.
 > The MCP Server `GOOGLE_API_KEY` is required, it is used for the embedding model.
 
-#### Using Docker
+#### Using in Cursor IDE
 
-##### Cursor
+In Cursor, you can use the MCP Server by adding the following configuration to your MCP settings:
+
+##### With Docker
 
 ```json
 {
@@ -360,9 +362,7 @@ To use the MCP Server, you need to configure your MCP-compatible development env
 }
 ```
 
-#### Using Local Installation
-
-##### Cursor
+##### With uvx
 
 ```json
 {
@@ -373,6 +373,64 @@ To use the MCP Server, you need to configure your MCP-compatible development env
       "env": {
         "OPENAI_API_KEY": "your_openai_api_key",
         "GOOGLE_API_KEY": "your_google_api_key"
+      }
+    }
+  }
+}
+```
+
+#### Using in VS Code
+
+##### Automatic Installation
+
+For automatic installation in VS Code, you can use one of the following installation buttons:
+
+[![Install with UV in VS Code](https://img.shields.io/badge/VS_Code-UV-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=prowler-studio&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22%2Fpath%2Fto%2Fprowler_studio%2Fmcp_server%2F%22%5D%7D) [![Install with UV in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-UV-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=prowler-studio&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22%2Fpath%2Fto%2Fprowler_studio%2Fmcp_server%2F%22%5D%7D&quality=insiders)
+
+[![Install with Docker in VS Code](https://img.shields.io/badge/VS_Code-Docker-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=prowler-studio&config=%7B%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22prowler-studio-mcp-server%3Alatest%22%5D%7D) [![Install with Docker in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Docker-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=prowler-studio&config=%7B%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22prowler-studio-mcp-server%3Alatest%22%5D%7D&quality=insiders)
+
+> [!NOTE]
+> Remember to set your `OPENAI_API_KEY` and `GOOGLE_API_KEY` environment variables after installation.
+
+
+##### Manual Installation
+
+For manual installation, add the following JSON block to your User Settings (JSON) file in VS Code. You can do this by pressing `Ctrl + Shift + P` and typing `Preferences: Open Settings (JSON)`.
+
+Optionally, you can add it to a file called `.vscode/mcp.json` in your workspace. This will allow you to share the configuration with others.
+
+> Note that the `mcp` key is not needed in the `.vscode/mcp.json` file.
+
+##### With Docker
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "prowler-studio": {
+        "type": "stdio",
+        "command": "docker",
+        "args": ["run", "--rm", "-e", "OPENAI_API_KEY=your_openai_api_key", "-e", "GOOGLE_API_KEY=your_google_api_key", "-i", "prowler-studio-mcp-server:latest"],
+      }
+    }
+  }
+}
+```
+
+##### With uvx
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "prowler-studio": {
+        "type": "stdio",
+        "command": "uvx",
+        "args": ["/path/to/prowler_studio/mcp_server/"],
+        "env": {
+          "OPENAI_API_KEY": "your_openai_api_key",
+          "GOOGLE_API_KEY": "your_google_api_key"
+        }
       }
     }
   }
