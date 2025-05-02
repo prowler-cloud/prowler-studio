@@ -1,0 +1,22 @@
+{% block context_setup -%}
+# CONTEXT
+{% include 'generic/prowler_studio_context.txt' %}
+{%- endblock %}
+
+{% block task_definition -%}
+# TASK
+Modify the service to include the missing SDK calls and attributes needed for the check implementation.
+{% block output_format -%}
+## OUTPUT FORMAT
+You MUST JUST a Python code block with the entire code, NOT just the modified part.
+{%- endblock %}
+{%- endblock %}
+{% block input -%}
+# INPUT
+**Missing Service Calls/Attributes**:
+{{ missing_service_calls_attributes }}
+**Service Class Code**:
+```python
+{{ service_class_code }}
+```
+{%- endblock %}

@@ -1,0 +1,26 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+authors = [
+  {name = "Prowler Team"}
+]
+dependencies = [
+  "prowler-studio-core==0.0.1",
+  "fastapi==0.115.12",
+  "uvicorn==0.34.2"
+]
+description = "API Server for Prowler Studio"
+name = "prowler-studio-api"
+requires-python = ">=3.12"
+version = "0.0.1"
+
+[project.scripts]
+prowler-studio-api = "prowler_studio._api.main:run_server"
+
+[tool.hatch.build.targets.wheel]
+packages = ["prowler_studio"]
+
+[tool.uv.sources]
+prowler-studio-core = {workspace = true}

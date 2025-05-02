@@ -1,0 +1,22 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[project]
+authors = [
+  {name = "Prowler Team"}
+]
+dependencies = [
+  "llama-index-core==0.12.33.post1",
+  "llama-index-embeddings-gemini==0.3.2",
+  "llama-index-llms-gemini==0.4.14",
+  "llama-index-llms-openai==0.3.38",
+  "loguru==0.7.3"
+]
+description = "Core functionalities for Prowler Studio"
+name = "prowler_studio_core"
+requires-python = ">=3.12"
+version = "0.0.1"
+
+[tool.hatch.build.targets.wheel]
+packages = ["prowler_studio"]

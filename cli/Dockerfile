@@ -1,28 +1,22 @@
-FROM python:3.12.8-alpine3.20
+FROM ghcr.io/astral-sh/uv:python3.13-alpine
 
-LABEL maintainer="https://github.com/prowler-cloud/"
+LABEL maintainer="https://github.com/prowler-cloud"
 
-RUN apk add --no-cache gcc=13.2.1_git20240309-r0 python3-dev=3.12.8-r1 musl-dev=1.2.5-r0 linux-headers=6.6-r0 ncurses=6.4_p20240420-r2
+# Install required system dependencies for terminal menus
+RUN apk add --no-cache ncurses=6.5_p20241006-r3
 
 RUN addgroup -g 1000 prowler_studio && \
-    adduser -u 1000 -G prowler_studio -D prowler_studio
+    adduser -D -u 1000 -G prowler_studio prowler_studio
 
 USER prowler_studio
 
-WORKDIR /home/prowler_studio
+COPY --chown=prowler_studio:prowler_studio ./cli /home/prowler_studio/prowler_studio/cli
+COPY --chown=prowler_studio:prowler_studio ./core /home/prowler_studio/prowler_studio/core
+COPY --chown=prowler_studio:prowler_studio ./uv.lock /home/prowler_studio/prowler_studio/uv.lock
+COPY --chown=prowler_studio:prowler_studio ./pyproject.toml /home/prowler_studio/prowler_studio/pyproject.toml
 
-COPY ./pyproject.toml .
-COPY ./core/ ./core/
-COPY ./cli/ ./cli/
-COPY ./prowler-studio ./prowler-studio
+WORKDIR /home/prowler_studio/prowler_studio/cli
 
-RUN pip install --no-cache-dir --upgrade --ignore-installed pip && \
-    pip install --no-cache-dir poetry prowler
+RUN uv sync --frozen --no-dev --no-editable
 
-ENV PATH="/home/prowler_studio/.local/bin/:$PATH"
-
-RUN poetry config virtualenvs.in-project true && \
-    poetry install --no-root && \
-    rm -rf /home/prowler_studio/.cache/pip
-
-ENTRYPOINT ["poetry", "run", "./prowler-studio"]
+ENTRYPOINT ["/home/prowler_studio/prowler_studio/.venv/bin/prowler-studio"]

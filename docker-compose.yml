@@ -2,6 +2,9 @@ services:
   api:
     hostname: "studio-api"
     image: "prowler-studio-api"
+    build:
+      context: .
+      dockerfile: ./api/Dockerfile
     env_file:
       - path: ".env"
         required: false
@@ -11,6 +14,9 @@ services:
   ui:
     hostname: "studio-ui"
     image: "prowler-studio-ui"
+    build:
+      context: ui/
+      dockerfile: Dockerfile
     env_file:
       - path: ".env"
         required: false

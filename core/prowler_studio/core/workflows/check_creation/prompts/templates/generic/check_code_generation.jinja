@@ -1,0 +1,46 @@
+{% block context_setup -%}
+# CONTEXT
+{% include 'generic/prowler_studio_context.txt' %}
+{%- endblock %}
+
+{% block task_definition -%}
+# TASK
+Generate the Prowler check code based on the audit steps. Focus on the logic that will be executed in the check to audit the proposed request.
+Do **NOT** focus on setting up the session, authentication, or new SDK/API calls — the provider and service classes are already implemented.
+Please include **all logic** in the `execute` method of the class. **DO NOT** include additional methods or code outside the class.
+Use the following checks as reference. If one is highly similar, feel free to adapt it directly.
+
+## IMPORTANT NOTES:
+- Only the following statuses are accepted: `'FAIL'`, `'PASS'`, or `'INFO'`.
+  - Try to **avoid using** `'INFO'` unless strictly necessary.
+- The client object used in the check is the **only** way to interact with the provider.
+  - Do **not** make direct SDK/API calls from the check.
+  - All provider interaction must happen via the service class named:
+    `{{ service_name }}_client`
+- This client (`{{ service_name }}_client`) is used in the reference checks as well.
+  - Its class code is included below and must not be modified.
+  - You must **only** use its existing attributes — do not add new ones.
+- Be cautious about using external functions from `lib` inside the client.
+  - Typically, clients don't contain such imports.
+  - Use helper logic from related checks when needed.
+
+The check class name MUST be: `{{ check_name }}`
+
+## Reference Checks:
+---------------------------------------------------------------
+{% for check in relevant_related_checks_code %}
+---------------------------------------------------------------
+```python
+{{ check }}
+```
+{%- endfor %}
+{%- endblock %}
+{% block input -%}
+# INPUT
+**Audit Steps**:
+{{ audit_steps }}
+**Service Class Code**:
+```python
+{{ service_class_code }}
+```
+{%- endblock %}
