@@ -29,6 +29,9 @@ version = "0.0.1"
 api = [
   "prowler-studio-api==0.0.1"
 ]
+mcp_server = [
+  "prowler-studio-mcp-server==0.0.1"
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/prowler_studio"]
@@ -37,10 +40,12 @@ packages = ["src/prowler_studio"]
 prowler-studio-api = {workspace = true}
 prowler-studio-cli = {workspace = true}
 prowler-studio-core = {workspace = true}
+prowler-studio-mcp-server = {workspace = true}
 
 [tool.uv.workspace]
 members = [
   "core",
   "cli",
-  "api"
+  "api",
+  "mcp_server"
 ]

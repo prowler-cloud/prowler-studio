@@ -1,4 +1,3 @@
-
 # Prowler Studio
 
 Prowler Studio is an AI assistant that helps you to create checks for Prowler. It can be used as a CLI tool or as a web application.
@@ -63,9 +62,9 @@ The CLI is a command-line tool that allows you to ask questions to the AI model 
 
 ### Features
 
-- Ask questions to the AI system
-- RAG dataset creation
-- Configurable
+- Create new checks
+- RAG dataset based on your Prowler local installation
+- Multiple LLM providers supported
 - Save checks in your Prowler local installation
 - Update compliance requirements
 
@@ -172,7 +171,7 @@ set +a
 
 ### Configuration File
 
-The CLI can be configured using the `cli/config/config.yml` file. The file is already created in the repository and you can change the values to fit your needs.
+The CLI can be configured using the `cli/prowler_studio/_cli/config.yml` file. The file is already created in the repository and you can change the values to fit your needs.
 The supported values for the configuration are:
 
 - `llm_provider`: The LLM provider to use. The supported values are:
@@ -192,17 +191,21 @@ The supported values for the configuration are:
 
 ### Usage
 
-Now you have to ways of using the `prowler-studio` command.
-- With `uvx` typing `uvx prowler-studio`
-- Just typing `prowler-studio`. If this is not working the problem may be related with your `$PATH`, try to run `uv tool update-shell` to update the `$PATH` correctly.
+The CLI comes with a help command to show the available commands and their usage:
+
+```bash
+prowler-studio --help
+```
+
+If you installed it as a `uv` tool and the command is not working you can try to run `uv tool update-shell` to update the `$PATH` correctly.
 
 **Remember that the API keys has to be passed to the CLI through env variables (recommended) or arguments**. The recommended way is to set the environment variables in the `.env` file
 but if you are going to use the Prowler Studio CLI in different locations than the reopsitory maybe is good idea to set them in your SHELL configuration `~/.bashrc`, `~/.zshrc`, etc.
 
 #### Aviable commands
 
-- `create-check`: Create a new check.
-- `build-check-rag`: Build a RAG dataset updated with master (the RAG dataset is already in the repository, this command is to update it with new possible checks).
+- `create-check`: Create a new check based on the input prompt.
+- `build-check-rag`: Update the knowledge base with new checks (you need to have the Prowler repository cloned in your machine).
 - `update-compliance`: Update a specified compliance using the given compliance path using the Prowler Compliance Framework format.
 
 ## Prowler Studio Chatbot
@@ -294,3 +297,142 @@ Just type your check creation request in the input field and press "Enter"!
 
 
 ![Prowler Studio Check Creation](docs/img/prowler_studio_web_interface.png)
+
+## MCP Server
+
+The Prowler Studio MCP Server is a server implementation that allows you to integrate Prowler Studio's capabilities directly into your development environment through the Model Context Protocol (MCP).
+
+### Features
+
+- Direct integration with development environments.
+- Help your favorite IDE to generate checks in the correct way.
+- Seamless workflow integration.
+
+### Installation
+
+#### Docker
+
+**Requirements:**
+- `git`
+- `docker`
+
+First, clone the repository and build the Docker image:
+
+```bash
+git clone git@github.com:prowler-cloud/prowler-studio.git
+cd prowler-studio
+docker build -f ./mcp_server/Dockerfile -t prowler-studio-mcp-server:latest .
+```
+
+#### Local Installation
+
+**Requirements:**
+- `git`
+- `uv`
+- At least Python 3.12
+
+```bash
+git clone git@github.com:prowler-cloud/prowler-studio.git
+cd prowler-studio
+uv sync --no-dev --extra mcp_server
+```
+
+### Configuration
+
+To use the MCP Server, you need to configure your MCP-compatible development environment. Add the following configuration to your MCP settings:
+
+> [!IMPORTANT]
+> The MCP Server `OPENAI_API_KEY` is optional, if you don't want to use OpenAI models you can leave it empty.
+> The MCP Server `GOOGLE_API_KEY` is required, it is used for the embedding model.
+
+#### Using in Cursor IDE
+
+In Cursor, you can use the MCP Server by adding the following configuration to your MCP settings:
+
+##### With Docker
+
+```json
+{
+  "mcpServers": {
+    "prowler-studio": {
+      "command": "docker",
+      "args": ["run", "--rm", "-e", "OPENAI_API_KEY=your_openai_api_key", "-e", "GOOGLE_API_KEY=your_google_api_key", "-i", "prowler-studio-mcp-server:latest"]
+    }
+  }
+}
+```
+
+##### With uvx
+
+```json
+{
+  "mcpServers": {
+    "prowler-studio": {
+      "command": "uvx",
+      "args": ["/path/to/prowler_studio/mcp_server/"],
+      "env": {
+        "OPENAI_API_KEY": "your_openai_api_key",
+        "GOOGLE_API_KEY": "your_google_api_key"
+      }
+    }
+  }
+}
+```
+
+#### Using in VS Code
+
+##### Automatic Installation
+
+For automatic installation in VS Code, you can use one of the following installation buttons:
+
+[![Install with UV in VS Code](https://img.shields.io/badge/VS_Code-UV-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=prowler-studio&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22%2Fpath%2Fto%2Fprowler_studio%2Fmcp_server%2F%22%5D%7D) [![Install with UV in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-UV-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=prowler-studio&config=%7B%22command%22%3A%22uvx%22%2C%22args%22%3A%5B%22%2Fpath%2Fto%2Fprowler_studio%2Fmcp_server%2F%22%5D%7D&quality=insiders)
+
+[![Install with Docker in VS Code](https://img.shields.io/badge/VS_Code-Docker-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=prowler-studio&config=%7B%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22prowler-studio-mcp-server%3Alatest%22%5D%7D) [![Install with Docker in VS Code Insiders](https://img.shields.io/badge/VS_Code_Insiders-Docker-24bfa5?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=prowler-studio&config=%7B%22command%22%3A%22docker%22%2C%22args%22%3A%5B%22run%22%2C%22--rm%22%2C%22-i%22%2C%22prowler-studio-mcp-server%3Alatest%22%5D%7D&quality=insiders)
+
+> [!NOTE]
+> Remember to set your `OPENAI_API_KEY` and `GOOGLE_API_KEY` environment variables after installation.
+
+
+##### Manual Installation
+
+For manual installation, add the following JSON block to your User Settings (JSON) file in VS Code. You can do this by pressing `Ctrl + Shift + P` and typing `Preferences: Open Settings (JSON)`.
+
+Optionally, you can add it to a file called `.vscode/mcp.json` in your workspace. This will allow you to share the configuration with others.
+
+> Note that the `mcp` key is not needed in the `.vscode/mcp.json` file.
+
+##### With Docker
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "prowler-studio": {
+        "type": "stdio",
+        "command": "docker",
+        "args": ["run", "--rm", "-e", "OPENAI_API_KEY=your_openai_api_key", "-e", "GOOGLE_API_KEY=your_google_api_key", "-i", "prowler-studio-mcp-server:latest"],
+      }
+    }
+  }
+}
+```
+
+##### With uvx
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "prowler-studio": {
+        "type": "stdio",
+        "command": "uvx",
+        "args": ["/path/to/prowler_studio/mcp_server/"],
+        "env": {
+          "OPENAI_API_KEY": "your_openai_api_key",
+          "GOOGLE_API_KEY": "your_google_api_key"
+        }
+      }
+    }
+  }
+}
+```
