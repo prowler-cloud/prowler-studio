@@ -10,7 +10,21 @@ Prowler Studio is an AI-powered toolkit for generating and managing security che
 
 Prowler Studio consists of several main components. Each is documented in detail in the `docs/` directory. Below is a summary of each component and a link to its full documentation.
 
-### 1. CLI ([docs/cli.md](docs/cli.md))
+---
+
+### 1. Core ([docs/core.md](docs/core.md))
+The foundational logic and workflows for check generation, RAG, and compliance mapping. Model-agnostic and designed for extensibility.
+
+- **Main features:**
+  - Modular workflow orchestration (LlamaIndex-based)
+  - RAG dataset and semantic search
+  - Provider abstraction for LLMs and embeddings
+- **Note:** The core is not intended for direct use; it is used via the CLI, API, or MCP Server.
+- **Technical details and architecture:** [docs/core.md](docs/core.md)
+
+---
+
+### 2. CLI ([docs/cli.md](docs/cli.md))
 A command-line tool for generating, managing, and updating Prowler checks using AI. Supports multiple LLM providers and embedding models. Includes commands for check creation, RAG dataset management, and compliance updates.
 
 - **Main features:**
@@ -21,18 +35,6 @@ A command-line tool for generating, managing, and updating Prowler checks using 
   - Install via Docker or from source
   - Run `prowler-studio --help` for available commands
 - **Full installation, configuration, and usage:** [docs/cli.md](docs/cli.md)
-
----
-
-### 2. Core ([docs/core.md](docs/core.md))
-The foundational logic and workflows for check generation, RAG, and compliance mapping. Model-agnostic and designed for extensibility.
-
-- **Main features:**
-  - Modular workflow orchestration (LlamaIndex-based)
-  - RAG dataset and semantic search
-  - Provider abstraction for LLMs and embeddings
-- **Note:** The core is not intended for direct use; it is used via the CLI, API, or MCP Server.
-- **Technical details and architecture:** [docs/core.md](docs/core.md)
 
 ---
 
@@ -78,4 +80,4 @@ Prowler Studio is model-agnostic. You can use OpenAI or Gemini for LLMs, and Gem
 
 ## License
 
-[MIT License](LICENSE)
+[Apache 2.0](LICENSE)
