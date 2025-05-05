@@ -333,7 +333,7 @@ docker build -f ./mcp_server/Dockerfile -t prowler-studio-mcp-server:latest .
 
 ```bash
 git clone git@github.com:prowler-cloud/prowler-studio.git
-cd prowler-studio/mcp_server
+cd prowler-studio
 uv sync --no-dev --extra mcp_server
 ```
 
