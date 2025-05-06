@@ -9,6 +9,12 @@ The Prowler Studio ChatBot provides a web-based interface and API for generating
 - **UI (React/Deep Chat):** User-friendly web interface for interacting with the assistant.
 - **Dockerized:** Both API and UI can be run together via Docker Compose.
 
+## Demo Time!
+
+![Prowler Studio Chatbot](../docs/img/prowler_studio_chatbot_demo.gif)
+
+---
+
 ## Installation & Setup
 
 ### Docker (Recommended)
