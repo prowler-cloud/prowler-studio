@@ -7,9 +7,9 @@ The core of Prowler Studio provides foundational logic and workflows for generat
 ## Architecture
 
 - **Modular Design:** The core is structured into logical modules for workflows, RAG (Retrieval-Augmented Generation), and utility functions.
-- **Provider Abstraction:** Supports multiple LLM and embedding model providers (Gemini, OpenAI, etc.) via configuration.
+- **Provider Abstraction:** Supports multiple LLM and embedding model providers (Gemini and OpenAI) via configuration.
 
-## Setup & Installation
+## Installation & Setup
 
 **Requirements:**
 - Python 3.12+
@@ -24,16 +24,28 @@ uv sync
 
 The core is configured via the CLI or API layer. See the respective documentation for details on setting LLM and embedding providers.
 
+## Supported LLM Providers and Models
+
+Prowler Studio Core supports multiple LLM providers and models for check generation and RAG workflows. The currently supported providers and models are:
+
+- **Gemini (Google)**
+  - `models/gemini-1.5-flash`
+  - `text-embedding-004` (for embeddings)
+- **OpenAI**
+  - `gpt-4o`
+  - `gpt-4o-mini`
+
 ## Supported Platforms
+
 - Linux, macOS (Python 3.12+)
 
 ## Main Features
-- Model-agnostic check generation
-- RAG dataset management, based on Prowler's checks
-- Compliance update workflow
+- Model-agnostic check generation.
+- RAG dataset management, based on Prowler's checks.
+- Compliance update workflow.
 
 ## Usage
-The core is not intended to be used directly. Use via the CLI, API, or MCP Server.
+The recommended way to use the core is via the CLI, API, or MCP Server.
 
 ---
 
@@ -49,8 +61,8 @@ The core is not intended to be used directly. Use via the CLI, API, or MCP Serve
 
 ### Workflows
 
-- **LlamaIndex Workflow**: All major processes (check creation, compliance update) are implemented as [LlamaIndex](https://www.llamaindex.ai/) Workflows, allowing for robust, retryable, and modular orchestration. See the workflow files in `core/prowler_studio/core/workflows/`.
-- **Check Creation Workflow**: Guides the user through the process of creating a new check, leveraging the RAG dataset to avoid duplicates and suggest improvements. See `core/prowler_studio/core/workflows/check_creation/workflow.py`.
+- **LlamaIndex Workflow**: All major processes (check creation, compliance update) are implemented as [LlamaIndex Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/), allowing for robust, retryable, and modular orchestration. See the workflow files in `core/prowler_studio/core/workflows/`.
+- **Check Creation Workflow**: Guides the user through the process of creating a new check, leveraging the RAG dataset to avoid duplicates and suggest services improvements. See `core/prowler_studio/core/workflows/check_creation/workflow.py`.
 - **Compliance Updater Workflow**: Maps compliance requirements to relevant checks using semantic search over the RAG dataset. See `core/prowler_studio/core/workflows/compliance_updater/workflow.py`.
 
 ### Retrieval-Augmented Generation (RAG) and LlamaIndex Integration

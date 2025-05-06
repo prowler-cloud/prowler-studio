@@ -16,25 +16,29 @@ Prowler Studio consists of several main components. Each is documented in detail
 The foundational logic and workflows for check generation, RAG, and compliance mapping. Model-agnostic and designed for extensibility.
 
 - **Main features:**
-  - Modular workflow orchestration (LlamaIndex-based)
-  - RAG dataset and semantic search
-  - Provider abstraction for LLMs and embeddings
-- **Note:** The core is not intended for direct use; it is used via the CLI, API, or MCP Server.
+  - Modular workflow orchestration (LlamaIndex-based).
+  - RAG dataset and semantic search in Prowler checks.
+  - Provider abstraction for LLMs and embeddings.
 - **Technical details and architecture:** [docs/core.md](docs/core.md)
 
 ---
 
 ### 2. CLI ([docs/cli.md](docs/cli.md))
-A command-line tool for generating, managing, and updating Prowler checks using AI. Supports multiple LLM providers and embedding models. Includes commands for check creation, RAG dataset management, and compliance updates.
+A command-line tool for generating Prowler checks using AI, manage the Studio checks knowledge base and update compliance requirements. Supports multiple LLM providers and embedding models.
+It is the most updated user interface with the core capabilities of Prowler Studio.
 
 - **Main features:**
-  - Create new checks from natural language prompts
-  - Build/update RAG datasets
-  - Update compliance requirements
+  - Create new checks from natural language prompts.
+  - Build/update RAG knowledge base, based on Prowler checks.
+  - Update compliance requirements.
 - **Quick start:**
-  - Install via Docker or from source
-  - Run `prowler-studio --help` for available commands
+  - Install via Docker or from source.
+  - Run `prowler-studio --help` for available commands.
 - **Full installation, configuration, and usage:** [docs/cli.md](docs/cli.md)
+
+#### Demo Time!
+
+![Prowler Studio CLI](docs/img/prowler_studio_cli_demo.gif)
 
 ---
 
@@ -42,31 +46,39 @@ A command-line tool for generating, managing, and updating Prowler checks using 
 A web-based interface and API for generating Prowler checks. Includes a FastAPI backend and a React-based frontend.
 
 - **Main features:**
-  - User-friendly web UI for check creation
-  - REST API for programmatic access
+  - User-friendly web UI for check creation.
+  - REST API for programmatic access.
 - **Quick start:**
-  - Run via Docker Compose or install API/UI locally
-  - Access the UI at http://localhost:80 (Docker) or http://localhost:3000 (local)
+  - Run via Docker Compose or install API/UI locally.
+  - Access the UI at http://localhost:80 (Docker) or http://localhost:3000 (local).
 - **Full setup and development details:** [docs/chatbot.md](docs/chatbot.md)
+
+#### Demo Time!
+
+![Prowler Studio Chatbot](docs/img/prowler_studio_chatbot_demo.gif)
 
 ---
 
 ### 4. MCP Server ([docs/mcp_server.md](docs/mcp_server.md))
-Enables integration of Prowler Studio into IDEs and development environments via the Model Context Protocol (MCP).
+Enables integration of Prowler Studio into IDEs and development environments via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/).
 
 - **Main features:**
-  - IDE integration (Cursor, VS Code, etc.)
-  - Exposes Prowler Studio features over MCP
+  - IDE integration (Cursor, VS Code, etc.).
+  - Exposes Prowler Studio core features over MCP.
 - **Quick start:**
-  - Run as a Docker container or from source
-  - Configure your IDE to connect to the MCP server
+  - Run as a Docker container or from source.
+  - Configure your IDE to connect to the MCP server.
 - **Integration and configuration details:** [docs/mcp_server.md](docs/mcp_server.md)
 
 ---
 
 ## LLM & Embedding Model Configuration
 
-Prowler Studio is model-agnostic. You can use OpenAI or Gemini for LLMs, and Gemini for embeddings. API keys are required and should be set in your environment or `.env` file. See the relevant component docs for details.
+Prowler Studio is model-agnostic. You can use OpenAI or Gemini for LLMs, and Gemini for embeddings. API keys are required and should be set in your environment or `.env` file.
+
+The supported models can be found in the [core.md](docs/core.md#supported-llm-providers-and-models).
+
+And other environment variables are mainly for the Chatbot, see [chatbot.md](docs/chatbot.md#environment-variables) for more details.
 
 ---
 

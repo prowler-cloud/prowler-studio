@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Prowler Studio CLI is a command-line tool for generating and managing security checks for [Prowler](https://github.com/prowler-cloud/prowler) using AI. It supports multiple LLM providers and embedding models, and can be run via Docker or directly from source. The CLI is built on top of the Prowler Studio Core, providing a user-friendly interface for advanced security automation workflows.
+The Prowler Studio CLI is a command-line tool for generating security checks for [Prowler](https://github.com/prowler-cloud/prowler) using AI. It supports multiple LLM providers (Gemini and OpenAI), and can be run via Docker or directly from source. The CLI is built on top of the Prowler Studio Core, providing a user-friendly interface for check generation, RAG knowledge base managing and compliance requirements updates.
 
 ---
 
@@ -29,6 +29,10 @@ To persist generated checks:
 docker run --rm -it --env-file .env -v $(pwd)/generated_checks:/home/prowler_studio/prowler_studio/_cli/generated_checks prowler-studio-cli
 ```
 
+> [!WARNING]
+> If you have problems with the permissions of the generated checks folder add write permissions to write in the folder by other users.
+> You can do it with the following command: `chmod o+w $(pwd)/generated_checks`.
+
 ### From Source
 **Requirements:**
 - `git`
@@ -49,7 +53,9 @@ Fill in `.env` with your API keys (see below).
 
 ## Configuration
 
-Edit `cli/prowler_studio/_cli/config.yaml` to set your model and embedding providers:
+The LLM to use can be selected in a interactive way by the CLI, using command especific flags or by editing the `cli/prowler_studio/_cli/config.yaml` file.
+
+An example of the `cli/prowler_studio/_cli/config.yaml` file is the following:
 ```yaml
 models:
   llm_provider: "openai" # or "gemini"
@@ -58,13 +64,12 @@ models:
   embedding_model_reference: "text-embedding-004"
 ```
 
-See [core.md](core.md) for more on model/provider abstraction and configuration.
-
 ---
 
 ## Environment Variables
-- `OPENAI_API_KEY` or `GOOGLE_API_KEY`: LLM provider API key.
-- `EMBEDDING_MODEL_API_KEY`: Embedding model API key (same as `GOOGLE_API_KEY` for Gemini).
+
+- `GOOGLE_API_KEY`: Must be always set, because it is used for the semantic search in the check knowledge base. You can get one for free from [here](https://ai.google.dev/gemini-api/docs/api-key).
+- `OPENAI_API_KEY`: LLM provider API key. This is only used in the case that in the check creation you want to use the OpenAI model supported by the Studio. See [Supported LLM Providers and Models](core.md#supported-llm-providers-and-models) for a list of available models.
 
 ---
 
@@ -94,7 +99,7 @@ prowler-studio create-check "<your prompt>" [OPTIONS]
 - `--embedding-model-api-key TEXT` Embedding model API key (env: EMBEDDING_MODEL_API_KEY)
 - `--log-level TEXT`              Log level (default: INFO)
 - `--output-directory PATH`       Directory to save the check (default: ./generated_checks)
-- `--save-check`                  Save the generated check
+- `--save-check`                  Save the generated check in the output directory
 
 **References:**
 - Uses the [Check Creation Workflow](core.md#workflows) from the core module.
@@ -154,9 +159,8 @@ prowler-studio update-compliance --max-check-number-per-requirement 5 --confiden
 ## Troubleshooting & FAQ
 
 - **Config file not found:** Ensure `cli/prowler_studio/_cli/config.yaml` exists and is readable.
-- **API key errors:** Set the correct environment variables (`OPENAI_API_KEY`, `GOOGLE_API_KEY`, `EMBEDDING_MODEL_API_KEY`).
+- **API key errors:** Set the correct environment variables. See [Environment Variables](#environment-variables).
 - **Docker volume issues:** Use absolute paths for `-v` when mounting volumes.
-- **Dependency issues:** Use `uv sync` to install all dependencies.
 
 ---
 
