@@ -70,6 +70,10 @@ Enables integration of Prowler Studio into IDEs and development environments via
   - Configure your IDE to connect to the MCP server.
 - **Integration and configuration details:** [docs/mcp_server.md](docs/mcp_server.md)
 
+#### Demo Time!
+
+![Prowler Studio MCP Server in Cursor IDE](docs/img/prowler_studio_mcp_server_cursor_demo.gif)
+
 ---
 
 ## LLM & Embedding Model Configuration
