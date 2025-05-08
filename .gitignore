@@ -1,4 +1,5 @@
 generated_checks/
+generated_fixers/
 output/
 
 # Byte-compiled / optimized / DLL files

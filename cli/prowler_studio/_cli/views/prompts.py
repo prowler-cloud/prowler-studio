@@ -1,8 +1,10 @@
 from rich.prompt import Confirm, Prompt
 
 
-def prompt_user_message() -> str:
-    return Prompt.ask("\n[bold]Message Prowler Studio :robot:[/bold]\n╰┈➤")
+def prompt_user_message(
+    message: str = "\n[bold]Message Prowler Studio :robot:[/bold]\n╰┈➤",
+) -> str:
+    return Prompt.ask(message)
 
 
 def prompt_enter_compliance_path() -> str:
