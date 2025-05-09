@@ -88,7 +88,7 @@ class FixerCreationWorkflow(Workflow):
                     return FixerBasicInformation(
                         check_description=check_metadata["Description"],
                         check_code=check_code,
-                        file_name=f"{start_event.check_id}_fixer.py",
+                        check_id=start_event.check_id,
                     )
             else:
                 raise ValueError(
@@ -117,7 +117,7 @@ class FixerCreationWorkflow(Workflow):
             )
             await ctx.set("prompt_manager", prompt_manager)
 
-            service_name = fixer_basic_information.file_name.split("_")[0]
+            service_name = fixer_basic_information.check_id.split("_")[0]
 
             # Generate the fixer code
             fixer_code = await Settings.llm.acomplete(
@@ -131,7 +131,7 @@ class FixerCreationWorkflow(Workflow):
 
             return FixerCodeResult(
                 fixer_code=fixer_code.text,
-                file_path=f"prowler/providers/aws/services/{service_name}/{fixer_basic_information.file_name}",
+                file_path=f"prowler/providers/aws/services/{service_name}/{fixer_basic_information.check_id}/{fixer_basic_information.check_id}_fixer.py",
             )
 
         except Exception as e:

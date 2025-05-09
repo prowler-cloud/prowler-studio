@@ -25,7 +25,7 @@ class FixerBasicInformation(Event):
 
     check_description: str = Field(description="Description of the check")
     check_code: str = Field(description="Code of the check")
-    file_name: str = Field(description="File name of the fixer")
+    check_id: str = Field(description="ID of the check")
 
 
 class FixerCodeResult(Event):
