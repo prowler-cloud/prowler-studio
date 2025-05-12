@@ -41,7 +41,7 @@ Access the UI at http://localhost:80.
 ```bash
 git clone git@github.com:prowler-cloud/prowler-studio.git
 cd prowler-studio
-uv install --no-dev --extra api
+uv sync --no-dev --extra api
 ```
 
 Start the API server:
