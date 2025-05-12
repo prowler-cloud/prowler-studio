@@ -56,3 +56,27 @@ def write_check(
     except OSError as e:
         display_error("ERROR: Unable to create the check.")
         raise e
+
+
+def write_fixer(path: Path, code: str) -> None:
+    """Write the fixer code to the specified path.
+
+    Args:
+        path: The path to write the fixer code.
+        code: The fixer code to write.
+    Raises:
+        OSError: If an error occurs while writing the fixer.
+    """
+    try:
+        fixer_name = path.name
+        os.makedirs(path, exist_ok=True)
+        with open(
+            path.joinpath(fixer_name),
+            "w",
+        ) as f:
+            matches = re.findall(r"```(?:python)?\n([\s\S]*?)```", code)
+            code_result = "\n".join([m.strip() for m in matches])
+            f.write(code_result)
+    except OSError as e:
+        display_error("ERROR: Unable to create the fixer.")
+        raise e
