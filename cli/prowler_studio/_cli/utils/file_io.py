@@ -71,7 +71,7 @@ def write_fixer(path: Path, code: str) -> None:
         fixer_name = path.name
         os.makedirs(path, exist_ok=True)
         with open(
-            path.joinpath(f"{fixer_name}"),
+            path.joinpath(fixer_name),
             "w",
         ) as f:
             matches = re.findall(r"```(?:python)?\n([\s\S]*?)```", code)
