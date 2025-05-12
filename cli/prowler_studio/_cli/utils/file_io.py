@@ -68,10 +68,10 @@ def write_fixer(path: Path, code: str) -> None:
         OSError: If an error occurs while writing the fixer.
     """
     try:
-        check_name = path.name
+        fixer_name = path.name
         os.makedirs(path, exist_ok=True)
         with open(
-            path.joinpath(f"{check_name}.py"),
+            path.joinpath(fixer_name),
             "w",
         ) as f:
             matches = re.findall(r"```(?:python)?\n([\s\S]*?)```", code)
