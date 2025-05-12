@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Prowler Studio CLI is a command-line tool for generating security checks for [Prowler](https://github.com/prowler-cloud/prowler) using AI. It supports multiple LLM providers (Gemini and OpenAI), and can be run via Docker or directly from source. The CLI is built on top of the Prowler Studio Core, providing a user-friendly interface for check generation, RAG knowledge base managing and compliance requirements updates.
+The Prowler Studio CLI is a command-line tool for generating security checks and fixers for [Prowler](https://github.com/prowler-cloud/prowler) using AI. It supports multiple LLM providers (Gemini and OpenAI), and can be run via Docker or directly from source. The CLI is built on top of the Prowler Studio Core, providing a user-friendly interface for check and fixer generation, RAG knowledge base managing and compliance requirements updates.
 
 ## Demo Time!
 
@@ -140,6 +140,24 @@ prowler-studio update-compliance <compliance.json> [OPTIONS]
 **References:**
 - Uses the [Compliance Updater Workflow](core.md#workflows)
 
+### `create-fixer`
+Generate an automated fixer for an existing Prowler check using AI.
+
+**Usage:**
+```bash
+prowler-studio create-fixer <provider> <check-id> [OPTIONS]
+```
+**Options:**
+- `--prowler-provider TEXT`       The Prowler provider to use (overrides config)
+- `--model-provider TEXT`           The LLM provider to use (overrides config)
+- `--model-reference TEXT`          The specific LLM model reference to use
+- `--llm-api-key TEXT`            LLM API key (env: LLM_API_KEY)
+- `--output-directory PATH`       Directory to save the fixer (default: ./generated_fixers)
+- `--save-fixer`                  Save the generated fixer in the output directory
+
+**References:**
+- Uses the [Fixer Creation Workflow](core.md#workflows) from the core module.
+
 ---
 
 ## Example Usage
@@ -147,6 +165,7 @@ prowler-studio update-compliance <compliance.json> [OPTIONS]
 prowler-studio create-check "Create a new AWS check to ensure EC2 security groups with inbound rules allowing unrestricted ICMP access are not present."
 prowler-studio build-check-rag /path/to/prowler
 prowler-studio update-compliance --max-check-number-per-requirement 5 --confidence-threshold 0.6 compliance_test.json
+prowler-studio create-fixer ec2_instance_imdsv2_enabled --prowler-provider aws
 ```
 
 ---
