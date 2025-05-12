@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Prowler Studio CLI is a command-line tool for generating security checks and automated fixers for [Prowler](https://github.com/prowler-cloud/prowler) using AI. It supports multiple LLM providers (Gemini and OpenAI), and can be run via Docker or directly from source. The CLI is built on top of the Prowler Studio Core, providing a user-friendly interface for check and fixer generation, RAG knowledge base managing, compliance requirements updates.
+The Prowler Studio CLI is a command-line tool for generating security checks and fixers for [Prowler](https://github.com/prowler-cloud/prowler) using AI. It supports multiple LLM providers (Gemini and OpenAI), and can be run via Docker or directly from source. The CLI is built on top of the Prowler Studio Core, providing a user-friendly interface for check and fixer generation, RAG knowledge base managing and compliance requirements updates.
 
 ## Demo Time!
 
