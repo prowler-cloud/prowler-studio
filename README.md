@@ -13,7 +13,7 @@ Prowler Studio consists of several main components. Each is documented in detail
 ---
 
 ### 1. Core ([docs/core.md](docs/core.md))
-The foundational logic and workflows for check generation, RAG, compliance mapping, and fixer creation. Model-agnostic and designed for extensibility.
+The foundational logic and workflows for check and fixer generation, check knowledge base using Retrieval Augmented Generation (RAG), and compliance mapping. Model-agnostic and designed for extensibility.
 
 - **Main features:**
   - Modular workflow orchestration (LlamaIndex-based).
