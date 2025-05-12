@@ -25,6 +25,7 @@ docker build -f ./cli/Dockerfile -t prowler-studio-cli:latest .
 
 Run the CLI:
 ```bash
+cp .env.template .env # Fill in your API keys
 docker run --rm -it --env-file .env prowler-studio-cli
 ```
 
