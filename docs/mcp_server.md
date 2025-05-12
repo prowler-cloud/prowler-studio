@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Prowler Studio MCP Server enables integration of Prowler Studio's AI-powered check generation into development environments via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). It is designed for seamless IDE integration (e.g., Cursor, VS Code).
+The Prowler Studio MCP Server enables integration of Prowler Studio's AI-powered check and fixer generation into development environments via the [Model Context Protocol (MCP)](https://modelcontextprotocol.io/). It is designed for seamless IDE integration (e.g., Cursor, VS Code).
 
 ## Demo Time!
 
@@ -94,7 +94,7 @@ Add to your User Settings (JSON) or `.vscode/mcp.json`:
 - Linux, macOS (Python 3.12+)
 
 ## Main Features
-- IDE integration for check generation.
+- IDE integration for check and fixer generation.
 
 ## Development Guidelines
 - Follow PEP8 and use pre-commit hooks

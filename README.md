@@ -13,7 +13,7 @@ Prowler Studio consists of several main components. Each is documented in detail
 ---
 
 ### 1. Core ([docs/core.md](docs/core.md))
-The foundational logic and workflows for check generation, RAG, and compliance mapping. Model-agnostic and designed for extensibility.
+The foundational logic and workflows for check generation, RAG, compliance mapping, and fixer creation. Model-agnostic and designed for extensibility.
 
 - **Main features:**
   - Modular workflow orchestration (LlamaIndex-based).
@@ -24,11 +24,11 @@ The foundational logic and workflows for check generation, RAG, and compliance m
 ---
 
 ### 2. CLI ([docs/cli.md](docs/cli.md))
-A command-line tool for generating Prowler checks using AI, manage the Studio checks knowledge base and update compliance requirements. Supports multiple LLM providers and embedding models.
+A command-line tool for generating Prowler checks and fixers using AI, manage the Studio checks knowledge base, update compliance requirements. Supports multiple LLM providers and embedding models.
 It is the most updated user interface with the core capabilities of Prowler Studio.
 
 - **Main features:**
-  - Create new checks from natural language prompts.
+  - Create new checks and fixers from natural language prompts.
   - Build/update RAG knowledge base, based on Prowler checks.
   - Update compliance requirements.
 - **Quick start:**
