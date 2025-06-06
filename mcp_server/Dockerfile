@@ -2,7 +2,7 @@ FROM ghcr.io/astral-sh/uv:python3.13-alpine
 
 LABEL maintainer="https://github.com/prowler-cloud"
 
-RUN apk add --no-cache cargo=1.83.0-r0
+RUN apk add --no-cache cargo
 
 RUN addgroup -g 1000 prowler_studio && \
     adduser -D -u 1000 -G prowler_studio prowler_studio
