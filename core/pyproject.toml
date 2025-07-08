@@ -7,7 +7,7 @@ authors = [
   {name = "Prowler Team"}
 ]
 dependencies = [
-  "llama-index-core==0.12.40",
+  "llama-index-core==0.12.41",
   "llama-index-embeddings-gemini==0.3.2",
   "llama-index-llms-gemini==0.5",
   "llama-index-llms-openai==0.4.3",
