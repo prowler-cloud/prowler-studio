@@ -9,13 +9,10 @@ RUN addgroup -g 1000 prowler_studio && \
 
 USER prowler_studio
 
-COPY --chown=prowler_studio:prowler_studio ./core /home/prowler_studio/prowler_studio/core
-COPY --chown=prowler_studio:prowler_studio ./mcp_server /home/prowler_studio/prowler_studio/mcp_server
-COPY --chown=prowler_studio:prowler_studio ./pyproject.toml /home/prowler_studio/prowler_studio/pyproject.toml
-COPY --chown=prowler_studio:prowler_studio ./uv.lock /home/prowler_studio/prowler_studio/uv.lock
+COPY --chown=prowler_studio:prowler_studio ./ /home/prowler_studio/prowler_studio
 
 WORKDIR /home/prowler_studio/prowler_studio/mcp_server
 
-RUN uv sync --frozen --no-dev --no-editable --no-cache && rm -rf /home/prowler_studio/prowler_studio/core/
+RUN uv sync --frozen --no-dev --no-editable --no-cache
 
 ENTRYPOINT ["uvx", "/home/prowler_studio/prowler_studio/mcp_server/"]
