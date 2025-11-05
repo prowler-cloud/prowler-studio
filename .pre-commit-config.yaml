@@ -1,0 +1,72 @@
+# Modern pre-commit configuration for Python 3.12+
+# Install: pre-commit install
+# Update hooks: pre-commit autoupdate
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Ruff - Fast Python linter and formatter (replaces Black, isort, flake8, pylint)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.3
+    hooks:
+      # Run the linter
+      - id: ruff-check
+        args: [--fix]
+      # Run the formatter
+      - id: ruff-format
+
+  # mypy - Static type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.18.2
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - typer
+          - gitpython
+          - jinja2
+          - pydantic
+          - claude-agent-sdk
+        args: [--ignore-missing-imports, --strict]
+
+  # pyupgrade - Automatically upgrade syntax for newer Python
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v3.21.0
+    hooks:
+      - id: pyupgrade
+        args: [--py312-plus]
+
+  # pre-commit-hooks - Collection of useful hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: detect-private-key
+
+  # Bandit - Security linting for Python
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.6
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml]
+        additional_dependencies: ["bandit[toml]"]
+
+  # interrogate - Docstring coverage checker
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0
+    hooks:
+      - id: interrogate
+        args: [--config=pyproject.toml]
+        pass_filenames: false
+
+  # Commitizen - Conventional commits
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.9.1
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
