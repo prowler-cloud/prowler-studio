@@ -1,5 +1,0 @@
-models:
-  llm_provider: ""
-  llm_reference: ""
-  embedding_model_provider: ""
-  embedding_model_reference: ""
