@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+wheels/
+pip-wheel-metadata/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# pytype static type analyzer
+.pytype/
+
+# Ruff
+.ruff_cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Working directories and temporary files
+working/
+benchmark/
+*.log
+*.tmp
+
+# Prowler-specific
+prowler_iam_findings.json
+*.json.gz
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+working/
