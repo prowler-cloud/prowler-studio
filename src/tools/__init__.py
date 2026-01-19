@@ -7,11 +7,14 @@ from tools.prowler import (
     mkcheck,
     verify_check_loaded,
 )
+from tools.skills import SkillsSetupError, setup_prowler_skills
 
 __all__ = [
     "ProwlerToolError",
+    "SkillsSetupError",
     "install_prowler_dependencies",
     "mkcheck",
     "prepare_repo_for_work",
+    "setup_prowler_skills",
     "verify_check_loaded",
 ]

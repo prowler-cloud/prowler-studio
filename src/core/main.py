@@ -11,6 +11,7 @@ from rich import print
 from agents.implementation.agent import ChecKreatorAgent
 from tools.git import prepare_repo_for_work
 from tools.prowler import ProwlerToolError, install_prowler_dependencies
+from tools.skills import setup_prowler_skills
 
 if TYPE_CHECKING:
     from agents.implementation.models import CheckImplementationResult
@@ -85,6 +86,12 @@ def create_check(
     # Prepare branch
     print("[bold]Preparing repository...[/bold]")
     prepare_repo_for_work(repo, branch_name)
+
+    # Setup AI skills for Claude (non-blocking on failure)
+    skills_result = setup_prowler_skills(prowler_directory=prowler_repo_path)
+    if not skills_result.success:
+        print(f"[yellow]⚠ Skills setup incomplete: {skills_result.message}[/yellow]")
+        print("[yellow]  Continuing without full skills integration...[/yellow]")
 
     # Install Prowler dependencies
     try:
