@@ -65,10 +65,12 @@ def setup_prowler_skills(prowler_directory: Path) -> SkillsSetupResult:
             )
 
         # Parse output for skills count
-        # Expected format: "✅ Linked X skills"
+        # Expected format: "✅ Successfully configured X AI skills!"
         skills_count: int = 0
         output: str = result.stdout + result.stderr
-        match = re.search(r"Linked\s+(\d+)\s+skills?", output, re.IGNORECASE)
+        match = re.search(
+            r"configured\s+(\d+)\s+(?:AI\s+)?skills?", output, re.IGNORECASE
+        )
         if match:
             skills_count = int(match.group(1))
 
