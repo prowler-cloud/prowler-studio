@@ -1,9 +1,14 @@
 """Implementation agent for creating Prowler checks."""
 
+from __future__ import annotations
+
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from claude_agent_sdk.types import McpSSEServerConfig
+    from git import Repo
+
     from tools.models import CheckVerificationStatus
 
 from claude_agent_sdk import (
@@ -14,7 +19,6 @@ from claude_agent_sdk import (
     TextBlock,
     create_sdk_mcp_server,
 )
-from git import Repo
 from rich import print
 
 from agents.base import Agent
@@ -38,10 +42,16 @@ class ChecKreatorAgent(Agent):
     MAX_CHECK_VERIFICATION_ATTEMPTS: int = 5
 
     def __init__(
-        self, working_dir: Path, check_ticket: str, prowler_repo: Repo, **kwargs: Any
+        self,
+        working_dir: Path,
+        check_ticket: str | None,
+        prowler_repo: Repo,
+        jira_url: str | None = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(working_dir, **kwargs)
-        self.check_ticket: str = check_ticket
+        self.check_ticket: str | None = check_ticket
+        self.jira_url: str | None = jira_url
         self.prowler_repo: Repo = prowler_repo
 
     async def run(self) -> CheckImplementationResult:  # type: ignore[override]
@@ -96,7 +106,11 @@ class ChecKreatorAgent(Agent):
         """
         prompt_path: Path = Path(__file__).parent / "prompts" / "implement_check.jinja"
         return load_prompt(
-            path=prompt_path, context={"check_ticket": self.check_ticket}
+            path=prompt_path,
+            context={
+                "check_ticket": self.check_ticket,
+                "jira_url": self.jira_url,
+            },
         )
 
     def _load_fix_prompt(self, check_name: str, verification_message: str) -> str:
@@ -132,17 +146,29 @@ class ChecKreatorAgent(Agent):
             tools=[mkcheck],
         )
 
+        mcp_servers: dict[str, Any] = {"utils": tools_server}
+        allowed_tools: list[str] = [
+            "Read",
+            "Write",
+            "Edit",
+            "Bash",
+            "Glob",
+            "Grep",
+            "mcp__utils__mkcheck",
+        ]
+
+        # Add Atlassian MCP if Jira URL is provided
+        if self.jira_url:
+            atlassian_server: McpSSEServerConfig = {
+                "type": "sse",
+                "url": "https://mcp.atlassian.com/v1/sse",
+            }
+            mcp_servers["jira"] = atlassian_server
+            allowed_tools.append("mcp__jira__*")
+
         return ClaudeAgentOptions(
-            allowed_tools=[
-                "Read",
-                "Write",
-                "Edit",
-                "Bash",
-                "Glob",
-                "Grep",
-                "mcp__utils__mkcheck",
-            ],
-            mcp_servers={"utils": tools_server},
+            allowed_tools=allowed_tools,
+            mcp_servers=mcp_servers,
             permission_mode="bypassPermissions",
             cwd=str(self.working_dir),
         )

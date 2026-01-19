@@ -69,6 +69,15 @@ For any doubts, you can refer to following files in Prowler repository:
 
 ## Check Ticket
 
+{% if check_ticket %}
 This is the new check ticket that you need to implement:
 
 {{ check_ticket }}
+{% elif jira_url %}
+**IMPORTANT**: Before starting implementation, you must first fetch the check ticket from Jira.
+
+Use the Jira MCP tools (mcp__jira__*) to fetch the ticket details from:
+**{{ jira_url }}**
+
+The Jira ticket contains the requirements for the check you need to implement. After fetching, analyze the ticket description and any acceptance criteria to understand what security check needs to be created.
+{% endif %}
