@@ -6,7 +6,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from claude_agent_sdk.types import McpSSEServerConfig
     from git import Repo
 
     from tools.models import CheckVerificationStatus
@@ -158,13 +157,15 @@ class ChecKreatorAgent(Agent):
         ]
 
         # Add Atlassian MCP if Jira URL is provided
+        # Uses mcp-remote to connect to official Atlassian Remote MCP Server
+        # OAuth 2.1 authentication is handled by mcp-remote (browser popup on first use)
         if self.jira_url:
-            atlassian_server: McpSSEServerConfig = {
-                "type": "sse",
-                "url": "https://mcp.atlassian.com/v1/sse",
+            atlassian_server: dict[str, Any] = {
+                "command": "npx",
+                "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/mcp"],
             }
-            mcp_servers["jira"] = atlassian_server
-            allowed_tools.append("mcp__jira__*")
+            mcp_servers["atlassian"] = atlassian_server
+            allowed_tools.append("mcp__atlassian__*")
 
         return ClaudeAgentOptions(
             allowed_tools=allowed_tools,
