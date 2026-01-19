@@ -29,17 +29,25 @@ source .venv/bin/activate
 
 ### Usage
 
-Create a Prowler check from a ticket:
+Create a Prowler check from a local ticket file:
 
 ```bash
-prowler-studio create-check check_ticket.md feat/my_new_check
+prowler-studio feat/my_new_check --ticket check_ticket.md
+```
+
+Create a Prowler check from a Jira ticket:
+
+```bash
+prowler-studio feat/my_new_check --jira-url https://mycompany.atlassian.net/browse/PROJ-123
 ```
 
 With custom working directory:
 
 ```bash
-prowler-studio create-check check_ticket.md feat/my_new_check --working-dir ./custom_work
+prowler-studio feat/my_new_check -t check_ticket.md -w ./custom_work
 ```
+
+> **Note**: You must provide either `--ticket` or `--jira-url`, not both.
 
 ## Project Structure
 
@@ -58,6 +66,8 @@ prowler_studio/
 │   ├── tools/                   # Shared tools
 │   │   ├── git.py               # Git operations
 │   │   ├── prowler.py           # Prowler-specific tools
+│   │   ├── skills.py            # AI skills setup
+│   │   ├── jira.py              # Jira URL parsing
 │   │   └── models.py            # Tool data models
 │   └── utils/                   # Utilities
 │       └── prompts.py           # Prompt loading utilities
@@ -109,6 +119,12 @@ Key features:
 - `install_prowler_dependencies()`: Install Prowler with poetry
 - `verify_check_loaded()`: Verify check appears in `prowler --list-checks`
 
+#### Skills Tools ([src/tools/skills.py](src/tools/skills.py))
+- `setup_prowler_skills()`: Configure AI skills by running `skills/setup.sh --claude`
+
+#### Jira Tools ([src/tools/jira.py](src/tools/jira.py))
+- `parse_jira_url()`: Parse Jira ticket URL into components (site_url, project_key, issue_key)
+
 ### Main CLI Orchestration
 
 The CLI in [src/core/main.py](src/core/main.py) orchestrates agent execution:
@@ -117,12 +133,14 @@ The CLI in [src/core/main.py](src/core/main.py) orchestrates agent execution:
 # 1. Prepare Prowler repository
 repo = Repo.clone_from(PROWLER_REPO_URL, prowler_path)
 prepare_repo_for_work(repo, branch_name)
+setup_prowler_skills(prowler_path)  # Configure AI skills
 install_prowler_dependencies(prowler_path)
 
-# 2. Run implementation agent
+# 2. Run implementation agent (with ticket file or Jira URL)
 agent = ChecKreatorAgent(
     working_dir=prowler_path,
-    check_ticket=check_ticket_path.read_text(),
+    check_ticket=ticket_content,  # From --ticket file
+    jira_url=jira_url,            # Or from --jira-url
     prowler_repo=repo,
 )
 result = asyncio.run(agent.run())
