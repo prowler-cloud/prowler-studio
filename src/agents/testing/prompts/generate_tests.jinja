@@ -1,0 +1,85 @@
+# Generate Unit Tests for Prowler Check
+
+You are tasked with generating unit tests for a newly implemented Prowler security check.
+
+## Check Information
+
+- **Check Name**: `{{ check_name }}`
+- **Provider**: `{{ check_provider }}`
+- **Prowler Repository**: `{{ prowler_repo }}`
+{% if check_ticket %}
+- **Check Ticket**: {{ check_ticket }}
+{% endif %}
+
+## Testing Guidelines
+
+### Provider-Specific Mocking Rules
+
+| Provider | Mocking Approach | Decorator |
+|----------|------------------|-----------|
+| **AWS** | `moto` library | `@mock_aws` |
+| **Azure, GCP, K8s, others** | `MagicMock` | None |
+
+**CRITICAL**: NEVER use moto for non-AWS providers. NEVER use MagicMock for AWS.
+
+### Required Test Scenarios
+
+Every check MUST have tests for:
+
+1. **`test_no_resources`**: When no resources exist, verify `len(results) == 0`
+2. **`test_{check_name}_pass`**: When resource is compliant, verify `status == "PASS"`
+3. **`test_{check_name}_fail`**: When resource is non-compliant, verify `status == "FAIL"`
+
+### Test File Structure
+
+Tests should be placed at:
+```
+tests/providers/{{ check_provider }}/services/{service}/{{ check_name }}/{{ check_name }}_test.py
+```
+
+## Implementation Steps
+
+1. **Read the check implementation** at `prowler/providers/{{ check_provider }}/services/{service}/{{ check_name }}/{{ check_name }}.py`
+2. **Identify the service** from the check name (first part before underscore)
+3. **Find existing tests** for the same service to understand patterns
+4. **Read the testing skill** at `skills/prowler-test-sdk/SKILL.md` for complete patterns
+{% if check_provider == "aws" %}
+5. **Use the AWS test template** at `skills/prowler-test-sdk/assets/aws_test.py`
+{% else %}
+5. **Use the {{ check_provider | upper }} test template** at `skills/prowler-test-sdk/assets/{{ check_provider }}_test.py` (or Azure pattern for {{ check_provider }})
+{% endif %}
+6. **Create the test file** with all required scenarios
+7. **Ensure imports are inside mock.patch context** (critical for proper mocking)
+
+## Assertions to Include
+
+```python
+# Always verify these
+assert result[0].status == "PASS"  # or "FAIL"
+assert result[0].status_extended == "Expected message..."
+assert result[0].resource_id == expected_id
+{% if check_provider == "aws" %}
+assert result[0].region == "us-east-1"
+{% elif check_provider == "azure" %}
+assert result[0].subscription == AZURE_SUBSCRIPTION_ID
+{% elif check_provider == "gcp" %}
+assert result[0].project_id == GCP_PROJECT_ID
+{% endif %}
+```
+
+## References
+
+- **Testing Documentation**: `docs/developer-guide/unit-testing.mdx`
+- **Testing Skill**: `skills/prowler-test-sdk/SKILL.md`
+- **Provider Fixtures**:
+{% if check_provider == "aws" %}
+  - `tests/providers/aws/utils.py` - `AWS_REGION_US_EAST_1`, `set_mocked_aws_provider`
+{% elif check_provider == "azure" %}
+  - `tests/providers/azure/azure_fixtures.py` - `AZURE_SUBSCRIPTION_ID`, `set_mocked_azure_provider`
+{% elif check_provider == "gcp" %}
+  - `tests/providers/gcp/gcp_fixtures.py` - `GCP_PROJECT_ID`, `set_mocked_gcp_provider`
+{% elif check_provider == "kubernetes" %}
+  - `tests/providers/kubernetes/kubernetes_fixtures.py` - `set_mocked_kubernetes_provider`
+{% endif %}
+
+Now generate comprehensive unit tests for the `{{ check_name }}` check following these guidelines.

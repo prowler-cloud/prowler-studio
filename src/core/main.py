@@ -9,6 +9,9 @@ from git import GitError, InvalidGitRepositoryError, Repo
 from rich import print
 
 from agents.implementation.agent import ChecKreatorAgent
+from agents.pr_creation.agent import PRCreationAgent
+from agents.review.agent import ReviewAgent
+from agents.testing.agent import TestingAgent
 from tools.git import prepare_repo_for_work
 from tools.jira import parse_jira_url
 from tools.prowler import ProwlerToolError, install_prowler_dependencies
@@ -16,6 +19,9 @@ from tools.skills import setup_prowler_skills
 
 if TYPE_CHECKING:
     from agents.implementation.models import CheckImplementationResult
+    from agents.pr_creation.models import PRCreationResult
+    from agents.review.models import ReviewResult
+    from agents.testing.models import TestingResult
 
 app = typer.Typer()
 
@@ -143,39 +149,116 @@ def create_check(
         if ticket_file:
             check_ticket_content = ticket_file.read_text()
 
-        agent: ChecKreatorAgent = ChecKreatorAgent(
+        # Stage 1: Check Implementation
+        print("\n[bold cyan]=== Stage 1: Check Implementation ===[/bold cyan]")
+        implementation_agent: ChecKreatorAgent = ChecKreatorAgent(
             working_dir=prowler_repo_path,
             check_ticket=check_ticket_content,
             jira_url=jira_url,
             prowler_repo=repo,
         )
 
-        result: CheckImplementationResult = asyncio.run(agent.run())
+        impl_result: CheckImplementationResult = asyncio.run(implementation_agent.run())
 
-        # Display results
-        print("\n[bold cyan]=== Results ===[/bold cyan]")
-
-        if result.success:
-            print("[green]✓ Check implementation completed successfully![/green]")
-            print(f"Check name: {result.check_name}")
-            print(f"Verification attempts: {result.attempts}")
-            print(f"Working directory: {working_dir}")
-            print(f"Prowler repository: {prowler_repo_path}")
-            print(f"Branch: {branch_name}")
-
-            # Future agents would be called here in sequence:
-            # agent2 = TestingAgent(working_dir=working_dir)
-            # result2 = asyncio.run(agent2.run(check_name=check_name, ...))
-            #
-            # agent3 = PRCreationAgent(working_dir=working_dir)
-            # result3 = asyncio.run(agent3.run(branch=branch_name, ...))
-
-        else:
+        if not impl_result.success:
             print("[red]✗ Check implementation failed verification[/red]")
-            if result.error:
-                print(f"[red]Error: {result.error}[/red]")
+            if impl_result.error:
+                print(f"[red]Error: {impl_result.error}[/red]")
             raise typer.Exit(code=1)
 
+        print("[green]✓ Check implementation completed[/green]")
+        print(f"  Check name: {impl_result.check_name}")
+        print(f"  Provider: {impl_result.check_provider}")
+
+        # Stage 2: Testing
+        print("\n[bold cyan]=== Stage 2: Testing ===[/bold cyan]")
+        testing_agent: TestingAgent = TestingAgent(
+            working_dir=prowler_repo_path,
+            check_name=impl_result.check_name,
+            check_provider=impl_result.check_provider,
+            prowler_repo=repo,
+            check_ticket=check_ticket_content,
+        )
+
+        test_result: TestingResult = asyncio.run(testing_agent.run())
+
+        if not test_result.success:
+            print("[red]✗ Testing failed[/red]")
+            print(f"[red]Error: {test_result.message}[/red]")
+            raise typer.Exit(code=1)
+
+        print("[green]✓ Testing completed[/green]")
+        print(f"  Test file: {test_result.test_file_path}")
+        print(f"  Attempts: {test_result.attempts}")
+
+        # Stage 3: Review
+        print("\n[bold cyan]=== Stage 3: Code Review ===[/bold cyan]")
+        review_agent: ReviewAgent = ReviewAgent(
+            working_dir=prowler_repo_path,
+            check_name=impl_result.check_name,
+            check_provider=impl_result.check_provider,
+            prowler_repo=repo,
+        )
+
+        review_result: ReviewResult = asyncio.run(review_agent.run())
+
+        if not review_result.success:
+            print("[red]✗ Review failed[/red]")
+            raise typer.Exit(code=1)
+
+        print("[green]✓ Review completed[/green]")
+
+        # Stage 4: Re-test if review made changes
+        if review_result.changes_made:
+            print(
+                "\n[bold cyan]=== Stage 4: Re-testing (review made changes) ===[/bold cyan]"
+            )
+            retest_result: TestingResult = asyncio.run(testing_agent.run())
+
+            if not retest_result.success:
+                print("[red]✗ Re-testing failed after review changes[/red]")
+                print(f"[red]Error: {retest_result.message}[/red]")
+                raise typer.Exit(code=1)
+
+            print("[green]✓ Re-testing completed[/green]")
+
+        # Stage 5: PR Creation
+        print("\n[bold cyan]=== Stage 5: PR Creation ===[/bold cyan]")
+        pr_agent: PRCreationAgent = PRCreationAgent(
+            working_dir=prowler_repo_path,
+            check_name=impl_result.check_name,
+            check_provider=impl_result.check_provider,
+            branch_name=branch_name,
+            prowler_repo=repo,
+            jira_url=jira_url,
+        )
+
+        pr_result: PRCreationResult = asyncio.run(pr_agent.run())
+
+        # Display final results
+        print("\n[bold cyan]=== Final Results ===[/bold cyan]")
+
+        if pr_result.success:
+            print("[green]✓ Workflow completed successfully![/green]")
+            print(f"  Check name: {impl_result.check_name}")
+            print(f"  Provider: {impl_result.check_provider}")
+            print(f"  Branch: {branch_name}")
+            print(f"  PR: {pr_result.pr_url}")
+            print(f"  Commit: {pr_result.commit_sha[:8]}")
+        else:
+            print("[yellow]⚠ Workflow completed but PR creation failed[/yellow]")
+            print(f"  Check name: {impl_result.check_name}")
+            print(f"  Provider: {impl_result.check_provider}")
+            print(f"  Branch: {branch_name}")
+            if pr_result.error:
+                print(f"  PR Error: {pr_result.error}")
+            print("\n[yellow]You can create the PR manually with:[/yellow]")
+            print(f"  cd {prowler_repo_path}")
+            print(f"  git push -u origin {branch_name}")
+            print("  gh pr create")
+
+    except typer.Exit:
+        raise
     except Exception as e:
         print(f"\n[red]✗ Error: {e}[/red]")
         raise typer.Exit(code=1) from e

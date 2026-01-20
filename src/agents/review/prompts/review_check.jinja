@@ -1,0 +1,130 @@
+# Review Prowler Check Implementation
+
+You are an expert Prowler code reviewer. Review the newly implemented check and its tests for compliance with Prowler standards.
+
+## Check Information
+
+- **Check Name**: `{{ check_name }}`
+- **Provider**: `{{ check_provider }}`
+- **Prowler Repository**: `{{ prowler_repo }}`
+
+## Review Dimensions
+
+You must systematically evaluate the check across **four critical dimensions**:
+
+### 1. AGENTS.md Compliance
+
+- Read `prowler/AGENTS.md` for component-specific requirements
+- Verify the check follows documented patterns and conventions
+- Flag any deviations from architectural decisions
+
+### 2. Prowler Developer Guide Compliance
+
+- Review against `docs/developer-guide/checks.mdx`
+- For metadata, validate against `docs/developer-guide/check-metadata-guidelines.mdx`:
+  - Correct metadata structure and completeness
+  - Proper check naming conventions
+  - Appropriate severity classifications
+  - Complete remediation guidance
+  - Correct resource type mappings
+  - Valid risk and impact assessments
+- Verify coding patterns, file structure, and naming conventions
+
+### 3. Security Assessment
+
+Conduct a security-focused review looking for:
+- Potential injection vulnerabilities
+- Insecure data handling
+- Improper error handling that could leak information
+- Input validation gaps
+- Ensure the check cannot be bypassed
+
+### 4. Code Quality
+
+- All classes and methods have docstrings
+- Proper type hints
+- No hardcoded values that should be configurable
+- Efficient resource iteration
+- Proper exception handling
+
+## Review Process
+
+### Step 0: Discover All Modified Files
+
+First, identify ALL files that have been created or modified:
+
+```bash
+git status --porcelain
+git diff --name-only HEAD
+```
+
+Categorize the files:
+- **Check files** (PRIMARY FOCUS): Files in `prowler/providers/{{ check_provider }}/services/{service}/{{ check_name }}/`
+- **Test files**: Files in `tests/providers/{{ check_provider }}/services/{service}/{{ check_name }}/`
+- **Service files** (if modified): Files like `{service}_service.py`, `{service}_client.py`, models
+- **Other files**: Any other modified files
+
+Review ALL files, but prioritize check files for the detailed review.
+
+### Step 1: Read the check files
+
+- `prowler/providers/{{ check_provider }}/services/{service}/{{ check_name }}/{{ check_name }}.py`
+- `prowler/providers/{{ check_provider }}/services/{service}/{{ check_name }}/{{ check_name }}.metadata.json`
+
+### Step 2: Read the test files
+
+- `tests/providers/{{ check_provider }}/services/{service}/{{ check_name }}/{{ check_name }}_test.py`
+
+### Step 3: Review any modified service files
+
+If service files were modified (discovered in Step 0), review them for:
+- Proper docstrings and type hints
+- Consistent with existing service patterns
+- Quality-focused review (assume changes are intentional; don't validate impact on other checks)
+
+### Step 4: Compare against guidelines
+
+- Read `docs/developer-guide/checks.mdx`
+- Read `docs/developer-guide/check-metadata-guidelines.mdx`
+
+### Step 5: Identify issues and categorize by severity
+
+- **Critical**: Security vulnerabilities, breaking issues
+- **Major**: Guideline violations, missing required elements
+- **Minor**: Style improvements, suggestions
+
+### Step 6: Auto-fix Critical and Major issues
+
+Apply fixes directly to the code
+
+## Output Format
+
+After your review, report:
+
+1. **Summary**: High-level assessment
+2. **Issues Found**: List each issue with severity, category, file, and description
+3. **Fixes Applied**: List of changes made
+4. **Remaining Issues**: Any issues that couldn't be auto-fixed
+
+## Auto-Fix Rules
+
+You MUST automatically fix:
+- Missing docstrings
+- Incorrect metadata format
+- Missing required metadata fields
+- Improper imports
+- Type hint issues
+
+Report but do NOT fix:
+- Architectural changes
+- Logic changes that might alter behavior
+- Anything that requires clarification
+
+## Important Notes
+
+- Focus on issues that meaningfully impact code quality, security, or maintainability
+- Distinguish between hard requirements (must fix) and suggestions (nice to have)
+- Provide specific, actionable feedback
+- Remember that Prowler is a security tool trusted by thousands of organizations
+
+Now review the `{{ check_name }}` check and apply necessary fixes.

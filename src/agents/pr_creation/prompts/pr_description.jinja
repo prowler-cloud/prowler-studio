@@ -1,0 +1,135 @@
+# Create Pull Request for Prowler Check
+
+You are creating a pull request for a newly implemented Prowler security check following the project's PR conventions.
+
+## Check Information
+
+- **Check Name**: `{{ check_name }}`
+- **Provider**: `{{ check_provider }}`
+- **Branch Name**: `{{ branch_name }}`
+{% if jira_url %}
+- **Related Ticket**: {{ jira_url }}
+{% endif %}
+
+## PR Creation Steps
+
+### 1. Analyze Changes
+
+First, understand all changes that will be included:
+```bash
+git status
+git diff --name-only
+```
+
+### 2. Stage All Changes
+
+Stage all files related to the check:
+```bash
+git add .
+```
+
+### 3. Create Commit
+
+Create a commit following conventional commit format:
+
+```bash
+git commit -m "$(cat <<'EOF'
+feat({{ check_provider }}): add {{ check_name }} security check
+
+Add new security check {{ check_name }} for {{ check_provider }} provider.
+Includes check implementation, metadata, and unit tests.
+{% if jira_url %}
+
+Related: {{ jira_url }}
+{% endif %}
+EOF
+)"
+```
+
+### 4. Push to Remote
+
+Push the branch with upstream tracking:
+```bash
+git push -u origin {{ branch_name }}
+```
+
+### 5. Create Pull Request
+
+Create the PR using `gh pr create` with the Prowler PR template format:
+
+```bash
+gh pr create --title "feat({{ check_provider }}): add {{ check_name }} security check" --body "$(cat <<'EOF'
+### Context
+
+Adds a new security check `{{ check_name }}` for the {{ check_provider }} provider.
+{% if jira_url %}
+
+Related ticket: {{ jira_url }}
+{% endif %}
+
+### Description
+
+This PR adds a new security check for {{ check_provider }}:
+
+- **Check**: `{{ check_name }}`
+- **Implementation**: New check that detects security misconfigurations
+- **Tests**: Unit tests covering pass, fail, and no-resources scenarios
+
+### Steps to review
+
+1. Review the check implementation at `prowler/providers/{{ check_provider }}/services/{{ service }}/{{ check_name }}/`
+2. Review the metadata file for correct severity, remediation, and compliance mappings
+3. Run the check tests: `poetry run pytest tests/providers/{{ check_provider }}/services/{{ service }}/{{ check_name }}/ -v`
+4. Optionally run the check against a test environment
+
+### Checklist
+
+<details>
+
+<summary><b>Community Checklist</b></summary>
+
+- [x] This feature/issue is listed in [here](https://github.com/prowler-cloud/prowler/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen) or roadmap.prowler.com
+- [x] Is it assigned to me, if not, request it via the issue/feature in [here](https://github.com/prowler-cloud/prowler/issues?q=sort%3Aupdated-desc+is%3Aissue+is%3Aopen) or [Prowler Community Slack](goto.prowler.com/slack)
+
+</details>
+
+- [x] Review if the code is being covered by tests.
+- [x] Review if code is being documented following this specification https://github.com/google/styleguide/blob/gh-pages/pyguide.md#38-comments-and-docstrings
+- [ ] Review if backport is needed.
+- [ ] Review if is needed to change the [Readme.md](https://github.com/prowler-cloud/prowler/blob/master/README.md)
+- [ ] Ensure new entries are added to [CHANGELOG.md](https://github.com/prowler-cloud/prowler/blob/master/prowler/CHANGELOG.md), if applicable.
+
+#### SDK/CLI
+- Are there new checks included in this PR? **Yes**
+    - If so, do we need to update permissions for the provider? Please review this carefully.
+
+### License
+
+By submitting this pull request, I confirm that my contribution is made under the terms of the Apache 2.0 license.
+EOF
+)"
+```
+
+### 6. Report Results
+
+After creating the PR, report:
+- The PR URL (e.g., https://github.com/prowler-cloud/prowler/pull/123)
+- The PR number
+- The commit SHA
+
+## Important Notes
+
+- **Title format**: Must follow conventional commits: `feat(<provider>): add <check_name> security check`
+- **Never skip pre-commit hooks** unless explicitly told to
+- **SDK/CLI section**: Since this is a new check, mark "Yes" for new checks question
+- **Permissions review**: The reviewer should check if provider permissions need updating
+
+## Before Creating PR Checklist
+
+Verify these before running `gh pr create`:
+1. ✅ All changes are staged
+2. ✅ Commit message follows conventional format
+3. ✅ Branch is pushed to origin
+4. ✅ Tests pass locally (already verified in previous steps)
+
+Now execute the PR creation steps in order.

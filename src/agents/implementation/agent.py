@@ -92,6 +92,7 @@ class ChecKreatorAgent(Agent):
         return CheckImplementationResult(
             success=verification_result.success,
             check_name=discovery_result.check_name,
+            check_provider=discovery_result.check_provider,
             message=verification_result.message,
             attempts=verification_result.attempts,
         )
