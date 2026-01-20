@@ -69,7 +69,10 @@ This PR adds a new security check for {{ check_provider }}:
 1. Review the check implementation at `prowler/providers/{{ check_provider }}/services/{{ service }}/{{ check_name }}/`
 2. Review the metadata file for correct severity, remediation, and compliance mappings
 3. Run the check tests: `poetry run pytest tests/providers/{{ check_provider }}/services/{{ service }}/{{ check_name }}/ -v`
-4. Optionally run the check against a test environment
+4. **Run the check against a real environment** (if possible):
+   ```bash
+   prowler {{ check_provider }} --check {{ check_name }}
+   ```
 
 ### Checklist
 
