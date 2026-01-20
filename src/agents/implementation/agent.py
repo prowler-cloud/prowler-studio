@@ -27,6 +27,7 @@ from agents.implementation.models import (
     CheckVerificationResult,
 )
 from tools.prowler import mkcheck, verify_check_loaded
+from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -45,12 +46,10 @@ class ChecKreatorAgent(Agent):
         working_dir: Path,
         check_ticket: str | None,
         prowler_repo: Repo,
-        jira_url: str | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(working_dir, **kwargs)
         self.check_ticket: str | None = check_ticket
-        self.jira_url: str | None = jira_url
         self.prowler_repo: Repo = prowler_repo
 
     async def run(self) -> CheckImplementationResult:  # type: ignore[override]
@@ -109,7 +108,6 @@ class ChecKreatorAgent(Agent):
             path=prompt_path,
             context={
                 "check_ticket": self.check_ticket,
-                "jira_url": self.jira_url,
             },
         )
 
@@ -157,17 +155,6 @@ class ChecKreatorAgent(Agent):
             "mcp__utils__mkcheck",
         ]
 
-        # Add Atlassian MCP if Jira URL is provided
-        # Uses mcp-remote to connect to official Atlassian Remote MCP Server
-        # OAuth 2.1 authentication is handled by mcp-remote (browser popup on first use)
-        if self.jira_url:
-            atlassian_server: dict[str, Any] = {
-                "command": "npx",
-                "args": ["-y", "mcp-remote", "https://mcp.atlassian.com/v1/mcp"],
-            }
-            mcp_servers["atlassian"] = atlassian_server
-            allowed_tools.append("mcp__atlassian__*")
-
         return ClaudeAgentOptions(
             allowed_tools=allowed_tools,
             mcp_servers=mcp_servers,
@@ -187,6 +174,7 @@ class ChecKreatorAgent(Agent):
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         print(block.text, end="")
+                        log_agent_output(block.text)
             elif isinstance(message, ResultMessage):
                 print()
                 break

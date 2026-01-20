@@ -15,8 +15,10 @@ from agents.review.agent import ReviewAgent
 from agents.testing.agent import TestingAgent
 from tools.git import generate_branch_name, prepare_repo_for_work, rename_branch
 from tools.jira import parse_jira_url
+from tools.jira_client import JiraClient, JiraClientError, JiraTicketContent
 from tools.prowler import ProwlerToolError, install_prowler_dependencies
 from tools.skills import setup_prowler_skills
+from utils.logging import WorkflowLogger, log_stage, set_workflow_logger
 
 if TYPE_CHECKING:
     from agents.implementation.models import CheckImplementationResult
@@ -92,15 +94,25 @@ def create_check(
             print(f"[red]✗ Path is not a file: {ticket_file}[/red]")
             raise typer.Exit(code=1)
 
-    # Validate Jira URL if provided
+    # Validate and fetch Jira ticket if URL provided
     jira_issue_key: str | None = None
+    jira_ticket_content: JiraTicketContent | None = None
     if jira_url:
         try:
             jira_info = parse_jira_url(jira_url)
             jira_issue_key = jira_info.issue_key
             print(f"[cyan]Jira ticket: {jira_issue_key}[/cyan]")
+
+            # Fetch ticket content via REST API
+            print("[bold]Fetching Jira ticket content...[/bold]")
+            jira_client = JiraClient(site_url=jira_info.site_url)
+            jira_ticket_content = jira_client.fetch_ticket(jira_issue_key)
+            print(f"[green]✓ Fetched: {jira_ticket_content.summary}[/green]")
         except ValueError as e:
             print(f"[red]✗ {e}[/red]")
+            raise typer.Exit(code=1) from e
+        except JiraClientError as e:
+            print(f"[red]✗ Failed to fetch Jira ticket: {e}[/red]")
             raise typer.Exit(code=1) from e
 
     print("[bold cyan]=== Prowler Studio - Check Creation ===[/bold cyan]")
@@ -108,6 +120,14 @@ def create_check(
     # Setup working directory
     working_dir = working_dir.resolve()
     working_dir.mkdir(parents=True, exist_ok=True)
+
+    # Initialize workflow logger
+    workflow_logger = WorkflowLogger(
+        base_dir=working_dir,
+        jira_ticket=jira_issue_key,
+    )
+    set_workflow_logger(workflow_logger)
+    print(f"[cyan]Log file: {workflow_logger.log_file}[/cyan]")
 
     # Clone/prepare Prowler repository
     prowler_repo_path = working_dir / "prowler"
@@ -155,17 +175,19 @@ def create_check(
         raise typer.Exit(code=1) from e
 
     try:
-        # Get ticket content from file or None if using Jira
+        # Get ticket content from file or Jira
         check_ticket_content: str | None = None
         if ticket_file:
             check_ticket_content = ticket_file.read_text()
+        elif jira_ticket_content:
+            check_ticket_content = jira_ticket_content.to_markdown()
 
         # Stage 1: Check Implementation
+        log_stage("Check Implementation")
         print("\n[bold cyan]=== Stage 1: Check Implementation ===[/bold cyan]")
         implementation_agent: ChecKreatorAgent = ChecKreatorAgent(
             working_dir=prowler_repo_path,
             check_ticket=check_ticket_content,
-            jira_url=jira_url,
             prowler_repo=repo,
         )
 
@@ -194,6 +216,7 @@ def create_check(
             final_branch_name = branch_name
 
         # Stage 2: Testing
+        log_stage("Testing")
         print("\n[bold cyan]=== Stage 2: Testing ===[/bold cyan]")
         testing_agent: TestingAgent = TestingAgent(
             working_dir=prowler_repo_path,
@@ -215,6 +238,7 @@ def create_check(
         print(f"  Attempts: {test_result.attempts}")
 
         # Stage 3: Review
+        log_stage("Code Review")
         print("\n[bold cyan]=== Stage 3: Code Review ===[/bold cyan]")
         review_agent: ReviewAgent = ReviewAgent(
             working_dir=prowler_repo_path,
@@ -233,6 +257,7 @@ def create_check(
 
         # Stage 4: Re-test if review made changes
         if review_result.changes_made:
+            log_stage("Re-testing (review made changes)")
             print(
                 "\n[bold cyan]=== Stage 4: Re-testing (review made changes) ===[/bold cyan]"
             )
@@ -246,6 +271,7 @@ def create_check(
             print("[green]✓ Re-testing completed[/green]")
 
         # Stage 5: PR Creation
+        log_stage("PR Creation")
         print("\n[bold cyan]=== Stage 5: PR Creation ===[/bold cyan]")
         pr_agent: PRCreationAgent = PRCreationAgent(
             working_dir=prowler_repo_path,
@@ -259,6 +285,7 @@ def create_check(
         pr_result: PRCreationResult = asyncio.run(pr_agent.run())
 
         # Display final results
+        log_stage("Final Results")
         print("\n[bold cyan]=== Final Results ===[/bold cyan]")
 
         if pr_result.success:
@@ -268,6 +295,7 @@ def create_check(
             print(f"  Branch: {final_branch_name}")
             print(f"  PR: {pr_result.pr_url}")
             print(f"  Commit: {pr_result.commit_sha[:8]}")
+            workflow_logger.finalize(success=True)
         else:
             print("[yellow]⚠ Workflow completed but PR creation failed[/yellow]")
             print(f"  Check name: {impl_result.check_name}")
@@ -279,11 +307,14 @@ def create_check(
             print(f"  cd {prowler_repo_path}")
             print(f"  git push -u origin {final_branch_name}")
             print("  gh pr create")
+            workflow_logger.finalize(success=False)
 
     except typer.Exit:
+        workflow_logger.finalize(success=False)
         raise
     except Exception as e:
         print(f"\n[red]✗ Error: {e}[/red]")
+        workflow_logger.finalize(success=False)
         raise typer.Exit(code=1) from e
 
 

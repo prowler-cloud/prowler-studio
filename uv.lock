@@ -459,6 +459,7 @@ source = { editable = "." }
 dependencies = [
     { name = "claude-agent-sdk" },
     { name = "gitpython" },
+    { name = "httpx" },
     { name = "jinja2" },
     { name = "typer" },
 ]
@@ -477,6 +478,7 @@ requires-dist = [
     { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.8.0" },
     { name = "claude-agent-sdk", specifier = ">=0.1.4" },
     { name = "gitpython", specifier = ">=3.1.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "interrogate", marker = "extra == 'dev'", specifier = ">=1.7.0" },
     { name = "jinja2", specifier = ">=3.1.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13.0" },

@@ -20,6 +20,7 @@ from rich import print
 from agents.base import Agent
 from agents.testing.models import TestingResult
 from tools.prowler import run_pytest
+from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -197,6 +198,7 @@ class TestingAgent(Agent):
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         print(block.text, end="")
+                        log_agent_output(block.text)
             elif isinstance(message, ResultMessage):
                 print()
                 break

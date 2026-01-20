@@ -21,6 +21,7 @@ from rich import print
 
 from agents.base import Agent
 from agents.pr_creation.models import PRCreationResult
+from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -133,6 +134,7 @@ class PRCreationAgent(Agent):
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         print(block.text, end="")
+                        log_agent_output(block.text)
                         captured_text.append(block.text)
             elif isinstance(message, ResultMessage):
                 print()

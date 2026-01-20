@@ -19,6 +19,7 @@ from rich import print
 
 from agents.base import Agent
 from agents.review.models import ReviewResult
+from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -119,6 +120,7 @@ class ReviewAgent(Agent):
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         print(block.text, end="")
+                        log_agent_output(block.text)
             elif isinstance(message, ResultMessage):
                 print()
                 break
