@@ -7,9 +7,6 @@ You are creating a pull request for a newly implemented Prowler security check f
 - **Check Name**: `{{ check_name }}`
 - **Provider**: `{{ check_provider }}`
 - **Branch Name**: `{{ branch_name }}`
-{% if jira_url %}
-- **Related Ticket**: {{ jira_url }}
-{% endif %}
 
 ## PR Creation Steps
 
@@ -38,10 +35,6 @@ feat({{ check_provider }}): add {{ check_name }} security check
 
 Add new security check {{ check_name }} for {{ check_provider }} provider.
 Includes check implementation, metadata, and unit tests.
-{% if jira_url %}
-
-Related: {{ jira_url }}
-{% endif %}
 EOF
 )"
 ```
@@ -62,10 +55,6 @@ gh pr create --title "feat({{ check_provider }}): add {{ check_name }} security 
 ### Context
 
 Adds a new security check `{{ check_name }}` for the {{ check_provider }} provider.
-{% if jira_url %}
-
-Related ticket: {{ jira_url }}
-{% endif %}
 
 ### Description
 
@@ -97,7 +86,7 @@ This PR adds a new security check for {{ check_provider }}:
 - [x] Review if code is being documented following this specification https://github.com/google/styleguide/blob/gh-pages/pyguide.md#38-comments-and-docstrings
 - [ ] Review if backport is needed.
 - [ ] Review if is needed to change the [Readme.md](https://github.com/prowler-cloud/prowler/blob/master/README.md)
-- [ ] Ensure new entries are added to [CHANGELOG.md](https://github.com/prowler-cloud/prowler/blob/master/prowler/CHANGELOG.md), if applicable.
+- [x] Ensure new entries are added to [CHANGELOG.md](https://github.com/prowler-cloud/prowler/blob/master/prowler/CHANGELOG.md), if applicable.
 
 #### SDK/CLI
 - Are there new checks included in this PR? **Yes**
@@ -110,9 +99,30 @@ EOF
 )"
 ```
 
-### 6. Report Results
+### 6. Add Changelog Entry
 
-After creating the PR, report:
+After the PR is created, add a changelog entry to `prowler/CHANGELOG.md`.
+
+**Format** (keepachangelog.com style):
+- Entry goes under `### 🚀 Added` in the UNRELEASED section
+- Format: `- \`{check_name}\` check for {provider} provider [(#XXXX)](https://github.com/prowler-cloud/prowler/pull/XXXX)`
+- No period at the end
+- Do NOT start with redundant verbs (section header already says "Added")
+
+**Steps:**
+1. Read `prowler/CHANGELOG.md` to find the UNRELEASED section
+2. Add the entry under `### 🚀 Added` (create section if missing)
+3. Amend the commit to include the changelog: `git add prowler/CHANGELOG.md && git commit --amend --no-edit`
+4. Force push: `git push --force-with-lease`
+
+**Example entry:**
+```markdown
+- `{{ check_name }}` check for {{ check_provider }} provider [(#XXXX)](https://github.com/prowler-cloud/prowler/pull/XXXX)
+```
+
+### 7. Report Results
+
+After creating the PR and updating the changelog, report:
 - The PR URL (e.g., https://github.com/prowler-cloud/prowler/pull/123)
 - The PR number
 - The commit SHA
