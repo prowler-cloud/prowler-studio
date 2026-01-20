@@ -1,6 +1,7 @@
 """Main CLI for Prowler Studio."""
 
 import asyncio
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated
 
@@ -12,7 +13,7 @@ from agents.implementation.agent import ChecKreatorAgent
 from agents.pr_creation.agent import PRCreationAgent
 from agents.review.agent import ReviewAgent
 from agents.testing.agent import TestingAgent
-from tools.git import prepare_repo_for_work
+from tools.git import generate_branch_name, prepare_repo_for_work, rename_branch
 from tools.jira import parse_jira_url
 from tools.prowler import ProwlerToolError, install_prowler_dependencies
 from tools.skills import setup_prowler_skills
@@ -31,11 +32,13 @@ PROWLER_REPO_URL = "git@github.com:prowler-cloud/prowler.git"
 @app.command()
 def create_check(
     branch_name: Annotated[
-        str,
-        typer.Argument(
-            help="Name of the branch to create for the check",
+        str | None,
+        typer.Option(
+            "--branch",
+            "-b",
+            help="Branch name (default: feat/<ticket>-<check_name> or feat/<check_name>)",
         ),
-    ],
+    ] = None,
     ticket_file: Annotated[
         Path | None,
         typer.Option(
@@ -126,9 +129,17 @@ def create_check(
             print(f"[red]✗ Git error: {e}[/red]")
             raise typer.Exit(code=1) from e
 
+    # Determine branch name (use temp branch if not provided)
+    temp_branch_name: str | None = None
+    if branch_name is None:
+        temp_branch_name = f"feat/new-check-{int(time.time())}"
+        effective_branch = temp_branch_name
+    else:
+        effective_branch = branch_name
+
     # Prepare branch
     print("[bold]Preparing repository...[/bold]")
-    prepare_repo_for_work(repo, branch_name)
+    prepare_repo_for_work(repo, effective_branch)
 
     # Setup AI skills for Claude (non-blocking on failure)
     skills_result = setup_prowler_skills(prowler_directory=prowler_repo_path)
@@ -169,6 +180,18 @@ def create_check(
         print("[green]✓ Check implementation completed[/green]")
         print(f"  Check name: {impl_result.check_name}")
         print(f"  Provider: {impl_result.check_provider}")
+
+        # Rename branch if we used a temporary name
+        final_branch_name: str
+        if temp_branch_name is not None:
+            ticket_key = jira_issue_key if jira_issue_key else None
+            final_branch_name = generate_branch_name(impl_result.check_name, ticket_key)
+            rename_branch(repo, temp_branch_name, final_branch_name)
+            print(f"[green]✓ Branch renamed to: {final_branch_name}[/green]")
+        else:
+            # branch_name is guaranteed to be str when temp_branch_name is None
+            assert branch_name is not None
+            final_branch_name = branch_name
 
         # Stage 2: Testing
         print("\n[bold cyan]=== Stage 2: Testing ===[/bold cyan]")
@@ -228,7 +251,7 @@ def create_check(
             working_dir=prowler_repo_path,
             check_name=impl_result.check_name,
             check_provider=impl_result.check_provider,
-            branch_name=branch_name,
+            branch_name=final_branch_name,
             prowler_repo=repo,
             jira_url=jira_url,
         )
@@ -242,19 +265,19 @@ def create_check(
             print("[green]✓ Workflow completed successfully![/green]")
             print(f"  Check name: {impl_result.check_name}")
             print(f"  Provider: {impl_result.check_provider}")
-            print(f"  Branch: {branch_name}")
+            print(f"  Branch: {final_branch_name}")
             print(f"  PR: {pr_result.pr_url}")
             print(f"  Commit: {pr_result.commit_sha[:8]}")
         else:
             print("[yellow]⚠ Workflow completed but PR creation failed[/yellow]")
             print(f"  Check name: {impl_result.check_name}")
             print(f"  Provider: {impl_result.check_provider}")
-            print(f"  Branch: {branch_name}")
+            print(f"  Branch: {final_branch_name}")
             if pr_result.error:
                 print(f"  PR Error: {pr_result.error}")
             print("\n[yellow]You can create the PR manually with:[/yellow]")
             print(f"  cd {prowler_repo_path}")
-            print(f"  git push -u origin {branch_name}")
+            print(f"  git push -u origin {final_branch_name}")
             print("  gh pr create")
 
     except typer.Exit:

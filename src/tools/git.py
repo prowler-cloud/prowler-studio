@@ -146,3 +146,42 @@ def prepare_repo_for_work(repo: Repo, new_branch_name: str) -> None:
     except Exception as e:
         print(f"[bold red]✗ Error preparing repository: {e}[/bold red]")
         raise e
+
+
+def rename_branch(repo: Repo, old_name: str, new_name: str) -> None:
+    """
+    Rename the current branch.
+
+    Args:
+        repo: The git.Repo object
+        old_name: Current branch name
+        new_name: New branch name
+
+    Raises:
+        GitCommandError: If rename fails
+    """
+    try:
+        repo.git.branch("-m", old_name, new_name)
+        print(f"[green]✓ Branch renamed: {old_name} → {new_name}[/green]")
+    except GitCommandError as e:
+        print(f"[red]✗ Failed to rename branch: {e}[/red]")
+        raise
+
+
+def generate_branch_name(check_name: str, ticket_key: str | None = None) -> str:
+    """
+    Generate branch name from check name and optional ticket key.
+
+    Args:
+        check_name: The check name (e.g., s3_bucket_public_access)
+        ticket_key: Optional Jira ticket key (e.g., PROWLER-707)
+
+    Returns:
+        Branch name in format:
+        - feat/<ticket>-<check_slug> if ticket provided
+        - feat/<check_slug> if no ticket
+    """
+    check_slug = check_name.replace("_", "-")
+    if ticket_key:
+        return f"feat/{ticket_key.lower()}-{check_slug}"
+    return f"feat/{check_slug}"
