@@ -8,24 +8,47 @@ You are creating a pull request for a newly implemented Prowler security check f
 - **Provider**: `{{ check_provider }}`
 - **Branch Name**: `{{ branch_name }}`
 
+{% if check_ticket %}
+## Original Ticket/Requirements
+
+The check was created based on this ticket/requirements:
+
+<ticket>
+{{ check_ticket }}
+</ticket>
+{% endif %}
+
 ## PR Creation Steps
 
-### 1. Analyze Changes
+### 1. Read Check Metadata
 
-First, understand all changes that will be included:
+**CRITICAL**: Before creating the PR, you MUST read the check's metadata to understand what it does:
+
+```bash
+cat prowler/providers/{{ check_provider }}/services/{{ service }}/{{ check_name }}/metadata.json
+```
+
+Also read the check implementation to understand the logic:
+```bash
+cat prowler/providers/{{ check_provider }}/services/{{ service }}/{{ check_name }}/{{ check_name }}.py
+```
+
+### 2. Analyze Changes
+
+Understand all changes that will be included:
 ```bash
 git status
 git diff --name-only
 ```
 
-### 2. Stage All Changes
+### 3. Stage All Changes
 
 Stage all files related to the check:
 ```bash
 git add .
 ```
 
-### 3. Create Commit
+### 4. Create Commit
 
 Create a commit following conventional commit format:
 
@@ -39,40 +62,86 @@ EOF
 )"
 ```
 
-### 4. Push to Remote
+### 5. Push to Remote
 
 Push the branch with upstream tracking:
 ```bash
 git push -u origin {{ branch_name }}
 ```
 
-### 5. Create Pull Request
+### 6. Create Pull Request with Rich Context
 
-Create the PR using `gh pr create` with the Prowler PR template format:
+**IMPORTANT**: Write a meaningful Context and Description based on:
+1. The check's metadata.json (Risk, Description, Remediation fields)
+2. The check's implementation logic
+3. The original ticket/requirements (if provided above)
+
+The Context section should explain:
+- What security gap or risk this check addresses (2-3 sentences)
+- Why this check is important and what could happen without it
+- Who might exploit this misconfiguration (attackers, malicious insiders, etc.)
+
+The Description section should explain:
+- What the check specifically validates (resources, configurations)
+- How it determines pass/fail conditions
+- What remediation is recommended
+
+**Good Example** (from PR #7658):
+```markdown
+### Context
+
+Automatic email forwarding rules are commonly abused by attackers and malicious
+insiders to exfiltrate sensitive information from an organization. These rules
+can be created through multiple channels and may go unnoticed if not explicitly blocked.
+
+### Description
+
+These checks ensure that all forms of automatic mail forwarding are blocked using
+a combination of Transport Rules and Anti-Spam outbound policies. Disabling
+forwarding to remote domains helps prevent unauthorized data exfiltration via email.
+```
+
+**Bad Example** (too generic):
+```markdown
+### Context
+
+Adds a new security check `check_name` for the aws provider.
+
+### Description
+
+This check detects security misconfigurations.
+```
+
+Create the PR using `gh pr create`:
 
 ```bash
 gh pr create --title "feat({{ check_provider }}): add {{ check_name }} security check" --body "$(cat <<'EOF'
 ### Context
 
-Adds a new security check `{{ check_name }}` for the {{ check_provider }} provider.
+[Write 2-3 sentences explaining the security risk this check addresses.
+Base this on the Risk field from metadata.json and the check logic.]
 
 ### Description
 
-This PR adds a new security check for {{ check_provider }}:
-
-- **Check**: `{{ check_name }}`
-- **Implementation**: New check that detects security misconfigurations
-- **Tests**: Unit tests covering pass, fail, and no-resources scenarios
+[Write 2-3 sentences explaining what the check validates and how.
+Include what resources are examined and pass/fail conditions.]
 
 ### Steps to review
 
 1. Review the check implementation at `prowler/providers/{{ check_provider }}/services/{{ service }}/{{ check_name }}/`
 2. Review the metadata file for correct severity, remediation, and compliance mappings
-3. Run the check tests: `poetry run pytest tests/providers/{{ check_provider }}/services/{{ service }}/{{ check_name }}/ -v`
-4. **Run the check against a real environment** (if possible):
+3. Review compliance framework mappings in `prowler/compliance/{{ check_provider }}/` to ensure the check is correctly mapped to relevant requirements
+4. Run the check tests: `poetry run pytest tests/providers/{{ check_provider }}/services/{{ service }}/{{ check_name }}/ -v`
+5. **Run the check against a real environment** (if possible):
    ```bash
    prowler {{ check_provider }} --check {{ check_name }}
    ```
+
+{% if jira_url %}
+### Related Issues
+
+{{ jira_url }}
+{% endif %}
 
 ### Checklist
 
@@ -102,7 +171,7 @@ EOF
 )"
 ```
 
-### 6. Add Changelog Entry
+### 8. Add Changelog Entry
 
 After the PR is created, add a changelog entry to `prowler/CHANGELOG.md`.
 
@@ -123,7 +192,7 @@ After the PR is created, add a changelog entry to `prowler/CHANGELOG.md`.
 - `{{ check_name }}` check for {{ check_provider }} provider [(#XXXX)](https://github.com/prowler-cloud/prowler/pull/XXXX)
 ```
 
-### 7. Report Results
+### 9. Report Results
 
 After creating the PR and updating the changelog, report:
 - The PR URL (e.g., https://github.com/prowler-cloud/prowler/pull/123)
@@ -136,6 +205,7 @@ After creating the PR and updating the changelog, report:
 - **Never skip pre-commit hooks** unless explicitly told to
 - **SDK/CLI section**: Since this is a new check, mark "Yes" for new checks question
 - **Permissions review**: The reviewer should check if provider permissions need updating
+- **NEVER add Co-Authored-By trailers**: Do NOT include any "Co-Authored-By" lines in commit messages (e.g., no "Co-Authored-By: Claude" or similar)
 
 ## Before Creating PR Checklist
 
