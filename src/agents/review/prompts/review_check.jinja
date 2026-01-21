@@ -28,6 +28,10 @@ You must systematically evaluate the check across **four critical dimensions**:
   - Complete remediation guidance
   - Correct resource type mappings
   - Valid risk and impact assessments
+  - **CheckTitle format validation**:
+    - Must describe security benefit, not just state
+    - Should use active verbs (protects, ensures, prevents, detects, monitors)
+    - Avoid patterns like "X is enabled for Y" - rewrite as "X protects Y from Z"
 - Verify coding patterns, file structure, and naming conventions
 
 ### 3. Security Assessment
@@ -112,6 +116,7 @@ You MUST automatically fix:
 - Missing docstrings
 - Incorrect metadata format
 - Missing required metadata fields
+- CheckTitle format (rewrite "X is enabled" → "X protects/ensures")
 - Improper imports
 - Type hint issues
 
