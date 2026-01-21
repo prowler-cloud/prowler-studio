@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from git import Repo
@@ -28,6 +28,14 @@ class TestingAgent(Agent):
     """Agent that generates and runs tests for Prowler checks."""
 
     MAX_TEST_FIX_ATTEMPTS: int = 5
+    ALLOWED_TOOLS: ClassVar[list[str]] = [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Glob",
+        "Grep",
+    ]
 
     def __init__(
         self,
@@ -53,96 +61,130 @@ class TestingAgent(Agent):
         """
         print("[bold cyan]Running testing agent...[/bold cyan]")
 
-        # Extract service from check name
         service: str = self.check_name.split("_")[0]
-        test_file_path: str = (
-            f"tests/providers/{self.check_provider}/services/{service}/"
-            f"{self.check_name}/{self.check_name}_test.py"
-        )
-
-        # Load prompt and create options
-        generate_prompt: str = self._load_generate_prompt()
+        test_file_path: str = self._build_test_file_path(service)
         options: ClaudeAgentOptions = self._create_claude_options()
 
-        changes_made: bool = False
-        attempt: int = 0
-        success: bool = False
-        message: str = ""
-
         async with ClaudeSDKClient(options=options) as client:
-            # Generate tests
-            print("[yellow]Generating tests...[/yellow]")
-            await client.query(generate_prompt)
-            await self._process_agent_messages(client=client)
-            changes_made = True
-
-            # Run tests and fix loop
-            prowler_directory: Path = Path(self.prowler_repo.working_dir)
-
-            while attempt < self.MAX_TEST_FIX_ATTEMPTS and not success:
-                attempt += 1
-                print(
-                    f"[yellow]Running tests (attempt {attempt}/{self.MAX_TEST_FIX_ATTEMPTS})...[/yellow]"
-                )
-
-                # Run check-specific tests
-                check_test_result = run_pytest(
-                    test_path=Path(test_file_path),
-                    prowler_directory=prowler_directory,
-                )
-
-                if check_test_result.success:
-                    # Also run service tests to ensure no regressions
-                    service_test_path: str = (
-                        f"tests/providers/{self.check_provider}/services/{service}/"
-                    )
-                    service_test_result = run_pytest(
-                        test_path=Path(service_test_path),
-                        prowler_directory=prowler_directory,
-                    )
-
-                    if service_test_result.success:
-                        success = True
-                        message = (
-                            f"All tests passed for {self.check_name} "
-                            f"and service {service}"
-                        )
-                        print(f"[green]✓ {message}[/green]")
-                    else:
-                        # Service tests failed, need to fix
-                        print(
-                            "[yellow]Service tests failed, attempting fix...[/yellow]"
-                        )
-                        fix_prompt: str = self._load_fix_prompt(
-                            test_file_path=test_file_path,
-                            error_output=service_test_result.error_output,
-                            attempt=attempt,
-                        )
-                        await client.query(fix_prompt)
-                        await self._process_agent_messages(client=client)
-                else:
-                    # Check tests failed, need to fix
-                    print("[yellow]Check tests failed, attempting fix...[/yellow]")
-                    fix_prompt = self._load_fix_prompt(
-                        test_file_path=test_file_path,
-                        error_output=check_test_result.error_output,
-                        attempt=attempt,
-                    )
-                    await client.query(fix_prompt)
-                    await self._process_agent_messages(client=client)
-
-            if not success:
-                message = f"Tests failed after {self.MAX_TEST_FIX_ATTEMPTS} attempts"
-                print(f"[red]✗ {message}[/red]")
+            await self._generate_tests(client)
+            success, attempt, message = await self._run_test_and_fix_loop(
+                client=client,
+                service=service,
+                test_file_path=test_file_path,
+            )
 
         return TestingResult(
             success=success,
             check_name=self.check_name,
             test_file_path=test_file_path,
             attempts=attempt,
-            changes_made=changes_made,
+            changes_made=True,
             message=message,
         )
+
+    def _build_test_file_path(self, service: str) -> str:
+        """Build the test file path for the check."""
+        return (
+            f"tests/providers/{self.check_provider}/services/{service}/"
+            f"{self.check_name}/{self.check_name}_test.py"
+        )
+
+    async def _generate_tests(self, client: ClaudeSDKClient) -> None:
+        """Generate tests using Claude agent."""
+        print("[yellow]Generating tests...[/yellow]")
+        generate_prompt: str = self._load_generate_prompt()
+        await client.query(generate_prompt)
+        await self._process_agent_messages(client=client)
+
+    async def _run_test_and_fix_loop(
+        self,
+        client: ClaudeSDKClient,
+        service: str,
+        test_file_path: str,
+    ) -> tuple[bool, int, str]:
+        """Run tests and attempt fixes until success or max attempts reached."""
+        prowler_directory: Path = Path(self.prowler_repo.working_dir)
+        attempt: int = 0
+        success: bool = False
+        message: str = ""
+
+        while attempt < self.MAX_TEST_FIX_ATTEMPTS and not success:
+            attempt += 1
+            print(
+                f"[yellow]Running tests (attempt {attempt}/{self.MAX_TEST_FIX_ATTEMPTS})...[/yellow]"
+            )
+
+            success, message = await self._run_single_test_iteration(
+                client=client,
+                service=service,
+                test_file_path=test_file_path,
+                prowler_directory=prowler_directory,
+                attempt=attempt,
+            )
+
+        if not success:
+            message = f"Tests failed after {self.MAX_TEST_FIX_ATTEMPTS} attempts"
+            print(f"[red]✗ {message}[/red]")
+
+        return success, attempt, message
+
+    async def _run_single_test_iteration(
+        self,
+        client: ClaudeSDKClient,
+        service: str,
+        test_file_path: str,
+        prowler_directory: Path,
+        attempt: int,
+    ) -> tuple[bool, str]:
+        """Run a single test iteration and fix if needed."""
+        check_test_result = run_pytest(
+            test_path=Path(test_file_path),
+            prowler_directory=prowler_directory,
+        )
+
+        if not check_test_result.success:
+            print("[yellow]Check tests failed, attempting fix...[/yellow]")
+            await self._attempt_fix(
+                client, test_file_path, check_test_result.error_output, attempt
+            )
+            return False, ""
+
+        service_test_path: str = (
+            f"tests/providers/{self.check_provider}/services/{service}/"
+        )
+        service_test_result = run_pytest(
+            test_path=Path(service_test_path),
+            prowler_directory=prowler_directory,
+        )
+
+        if service_test_result.success:
+            message: str = (
+                f"All tests passed for {self.check_name} and service {service}"
+            )
+            print(f"[green]✓ {message}[/green]")
+            return True, message
+
+        print("[yellow]Service tests failed, attempting fix...[/yellow]")
+        await self._attempt_fix(
+            client, test_file_path, service_test_result.error_output, attempt
+        )
+        return False, ""
+
+    async def _attempt_fix(
+        self,
+        client: ClaudeSDKClient,
+        test_file_path: str,
+        error_output: str,
+        attempt: int,
+    ) -> None:
+        """Attempt to fix failing tests."""
+        fix_prompt: str = self._load_fix_prompt(
+            test_file_path=test_file_path,
+            error_output=error_output,
+            attempt=attempt,
+        )
+        await client.query(fix_prompt)
+        await self._process_agent_messages(client=client)
 
     def _load_generate_prompt(self) -> str:
         """Load the test generation prompt template."""
@@ -176,17 +218,8 @@ class TestingAgent(Agent):
 
     def _create_claude_options(self) -> ClaudeAgentOptions:
         """Create Claude agent options with tools."""
-        allowed_tools: list[str] = [
-            "Read",
-            "Write",
-            "Edit",
-            "Bash",
-            "Glob",
-            "Grep",
-        ]
-
         return ClaudeAgentOptions(
-            allowed_tools=allowed_tools,
+            allowed_tools=self.ALLOWED_TOOLS,
             permission_mode="bypassPermissions",
             cwd=str(self.working_dir),
         )

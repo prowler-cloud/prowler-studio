@@ -59,18 +59,36 @@ prowler_studio/
 │   │   └── exceptions.py        # Custom exceptions
 │   ├── agents/
 │   │   ├── base.py              # Agent base class
-│   │   └── implementation/      # ChecKreatorAgent for check creation
-│   │       ├── agent.py         # Main agent implementation
-│   │       ├── models.py        # Data models
-│   │       └── prompts/         # Jinja2 prompt templates
+│   │   ├── implementation/      # ChecKreatorAgent for check creation
+│   │   │   ├── agent.py         # Main agent implementation
+│   │   │   ├── models.py        # Data models
+│   │   │   └── prompts/         # Jinja2 prompt templates
+│   │   ├── testing/             # TestingAgent for test generation
+│   │   │   ├── agent.py
+│   │   │   ├── models.py
+│   │   │   └── prompts/
+│   │   ├── review/              # ReviewAgent for code review
+│   │   │   ├── agent.py
+│   │   │   ├── models.py
+│   │   │   └── prompts/
+│   │   ├── compliance_mapping/  # ComplianceMappingAgent
+│   │   │   ├── agent.py
+│   │   │   ├── models.py
+│   │   │   └── prompts/
+│   │   └── pr_creation/         # PRCreationAgent for PR workflow
+│   │       ├── agent.py
+│   │       ├── models.py
+│   │       └── prompts/
 │   ├── tools/                   # Shared tools
 │   │   ├── git.py               # Git operations
 │   │   ├── prowler.py           # Prowler-specific tools
 │   │   ├── skills.py            # AI skills setup
 │   │   ├── jira.py              # Jira URL parsing
+│   │   ├── jira_client.py       # Jira API client
 │   │   └── models.py            # Tool data models
 │   └── utils/                   # Utilities
-│       └── prompts.py           # Prompt loading utilities
+│       ├── prompts.py           # Prompt loading utilities
+│       └── logging.py           # Agent output logging
 └── pyproject.toml               # Project configuration
 ```
 
@@ -85,11 +103,10 @@ Agents are self-contained units that perform specific tasks. Each agent:
 
 **Current Agents:**
 - **ChecKreatorAgent** ([src/agents/implementation/agent.py](src/agents/implementation/agent.py)): Creates Prowler checks from tickets with automated verification
-
-**Future Agents:**
-- **TestingAgent**: Writes tests for checks
-- **PRCreationAgent**: Creates pull requests
-- **ReviewSummaryAgent**: Generates review summaries
+- **TestingAgent** ([src/agents/testing/agent.py](src/agents/testing/agent.py)): Generates and runs tests for checks with auto-fix loop
+- **ReviewAgent** ([src/agents/review/agent.py](src/agents/review/agent.py)): Reviews check implementations for quality and best practices
+- **ComplianceMappingAgent** ([src/agents/compliance_mapping/agent.py](src/agents/compliance_mapping/agent.py)): Analyzes checks and adds compliance framework mappings
+- **PRCreationAgent** ([src/agents/pr_creation/agent.py](src/agents/pr_creation/agent.py)): Commits changes and creates pull requests
 
 ### ChecKreatorAgent Flow
 
@@ -127,30 +144,34 @@ Key features:
 
 ### Main CLI Orchestration
 
-The CLI in [src/core/main.py](src/core/main.py) orchestrates agent execution:
+The CLI in [src/core/main.py](src/core/main.py) orchestrates agent execution through five stages:
 
 ```python
 # 1. Prepare Prowler repository
 repo = Repo.clone_from(PROWLER_REPO_URL, prowler_path)
 prepare_repo_for_work(repo, branch_name)
-setup_prowler_skills(prowler_path)  # Configure AI skills
+setup_prowler_skills(prowler_path)
 install_prowler_dependencies(prowler_path)
 
-# 2. Run implementation agent (with ticket file or Jira URL)
-agent = ChecKreatorAgent(
-    working_dir=prowler_path,
-    check_ticket=ticket_content,  # From --ticket file
-    jira_url=jira_url,            # Or from --jira-url
-    prowler_repo=repo,
-)
-result = asyncio.run(agent.run())
+# 2. Implementation stage - Create check from ticket
+impl_agent = ChecKreatorAgent(working_dir=prowler_path, ...)
+impl_result = asyncio.run(impl_agent.run())
 
-# 3. Future: Run additional agents
-# testing_agent = TestingAgent(working_dir=working_dir)
-# test_result = asyncio.run(testing_agent.run(check_name=result.check_name))
-#
-# pr_agent = PRCreationAgent(working_dir=working_dir)
-# pr_result = asyncio.run(pr_agent.run(branch=branch_name))
+# 3. Testing stage - Generate and run tests
+test_agent = TestingAgent(working_dir=prowler_path, check_name=impl_result.check_name, ...)
+test_result = asyncio.run(test_agent.run())
+
+# 4. Review stage - Code review and quality checks
+review_agent = ReviewAgent(working_dir=prowler_path, check_name=impl_result.check_name, ...)
+review_result = asyncio.run(review_agent.run())
+
+# 5. Compliance mapping stage - Add framework mappings
+compliance_agent = ComplianceMappingAgent(working_dir=prowler_path, ...)
+compliance_result = asyncio.run(compliance_agent.run())
+
+# 6. PR creation stage - Commit and create pull request
+pr_agent = PRCreationAgent(working_dir=prowler_path, branch_name=branch_name, ...)
+pr_result = asyncio.run(pr_agent.run())
 ```
 
 ## Adding a New Agent

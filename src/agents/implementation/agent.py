@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from git import Repo
@@ -35,11 +35,24 @@ class ChecKreatorAgent(Agent):
     """Agent that implements Prowler checks from tickets."""
 
     # MCP Server Configuration
-    MCP_SERVER_NAME: str = "utils"
-    MCP_SERVER_VERSION: str = "1.0.0"
+    MCP_SERVER_NAME: ClassVar[str] = "utils"
+    MCP_SERVER_VERSION: ClassVar[str] = "1.0.0"
 
     # Check Verification
-    MAX_CHECK_VERIFICATION_ATTEMPTS: int = 5
+    MAX_CHECK_VERIFICATION_ATTEMPTS: ClassVar[int] = 5
+
+    # File name constants
+    INIT_FILE: ClassVar[str] = "__init__.py"
+
+    ALLOWED_TOOLS: ClassVar[list[str]] = [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Glob",
+        "Grep",
+        "mcp__utils__mkcheck",
+    ]
 
     def __init__(
         self,
@@ -145,18 +158,9 @@ class ChecKreatorAgent(Agent):
         )
 
         mcp_servers: dict[str, Any] = {"utils": tools_server}
-        allowed_tools: list[str] = [
-            "Read",
-            "Write",
-            "Edit",
-            "Bash",
-            "Glob",
-            "Grep",
-            "mcp__utils__mkcheck",
-        ]
 
         return ClaudeAgentOptions(
-            allowed_tools=allowed_tools,
+            allowed_tools=self.ALLOWED_TOOLS,
             mcp_servers=mcp_servers,
             permission_mode="bypassPermissions",
             cwd=str(self.working_dir),
@@ -293,7 +297,7 @@ class ChecKreatorAgent(Agent):
             py_files: set[str] = {
                 filename.replace(".py", "")
                 for filename in filenames
-                if filename.endswith(".py") and filename != "__init__.py"
+                if filename.endswith(".py") and filename != self.INIT_FILE
             }
             json_files: set[str] = {
                 filename.replace(".metadata.json", "")

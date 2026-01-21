@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from git import Repo
@@ -26,6 +26,15 @@ from utils.prompts import load_prompt
 
 class ComplianceMappingAgent(Agent):
     """Agent that analyzes checks and adds compliance framework mappings."""
+
+    ALLOWED_TOOLS: ClassVar[list[str]] = [
+        "Read",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+    ]
+    COMPLIANCE_FILE_PATTERN: ClassVar[str] = r"^prowler/compliance/{provider}/.*\.json$"
 
     def __init__(
         self,
@@ -109,16 +118,8 @@ class ComplianceMappingAgent(Agent):
 
     def _create_claude_options(self) -> ClaudeAgentOptions:
         """Create Claude agent options with tools."""
-        allowed_tools: list[str] = [
-            "Read",
-            "Edit",
-            "Glob",
-            "Grep",
-            "Bash",
-        ]
-
         return ClaudeAgentOptions(
-            allowed_tools=allowed_tools,
+            allowed_tools=self.ALLOWED_TOOLS,
             permission_mode="bypassPermissions",
             cwd=str(self.working_dir),
         )
@@ -147,7 +148,7 @@ class ComplianceMappingAgent(Agent):
 
             # Filter for compliance files for this provider
             compliance_pattern = re.compile(
-                rf"^prowler/compliance/{self.check_provider}/.*\.json$"
+                self.COMPLIANCE_FILE_PATTERN.format(provider=self.check_provider)
             )
 
             for file_path in modified_files:

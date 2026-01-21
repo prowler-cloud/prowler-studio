@@ -5,7 +5,7 @@ from __future__ import annotations
 import contextlib
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
     from git import Repo
@@ -27,6 +27,14 @@ from utils.prompts import load_prompt
 
 class PRCreationAgent(Agent):
     """Agent that commits changes and creates pull requests."""
+
+    ALLOWED_TOOLS: ClassVar[list[str]] = [
+        "Read",
+        "Bash",
+        "Glob",
+        "Grep",
+    ]
+    GITHUB_PR_URL_PATTERN: ClassVar[str] = r"https://github\.com/[^/]+/[^/]+/pull/(\d+)"
 
     def __init__(
         self,
@@ -116,15 +124,8 @@ class PRCreationAgent(Agent):
 
     def _create_claude_options(self) -> ClaudeAgentOptions:
         """Create Claude agent options with tools."""
-        allowed_tools: list[str] = [
-            "Read",
-            "Bash",
-            "Glob",
-            "Grep",
-        ]
-
         return ClaudeAgentOptions(
-            allowed_tools=allowed_tools,
+            allowed_tools=self.ALLOWED_TOOLS,
             permission_mode="bypassPermissions",
             cwd=str(self.working_dir),
         )
@@ -146,9 +147,7 @@ class PRCreationAgent(Agent):
 
     def _extract_pr_info(self, response_text: str) -> None:
         """Extract PR URL and number from response text."""
-        # Look for GitHub PR URL pattern
-        pr_url_pattern = r"https://github\.com/[^/]+/[^/]+/pull/(\d+)"
-        match = re.search(pr_url_pattern, response_text)
+        match = re.search(self.GITHUB_PR_URL_PATTERN, response_text)
         if match:
             self._pr_url = match.group(0)
             self._pr_number = int(match.group(1))
