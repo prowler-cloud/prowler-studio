@@ -9,6 +9,7 @@ import typer
 from git import GitError, InvalidGitRepositoryError, Repo
 from rich import print
 
+from agents.compliance_mapping.agent import ComplianceMappingAgent
 from agents.implementation.agent import ChecKreatorAgent
 from agents.pr_creation.agent import PRCreationAgent
 from agents.review.agent import ReviewAgent
@@ -21,6 +22,7 @@ from tools.skills import setup_prowler_skills
 from utils.logging import WorkflowLogger, log_stage, set_workflow_logger
 
 if TYPE_CHECKING:
+    from agents.compliance_mapping.models import ComplianceMappingResult
     from agents.implementation.models import CheckImplementationResult
     from agents.pr_creation.models import PRCreationResult
     from agents.review.models import ReviewResult
@@ -237,9 +239,32 @@ def create_check(
         print(f"  Test file: {test_result.test_file_path}")
         print(f"  Attempts: {test_result.attempts}")
 
-        # Stage 3: Review
+        # Stage 3: Compliance Mapping
+        log_stage("Compliance Mapping")
+        print("\n[bold cyan]=== Stage 3: Compliance Mapping ===[/bold cyan]")
+        compliance_agent: ComplianceMappingAgent = ComplianceMappingAgent(
+            working_dir=prowler_repo_path,
+            check_name=impl_result.check_name,
+            check_provider=impl_result.check_provider,
+            prowler_repo=repo,
+            check_ticket=check_ticket_content,
+        )
+
+        compliance_result: ComplianceMappingResult = asyncio.run(compliance_agent.run())
+
+        if not compliance_result.success:
+            print("[red]✗ Compliance mapping failed[/red]")
+            if compliance_result.error:
+                print(f"[red]Error: {compliance_result.error}[/red]")
+            raise typer.Exit(code=1)
+
+        print("[green]✓ Compliance mapping completed[/green]")
+        if compliance_result.changes_made:
+            print(f"  Files modified: {compliance_result.mappings_added}")
+
+        # Stage 4: Review
         log_stage("Code Review")
-        print("\n[bold cyan]=== Stage 3: Code Review ===[/bold cyan]")
+        print("\n[bold cyan]=== Stage 4: Code Review ===[/bold cyan]")
         review_agent: ReviewAgent = ReviewAgent(
             working_dir=prowler_repo_path,
             check_name=impl_result.check_name,
@@ -255,11 +280,11 @@ def create_check(
 
         print("[green]✓ Review completed[/green]")
 
-        # Stage 4: Re-test if review made changes
+        # Stage 5: Re-test if review made changes
         if review_result.changes_made:
             log_stage("Re-testing (review made changes)")
             print(
-                "\n[bold cyan]=== Stage 4: Re-testing (review made changes) ===[/bold cyan]"
+                "\n[bold cyan]=== Stage 5: Re-testing (review made changes) ===[/bold cyan]"
             )
             retest_result: TestingResult = asyncio.run(testing_agent.run())
 
@@ -270,9 +295,9 @@ def create_check(
 
             print("[green]✓ Re-testing completed[/green]")
 
-        # Stage 5: PR Creation
+        # Stage 6: PR Creation
         log_stage("PR Creation")
-        print("\n[bold cyan]=== Stage 5: PR Creation ===[/bold cyan]")
+        print("\n[bold cyan]=== Stage 6: PR Creation ===[/bold cyan]")
         pr_agent: PRCreationAgent = PRCreationAgent(
             working_dir=prowler_repo_path,
             check_name=impl_result.check_name,
@@ -280,6 +305,7 @@ def create_check(
             branch_name=final_branch_name,
             prowler_repo=repo,
             jira_url=jira_url,
+            check_ticket=check_ticket_content,
         )
 
         pr_result: PRCreationResult = asyncio.run(pr_agent.run())
