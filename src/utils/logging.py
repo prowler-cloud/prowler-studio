@@ -8,6 +8,10 @@ from datetime import datetime, timedelta
 from pathlib import Path  # noqa: TC003 (needed at runtime for path operations)
 from typing import ClassVar
 
+from rich.console import Console
+
+_console = Console()
+
 # Global logger instance for easy access
 _workflow_logger: WorkflowLogger | None = None
 
@@ -43,6 +47,16 @@ def log_stage(stage_name: str) -> None:
     """
     if _workflow_logger:
         _workflow_logger.log_stage(stage_name)
+
+
+def console_error(message: str) -> None:
+    """
+    Print an error message to console only (before logger is initialized).
+
+    Args:
+        message: Error message to display
+    """
+    _console.print(f"[red]✗ {message}[/red]")
 
 
 class WorkflowLogger:
@@ -184,6 +198,72 @@ class WorkflowLogger:
             message: Error message to log
         """
         self.logger.error(message)
+
+    def info(self, message: str) -> None:
+        """
+        Log an info message to both console (with Rich) and log file.
+
+        Args:
+            message: Message to log
+        """
+        _console.print(message)
+        clean_message = self._strip_rich_markup(message)
+        self.logger.info(clean_message)
+
+    def success(self, message: str) -> None:
+        """
+        Log a success message to both console (with Rich) and log file.
+
+        Args:
+            message: Success message to log
+        """
+        _console.print(f"[green]✓ {message}[/green]")
+        self.logger.info(f"SUCCESS: {message}")
+
+    def error(self, message: str) -> None:
+        """
+        Log an error message to both console (with Rich) and log file.
+
+        Args:
+            message: Error message to log
+        """
+        _console.print(f"[red]✗ {message}[/red]")
+        self.logger.error(message)
+
+    def warning(self, message: str) -> None:
+        """
+        Log a warning message to both console (with Rich) and log file.
+
+        Args:
+            message: Warning message to log
+        """
+        _console.print(f"[yellow]⚠ {message}[/yellow]")
+        self.logger.warning(message)
+
+    def stage(self, stage_name: str) -> None:
+        """
+        Log a stage marker to both console (with Rich) and log file.
+
+        Args:
+            stage_name: Name of the stage
+        """
+        _console.print(f"\n[bold cyan]=== {stage_name} ===[/bold cyan]")
+        self.log_stage(stage_name)
+
+    def print(self, message: str) -> None:
+        """
+        Print a message to both console (with Rich markup) and log file.
+
+        This is a general-purpose method for messages that need Rich formatting
+        but don't fit info/success/error/warning categories.
+
+        Args:
+            message: Message to print (may contain Rich markup)
+        """
+        _console.print(message)
+        clean_message = self._strip_rich_markup(message)
+        if clean_message.strip():
+            self.logger.info(clean_message)
 
     def finalize(self, success: bool) -> None:
         """

@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
+from pydantic import BaseModel
+
 if TYPE_CHECKING:
     from git import Repo
 
@@ -22,6 +24,14 @@ from agents.testing.models import TestingResult
 from tools.prowler import run_pytest
 from utils.logging import log_agent_output
 from utils.prompts import load_prompt
+
+
+class _TestLoopResult(BaseModel):
+    """Internal result for the test-fix loop."""
+
+    success: bool
+    attempts: int
+    message: str
 
 
 class TestingAgent(Agent):
@@ -67,19 +77,19 @@ class TestingAgent(Agent):
 
         async with ClaudeSDKClient(options=options) as client:
             await self._generate_tests(client)
-            success, attempt, message = await self._run_test_and_fix_loop(
+            loop_result: _TestLoopResult = await self._run_test_and_fix_loop(
                 client=client,
                 service=service,
                 test_file_path=test_file_path,
             )
 
         return TestingResult(
-            success=success,
+            success=loop_result.success,
             check_name=self.check_name,
             test_file_path=test_file_path,
-            attempts=attempt,
+            attempts=loop_result.attempts,
             changes_made=True,
-            message=message,
+            message=loop_result.message,
         )
 
     def _build_test_file_path(self, service: str) -> str:
@@ -101,8 +111,13 @@ class TestingAgent(Agent):
         client: ClaudeSDKClient,
         service: str,
         test_file_path: str,
-    ) -> tuple[bool, int, str]:
-        """Run tests and attempt fixes until success or max attempts reached."""
+    ) -> _TestLoopResult:
+        """
+        Run tests and attempt fixes until success or max attempts reached.
+
+        This method runs the check-specific tests first, then service-wide tests.
+        If any tests fail, it attempts to fix them using the Claude agent.
+        """
         prowler_directory: Path = Path(self.prowler_repo.working_dir)
         attempt: int = 0
         success: bool = False
@@ -114,61 +129,45 @@ class TestingAgent(Agent):
                 f"[yellow]Running tests (attempt {attempt}/{self.MAX_TEST_FIX_ATTEMPTS})...[/yellow]"
             )
 
-            success, message = await self._run_single_test_iteration(
-                client=client,
-                service=service,
-                test_file_path=test_file_path,
+            # Run check-specific tests first
+            check_test_result = run_pytest(
+                test_path=Path(test_file_path),
                 prowler_directory=prowler_directory,
-                attempt=attempt,
             )
+
+            if not check_test_result.success:
+                print("[yellow]Check tests failed, attempting fix...[/yellow]")
+                await self._attempt_fix(
+                    client, test_file_path, check_test_result.error_output, attempt
+                )
+                continue
+
+            # Check tests passed, now run service-wide tests
+            service_test_path: str = (
+                f"tests/providers/{self.check_provider}/services/{service}/"
+            )
+            service_test_result = run_pytest(
+                test_path=Path(service_test_path),
+                prowler_directory=prowler_directory,
+            )
+
+            if service_test_result.success:
+                success = True
+                message = (
+                    f"All tests passed for {self.check_name} and service {service}"
+                )
+                print(f"[green]✓ {message}[/green]")
+            else:
+                print("[yellow]Service tests failed, attempting fix...[/yellow]")
+                await self._attempt_fix(
+                    client, test_file_path, service_test_result.error_output, attempt
+                )
 
         if not success:
             message = f"Tests failed after {self.MAX_TEST_FIX_ATTEMPTS} attempts"
             print(f"[red]✗ {message}[/red]")
 
-        return success, attempt, message
-
-    async def _run_single_test_iteration(
-        self,
-        client: ClaudeSDKClient,
-        service: str,
-        test_file_path: str,
-        prowler_directory: Path,
-        attempt: int,
-    ) -> tuple[bool, str]:
-        """Run a single test iteration and fix if needed."""
-        check_test_result = run_pytest(
-            test_path=Path(test_file_path),
-            prowler_directory=prowler_directory,
-        )
-
-        if not check_test_result.success:
-            print("[yellow]Check tests failed, attempting fix...[/yellow]")
-            await self._attempt_fix(
-                client, test_file_path, check_test_result.error_output, attempt
-            )
-            return False, ""
-
-        service_test_path: str = (
-            f"tests/providers/{self.check_provider}/services/{service}/"
-        )
-        service_test_result = run_pytest(
-            test_path=Path(service_test_path),
-            prowler_directory=prowler_directory,
-        )
-
-        if service_test_result.success:
-            message: str = (
-                f"All tests passed for {self.check_name} and service {service}"
-            )
-            print(f"[green]✓ {message}[/green]")
-            return True, message
-
-        print("[yellow]Service tests failed, attempting fix...[/yellow]")
-        await self._attempt_fix(
-            client, test_file_path, service_test_result.error_output, attempt
-        )
-        return False, ""
+        return _TestLoopResult(success=success, attempts=attempt, message=message)
 
     async def _attempt_fix(
         self,
