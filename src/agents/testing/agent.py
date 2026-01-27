@@ -5,8 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from pydantic import BaseModel
-
 if TYPE_CHECKING:
     from git import Repo
 
@@ -17,21 +15,12 @@ from claude_agent_sdk import (
     ResultMessage,
     TextBlock,
 )
-from rich import print
 
 from agents.base import Agent
 from agents.testing.models import TestingResult
 from tools.prowler import run_pytest
-from utils.logging import log_agent_output
+from utils.logging import get_workflow_logger, log_agent_output
 from utils.prompts import load_prompt
-
-
-class _TestLoopResult(BaseModel):
-    """Internal result for the test-fix loop."""
-
-    success: bool
-    attempts: int
-    message: str
 
 
 class TestingAgent(Agent):
@@ -69,7 +58,8 @@ class TestingAgent(Agent):
         Returns:
             TestingResult with testing information
         """
-        print("[bold cyan]Running testing agent...[/bold cyan]")
+        logger = get_workflow_logger()
+        logger.info("[bold cyan]Running testing agent...[/bold cyan]")
 
         service: str = self.check_name.split("_")[0]
         test_file_path: str = self._build_test_file_path(service)
@@ -77,19 +67,17 @@ class TestingAgent(Agent):
 
         async with ClaudeSDKClient(options=options) as client:
             await self._generate_tests(client)
-            loop_result: _TestLoopResult = await self._run_test_and_fix_loop(
+            success: bool = await self._run_test_and_fix_loop(
                 client=client,
                 service=service,
                 test_file_path=test_file_path,
             )
 
         return TestingResult(
-            success=loop_result.success,
+            success=success,
             check_name=self.check_name,
             test_file_path=test_file_path,
-            attempts=loop_result.attempts,
             changes_made=True,
-            message=loop_result.message,
         )
 
     def _build_test_file_path(self, service: str) -> str:
@@ -101,7 +89,8 @@ class TestingAgent(Agent):
 
     async def _generate_tests(self, client: ClaudeSDKClient) -> None:
         """Generate tests using Claude agent."""
-        print("[yellow]Generating tests...[/yellow]")
+        logger = get_workflow_logger()
+        logger.info("[yellow]Generating tests...[/yellow]")
         generate_prompt: str = self._load_generate_prompt()
         await client.query(generate_prompt)
         await self._process_agent_messages(client=client)
@@ -111,21 +100,24 @@ class TestingAgent(Agent):
         client: ClaudeSDKClient,
         service: str,
         test_file_path: str,
-    ) -> _TestLoopResult:
+    ) -> bool:
         """
         Run tests and attempt fixes until success or max attempts reached.
 
         This method runs the check-specific tests first, then service-wide tests.
         If any tests fail, it attempts to fix them using the Claude agent.
+
+        Returns:
+            True if tests pass, False otherwise.
         """
+        logger = get_workflow_logger()
         prowler_directory: Path = Path(self.prowler_repo.working_dir)
         attempt: int = 0
         success: bool = False
-        message: str = ""
 
         while attempt < self.MAX_TEST_FIX_ATTEMPTS and not success:
             attempt += 1
-            print(
+            logger.info(
                 f"[yellow]Running tests (attempt {attempt}/{self.MAX_TEST_FIX_ATTEMPTS})...[/yellow]"
             )
 
@@ -136,7 +128,7 @@ class TestingAgent(Agent):
             )
 
             if not check_test_result.success:
-                print("[yellow]Check tests failed, attempting fix...[/yellow]")
+                logger.info("[yellow]Check tests failed, attempting fix...[/yellow]")
                 await self._attempt_fix(
                     client, test_file_path, check_test_result.error_output, attempt
                 )
@@ -153,21 +145,19 @@ class TestingAgent(Agent):
 
             if service_test_result.success:
                 success = True
-                message = (
+                logger.success(
                     f"All tests passed for {self.check_name} and service {service}"
                 )
-                print(f"[green]✓ {message}[/green]")
             else:
-                print("[yellow]Service tests failed, attempting fix...[/yellow]")
+                logger.info("[yellow]Service tests failed, attempting fix...[/yellow]")
                 await self._attempt_fix(
                     client, test_file_path, service_test_result.error_output, attempt
                 )
 
         if not success:
-            message = f"Tests failed after {self.MAX_TEST_FIX_ATTEMPTS} attempts"
-            print(f"[red]✗ {message}[/red]")
+            logger.error(f"Tests failed after {self.MAX_TEST_FIX_ATTEMPTS} attempts")
 
-        return _TestLoopResult(success=success, attempts=attempt, message=message)
+        return success
 
     async def _attempt_fix(
         self,
@@ -224,13 +214,14 @@ class TestingAgent(Agent):
         )
 
     async def _process_agent_messages(self, client: ClaudeSDKClient) -> None:
-        """Process and print messages from the Claude agent."""
+        """Process and stream messages from the Claude agent."""
         async for message in client.receive_response():
             if isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock):
-                        print(block.text, end="")
+                        # Use builtin print for real-time streaming
+                        print(block.text, end="", flush=True)
                         log_agent_output(block.text)
             elif isinstance(message, ResultMessage):
-                print()
+                print()  # Newline after streaming
                 break

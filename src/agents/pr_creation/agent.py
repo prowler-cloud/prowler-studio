@@ -17,11 +17,10 @@ from claude_agent_sdk import (
     ResultMessage,
     TextBlock,
 )
-from rich import print
 
 from agents.base import Agent
 from agents.pr_creation.models import PRCreationResult
-from utils.logging import log_agent_output
+from utils.logging import get_workflow_logger, log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -65,14 +64,15 @@ class PRCreationAgent(Agent):
         Returns:
             PRCreationResult with PR information
         """
-        print("[bold cyan]Running PR creation agent...[/bold cyan]")
+        logger = get_workflow_logger()
+        logger.info("[bold cyan]Running PR creation agent...[/bold cyan]")
 
         # Load prompt and create options
         pr_prompt: str = self._load_pr_prompt()
         options: ClaudeAgentOptions = self._create_claude_options()
 
         async with ClaudeSDKClient(options=options) as client:
-            print("[yellow]Creating commit and pull request...[/yellow]")
+            logger.info("[yellow]Creating commit and pull request...[/yellow]")
             await client.query(pr_prompt)
             response_text: str = await self._process_agent_messages_capture(
                 client=client
@@ -86,7 +86,7 @@ class PRCreationAgent(Agent):
             self._commit_sha = self.prowler_repo.head.commit.hexsha
 
         if self._pr_url:
-            print(f"[green]✓ PR created: {self._pr_url}[/green]")
+            logger.success(f"PR created: {self._pr_url}")
             return PRCreationResult(
                 success=True,
                 check_name=self.check_name,
@@ -96,7 +96,7 @@ class PRCreationAgent(Agent):
                 message=f"PR #{self._pr_number} created successfully",
             )
         else:
-            print("[red]✗ Failed to create PR[/red]")
+            logger.error("Failed to create PR")
             return PRCreationResult(
                 success=False,
                 check_name=self.check_name,
@@ -137,11 +137,12 @@ class PRCreationAgent(Agent):
             if isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock):
-                        print(block.text, end="")
+                        # Use builtin print for real-time streaming
+                        print(block.text, end="", flush=True)
                         log_agent_output(block.text)
                         captured_text.append(block.text)
             elif isinstance(message, ResultMessage):
-                print()
+                print()  # Newline after streaming
                 break
         return "".join(captured_text)
 

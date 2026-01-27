@@ -16,11 +16,10 @@ from claude_agent_sdk import (
     ResultMessage,
     TextBlock,
 )
-from rich import print
 
 from agents.base import Agent
 from agents.compliance_mapping.models import ComplianceMappingResult
-from utils.logging import log_agent_output
+from utils.logging import get_workflow_logger, log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -59,7 +58,8 @@ class ComplianceMappingAgent(Agent):
         Returns:
             ComplianceMappingResult with mapping information
         """
-        print("[bold cyan]Running compliance mapping agent...[/bold cyan]")
+        logger = get_workflow_logger()
+        logger.info("[bold cyan]Running compliance mapping agent...[/bold cyan]")
 
         # Load prompt and create options
         mapping_prompt: str = self._load_mapping_prompt()
@@ -69,7 +69,7 @@ class ComplianceMappingAgent(Agent):
         initial_modified: set[str] = self._get_modified_compliance_files()
 
         async with ClaudeSDKClient(options=options) as client:
-            print("[yellow]Analyzing compliance mappings...[/yellow]")
+            logger.info("[yellow]Analyzing compliance mappings...[/yellow]")
             await client.query(mapping_prompt)
             await self._process_agent_messages(client=client)
 
@@ -81,13 +81,13 @@ class ComplianceMappingAgent(Agent):
         changes_made: bool = len(self._files_modified) > 0
 
         if changes_made:
-            print(
-                f"[green]✓ Added compliance mappings to {len(self._files_modified)} file(s)[/green]"
+            logger.success(
+                f"Added compliance mappings to {len(self._files_modified)} file(s)"
             )
             for file_path in self._files_modified:
-                print(f"  - {file_path}")
+                logger.print(f"  - {file_path}")
         else:
-            print("[yellow]No compliance mappings were added[/yellow]")
+            logger.warning("No compliance mappings were added")
 
         return ComplianceMappingResult(
             success=True,
@@ -125,15 +125,16 @@ class ComplianceMappingAgent(Agent):
         )
 
     async def _process_agent_messages(self, client: ClaudeSDKClient) -> None:
-        """Process and print messages from the Claude agent."""
+        """Process and stream messages from the Claude agent."""
         async for message in client.receive_response():
             if isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock):
-                        print(block.text, end="")
+                        # Use builtin print for real-time streaming
+                        print(block.text, end="", flush=True)
                         log_agent_output(block.text)
             elif isinstance(message, ResultMessage):
-                print()
+                print()  # Newline after streaming
                 break
 
     def _get_modified_compliance_files(self) -> set[str]:

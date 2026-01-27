@@ -18,7 +18,6 @@ from claude_agent_sdk import (
     TextBlock,
     create_sdk_mcp_server,
 )
-from rich import print
 
 from agents.base import Agent
 from agents.implementation.models import (
@@ -27,7 +26,7 @@ from agents.implementation.models import (
     CheckVerificationResult,
 )
 from tools.prowler import mkcheck, verify_check_loaded
-from utils.logging import log_agent_output
+from utils.logging import get_workflow_logger, log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -72,7 +71,8 @@ class ChecKreatorAgent(Agent):
         Returns:
             CheckImplementationResult with implementation information
         """
-        print("[bold cyan]Running implementation agent...[/bold cyan]")
+        logger = get_workflow_logger()
+        logger.info("[bold cyan]Running implementation agent...[/bold cyan]")
 
         # Load prompt and create options
         implement_check_prompt: str = self._load_implementation_prompt()
@@ -168,7 +168,7 @@ class ChecKreatorAgent(Agent):
 
     async def _process_agent_messages(self, client: ClaudeSDKClient) -> None:
         """
-        Process and print messages from the Claude agent.
+        Process and stream messages from the Claude agent.
 
         Args:
             client: Claude SDK client instance
@@ -177,10 +177,11 @@ class ChecKreatorAgent(Agent):
             if isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock):
-                        print(block.text, end="")
+                        # Use builtin print for real-time streaming
+                        print(block.text, end="", flush=True)
                         log_agent_output(block.text)
             elif isinstance(message, ResultMessage):
-                print()
+                print()  # Newline after streaming
                 break
 
     def _discover_check_info(self) -> CheckDiscoveryResult:
@@ -190,22 +191,23 @@ class ChecKreatorAgent(Agent):
         Returns:
             CheckDiscoveryResult with discovery information
         """
+        logger = get_workflow_logger()
         check_folders: list[Path] = self._get_new_check_folders()
 
         if not check_folders:
-            print("[red]✗ Could not find check name in repository changes[/red]")
+            logger.error("Could not find check name in repository changes")
             return CheckDiscoveryResult(success=False)
 
         if len(check_folders) > 1:
-            print(
-                "[yellow]✗ Multiple check folders found in repository changes. Selecting the first one...[/yellow]"
+            logger.warning(
+                "Multiple check folders found in repository changes. Selecting the first one..."
             )
 
         check_path: Path = check_folders[0]
         check_name: str = check_path.name
         check_provider: str = check_path.parents[2].name
 
-        print(f"[cyan]Found check: {check_name}[/cyan]")
+        logger.info(f"[cyan]Found check: {check_name}[/cyan]")
         return CheckDiscoveryResult(
             success=True, check_name=check_name, check_provider=check_provider
         )
@@ -224,6 +226,7 @@ class ChecKreatorAgent(Agent):
         Returns:
             CheckVerificationResult with verification information
         """
+        logger = get_workflow_logger()
         max_attempts: int = self.MAX_CHECK_VERIFICATION_ATTEMPTS
         attempt: int = 0
         success: bool = False
@@ -231,7 +234,7 @@ class ChecKreatorAgent(Agent):
 
         while attempt < max_attempts and not success:
             attempt += 1
-            print(
+            logger.info(
                 f"[yellow]Verifying check implementation (attempt {attempt}/{max_attempts})...[/yellow]"
             )
 
@@ -244,14 +247,14 @@ class ChecKreatorAgent(Agent):
             success = verification_status.success
             message = verification_status.message
 
-            print(message)
+            logger.info(message)
 
             if not success:
                 fix_prompt: str = self._load_fix_prompt(
                     check_name=check_name, verification_message=message
                 )
 
-                print(
+                logger.info(
                     f"[yellow]Check verification failed. Requesting fixes (attempt {attempt}/{max_attempts})...[/yellow]"
                 )
 
@@ -259,8 +262,8 @@ class ChecKreatorAgent(Agent):
                 await self._process_agent_messages(client=client)
 
         if not success:
-            print(
-                f"[red]✗ Failed to create a valid check after {max_attempts} attempts[/red]"
+            logger.error(
+                f"Failed to create a valid check after {max_attempts} attempts"
             )
 
         return CheckVerificationResult(

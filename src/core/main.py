@@ -234,12 +234,12 @@ def create_check(
 
         if not test_result.success:
             workflow_logger.error("Testing failed")
-            workflow_logger.error(f"Error: {test_result.message}")
+            if test_result.error:
+                workflow_logger.error(f"Error: {test_result.error}")
             raise typer.Exit(code=1)
 
         workflow_logger.success("Testing completed")
         workflow_logger.print(f"  Test file: {test_result.test_file_path}")
-        workflow_logger.print(f"  Attempts: {test_result.attempts}")
 
         # Stage 3: Compliance Mapping
         workflow_logger.stage("Stage 3: Compliance Mapping")
@@ -289,7 +289,8 @@ def create_check(
 
             if not retest_result.success:
                 workflow_logger.error("Re-testing failed after review changes")
-                workflow_logger.error(f"Error: {retest_result.message}")
+                if retest_result.error:
+                    workflow_logger.error(f"Error: {retest_result.error}")
                 raise typer.Exit(code=1)
 
             workflow_logger.success("Re-testing completed")

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from pathlib import Path  # noqa: TC003 (needed at runtime for path operations)
 from typing import ClassVar
@@ -16,9 +17,63 @@ _console = Console()
 _workflow_logger: WorkflowLogger | None = None
 
 
-def get_workflow_logger() -> WorkflowLogger | None:
-    """Get the global workflow logger instance."""
-    return _workflow_logger
+class BaseLogger(ABC):
+    """Abstract base class for workflow loggers."""
+
+    @abstractmethod
+    def info(self, message: str) -> None:
+        """Log an info message."""
+
+    @abstractmethod
+    def success(self, message: str) -> None:
+        """Log a success message."""
+
+    @abstractmethod
+    def error(self, message: str) -> None:
+        """Log an error message."""
+
+    @abstractmethod
+    def warning(self, message: str) -> None:
+        """Log a warning message."""
+
+    @abstractmethod
+    def stage(self, stage_name: str) -> None:
+        """Log a stage marker."""
+
+    @abstractmethod
+    def print(self, message: str) -> None:
+        """Print a message."""
+
+
+class NullLogger(BaseLogger):
+    """A no-op logger that silently discards all messages."""
+
+    def info(self, message: str) -> None:
+        """No-op."""
+
+    def success(self, message: str) -> None:
+        """No-op."""
+
+    def error(self, message: str) -> None:
+        """No-op."""
+
+    def warning(self, message: str) -> None:
+        """No-op."""
+
+    def stage(self, stage_name: str) -> None:
+        """No-op."""
+
+    def print(self, message: str) -> None:
+        """No-op."""
+
+
+# Singleton null logger instance
+_null_logger = NullLogger()
+
+
+def get_workflow_logger() -> BaseLogger:
+    """Get the global workflow logger instance, or a null logger if none is set."""
+    return _workflow_logger if _workflow_logger is not None else _null_logger
 
 
 def set_workflow_logger(logger: WorkflowLogger | None) -> None:
@@ -59,7 +114,7 @@ def console_error(message: str) -> None:
     _console.print(f"[red]✗ {message}[/red]")
 
 
-class WorkflowLogger:
+class WorkflowLogger(BaseLogger):
     """
     Logger for workflow runs with file output.
 
