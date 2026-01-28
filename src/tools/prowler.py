@@ -8,7 +8,7 @@ from claude_agent_sdk import tool
 from rich import print
 
 from core.exceptions import ToolError
-from tools.models import CheckVerificationStatus
+from tools.models import CheckVerificationStatus, TestRunResult
 
 
 class ProwlerToolError(ToolError):
@@ -18,6 +18,7 @@ class ProwlerToolError(ToolError):
 # Constants
 DEPENDENCY_INSTALL_TIMEOUT: int = 300  # 5 minutes
 CHECK_VERIFICATION_TIMEOUT: int = 60  # 1 minute
+PYTEST_TIMEOUT: int = 300  # 5 minutes
 DEFAULT_WORKING_DIR: Path = Path("./working/prowler")
 
 
@@ -180,4 +181,51 @@ def verify_check_loaded(
     except Exception as e:
         return CheckVerificationStatus(
             success=False, message=f"Verification error: {e}"
+        )
+
+
+def run_pytest(
+    test_path: Path,
+    prowler_directory: Path,
+    timeout: int = PYTEST_TIMEOUT,
+) -> TestRunResult:
+    """
+    Run pytest on a specific test path.
+
+    Args:
+        test_path: Path to the test file or directory (relative to prowler_directory)
+        prowler_directory: Path to the Prowler repository
+        timeout: Timeout in seconds (default: 300)
+
+    Returns:
+        TestRunResult with test execution results
+    """
+    try:
+        print(f"[yellow]Running pytest on {test_path}...[/yellow]")
+        result: subprocess.CompletedProcess[str] = subprocess.run(  # nosec B603 B607
+            ["poetry", "run", "pytest", "-v", str(test_path)],
+            cwd=prowler_directory,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
+        if result.returncode == 0:
+            print(f"[green]✓ Tests passed for {test_path}[/green]")
+            return TestRunResult(success=True, error_output="")
+        else:
+            # Combine stdout and stderr for full error context
+            error_output: str = f"{result.stdout}\n{result.stderr}".strip()
+            print(f"[red]✗ Tests failed for {test_path}[/red]")
+            return TestRunResult(success=False, error_output=error_output)
+
+    except subprocess.TimeoutExpired:
+        return TestRunResult(
+            success=False,
+            error_output=f"Tests timed out after {timeout} seconds",
+        )
+    except Exception as e:
+        return TestRunResult(
+            success=False,
+            error_output=f"Error running tests: {e}",
         )

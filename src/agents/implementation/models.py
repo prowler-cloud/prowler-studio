@@ -26,6 +26,9 @@ class CheckImplementationResult(BaseModel):
 
     success: bool = Field(description="Whether implementation was successful")
     check_name: str = Field(default="", description="Name of the implemented check")
+    check_provider: str = Field(
+        default="", description="Provider of the check (e.g., 'aws', 'azure')"
+    )
     message: str = Field(default="", description="Result message")
     attempts: int = Field(default=0, description="Number of verification attempts")
     error: str | None = Field(default=None, description="Error message if failed")

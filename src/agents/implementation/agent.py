@@ -1,9 +1,14 @@
 """Implementation agent for creating Prowler checks."""
 
+from __future__ import annotations
+
+import logging
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
+    from git import Repo
+
     from tools.models import CheckVerificationStatus
 
 from claude_agent_sdk import (
@@ -14,8 +19,6 @@ from claude_agent_sdk import (
     TextBlock,
     create_sdk_mcp_server,
 )
-from git import Repo
-from rich import print
 
 from agents.base import Agent
 from agents.implementation.models import (
@@ -24,6 +27,7 @@ from agents.implementation.models import (
     CheckVerificationResult,
 )
 from tools.prowler import mkcheck, verify_check_loaded
+from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -31,17 +35,34 @@ class ChecKreatorAgent(Agent):
     """Agent that implements Prowler checks from tickets."""
 
     # MCP Server Configuration
-    MCP_SERVER_NAME: str = "utils"
-    MCP_SERVER_VERSION: str = "1.0.0"
+    MCP_SERVER_NAME: ClassVar[str] = "utils"
+    MCP_SERVER_VERSION: ClassVar[str] = "1.0.0"
 
     # Check Verification
-    MAX_CHECK_VERIFICATION_ATTEMPTS: int = 5
+    MAX_CHECK_VERIFICATION_ATTEMPTS: ClassVar[int] = 5
+
+    # File name constants
+    INIT_FILE: ClassVar[str] = "__init__.py"
+
+    ALLOWED_TOOLS: ClassVar[list[str]] = [
+        "Read",
+        "Write",
+        "Edit",
+        "Bash",
+        "Glob",
+        "Grep",
+        "mcp__utils__mkcheck",
+    ]
 
     def __init__(
-        self, working_dir: Path, check_ticket: str, prowler_repo: Repo, **kwargs: Any
+        self,
+        working_dir: Path,
+        check_ticket: str | None,
+        prowler_repo: Repo,
+        **kwargs: Any,
     ) -> None:
         super().__init__(working_dir, **kwargs)
-        self.check_ticket: str = check_ticket
+        self.check_ticket: str | None = check_ticket
         self.prowler_repo: Repo = prowler_repo
 
     async def run(self) -> CheckImplementationResult:  # type: ignore[override]
@@ -51,7 +72,7 @@ class ChecKreatorAgent(Agent):
         Returns:
             CheckImplementationResult with implementation information
         """
-        print("[bold cyan]Running implementation agent...[/bold cyan]")
+        logging.info("[bold cyan]Running implementation agent...[/bold cyan]")
 
         # Load prompt and create options
         implement_check_prompt: str = self._load_implementation_prompt()
@@ -83,6 +104,7 @@ class ChecKreatorAgent(Agent):
         return CheckImplementationResult(
             success=verification_result.success,
             check_name=discovery_result.check_name,
+            check_provider=discovery_result.check_provider,
             message=verification_result.message,
             attempts=verification_result.attempts,
         )
@@ -96,7 +118,10 @@ class ChecKreatorAgent(Agent):
         """
         prompt_path: Path = Path(__file__).parent / "prompts" / "implement_check.jinja"
         return load_prompt(
-            path=prompt_path, context={"check_ticket": self.check_ticket}
+            path=prompt_path,
+            context={
+                "check_ticket": self.check_ticket,
+            },
         )
 
     def _load_fix_prompt(self, check_name: str, verification_message: str) -> str:
@@ -132,24 +157,18 @@ class ChecKreatorAgent(Agent):
             tools=[mkcheck],
         )
 
+        mcp_servers: dict[str, Any] = {"utils": tools_server}
+
         return ClaudeAgentOptions(
-            allowed_tools=[
-                "Read",
-                "Write",
-                "Edit",
-                "Bash",
-                "Glob",
-                "Grep",
-                "mcp__utils__mkcheck",
-            ],
-            mcp_servers={"utils": tools_server},
+            allowed_tools=self.ALLOWED_TOOLS,
+            mcp_servers=mcp_servers,
             permission_mode="bypassPermissions",
             cwd=str(self.working_dir),
         )
 
     async def _process_agent_messages(self, client: ClaudeSDKClient) -> None:
         """
-        Process and print messages from the Claude agent.
+        Process and stream messages from the Claude agent.
 
         Args:
             client: Claude SDK client instance
@@ -158,9 +177,11 @@ class ChecKreatorAgent(Agent):
             if isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock):
-                        print(block.text, end="")
+                        # Use builtin print for real-time streaming
+                        print(block.text, end="", flush=True)
+                        log_agent_output(block.text)
             elif isinstance(message, ResultMessage):
-                print()
+                print()  # Newline after streaming
                 break
 
     def _discover_check_info(self) -> CheckDiscoveryResult:
@@ -173,19 +194,19 @@ class ChecKreatorAgent(Agent):
         check_folders: list[Path] = self._get_new_check_folders()
 
         if not check_folders:
-            print("[red]✗ Could not find check name in repository changes[/red]")
+            logging.error("Could not find check name in repository changes")
             return CheckDiscoveryResult(success=False)
 
         if len(check_folders) > 1:
-            print(
-                "[yellow]✗ Multiple check folders found in repository changes. Selecting the first one...[/yellow]"
+            logging.warning(
+                "Multiple check folders found in repository changes. Selecting the first one..."
             )
 
         check_path: Path = check_folders[0]
         check_name: str = check_path.name
         check_provider: str = check_path.parents[2].name
 
-        print(f"[cyan]Found check: {check_name}[/cyan]")
+        logging.info(f"[cyan]Found check: {check_name}[/cyan]")
         return CheckDiscoveryResult(
             success=True, check_name=check_name, check_provider=check_provider
         )
@@ -211,7 +232,7 @@ class ChecKreatorAgent(Agent):
 
         while attempt < max_attempts and not success:
             attempt += 1
-            print(
+            logging.info(
                 f"[yellow]Verifying check implementation (attempt {attempt}/{max_attempts})...[/yellow]"
             )
 
@@ -224,14 +245,14 @@ class ChecKreatorAgent(Agent):
             success = verification_status.success
             message = verification_status.message
 
-            print(message)
+            logging.info(message)
 
             if not success:
                 fix_prompt: str = self._load_fix_prompt(
                     check_name=check_name, verification_message=message
                 )
 
-                print(
+                logging.info(
                     f"[yellow]Check verification failed. Requesting fixes (attempt {attempt}/{max_attempts})...[/yellow]"
                 )
 
@@ -239,8 +260,8 @@ class ChecKreatorAgent(Agent):
                 await self._process_agent_messages(client=client)
 
         if not success:
-            print(
-                f"[red]✗ Failed to create a valid check after {max_attempts} attempts[/red]"
+            logging.error(
+                f"Failed to create a valid check after {max_attempts} attempts"
             )
 
         return CheckVerificationResult(
@@ -277,7 +298,7 @@ class ChecKreatorAgent(Agent):
             py_files: set[str] = {
                 filename.replace(".py", "")
                 for filename in filenames
-                if filename.endswith(".py") and filename != "__init__.py"
+                if filename.endswith(".py") and filename != self.INIT_FILE
             }
             json_files: set[str] = {
                 filename.replace(".metadata.json", "")

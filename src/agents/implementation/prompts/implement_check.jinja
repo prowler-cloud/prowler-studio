@@ -61,6 +61,26 @@ Create the check file with:
   - Creates PASS or FAIL findings
   - Includes proper error handling
 
+### Metadata Best Practices
+
+#### CheckTitle Format
+
+The CheckTitle should describe the **security benefit** of the feature, not just its state.
+
+**Pattern**: "[Feature] protects/ensures/prevents [Target] from [Threat/Risk]"
+
+| ❌ Bad (describes state) | ✅ Good (describes benefit) |
+|--------------------------|----------------------------|
+| "MFA is enabled for IAM users" | "MFA protects IAM users from credential theft" |
+| "Encryption is enabled for S3 buckets" | "S3 bucket encryption protects data at rest" |
+| "Logging is enabled for CloudTrail" | "CloudTrail logging ensures audit trail for API activity" |
+| "ZAP is enabled for Microsoft Teams" | "Zero-hour auto purge (ZAP) protects Microsoft Teams from malware and phishing" |
+
+**Guidelines:**
+- Use active verbs: protects, ensures, prevents, detects, monitors
+- Mention the security benefit (what threat is mitigated)
+- Keep it concise but descriptive (under 100 characters)
+
 ## References
 
 For any doubts, you can refer to following files in Prowler repository:
@@ -69,6 +89,10 @@ For any doubts, you can refer to following files in Prowler repository:
 
 ## Check Ticket
 
+{% if check_ticket %}
 This is the new check ticket that you need to implement:
 
 {{ check_ticket }}
+{% else %}
+**ERROR**: No check ticket content provided. A check ticket is required to implement a new check.
+{% endif %}

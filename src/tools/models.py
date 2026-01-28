@@ -18,3 +18,18 @@ class MkcheckResult(BaseModel):
     check_folder: str = Field(
         default="", description="Path to the created check folder"
     )
+
+
+class SkillsSetupResult(BaseModel):
+    """Result of setting up AI skills in the Prowler repository."""
+
+    success: bool = Field(description="Whether skills setup was successful")
+    message: str = Field(description="Success or error message")
+    skills_count: int = Field(default=0, description="Number of skills configured")
+
+
+class TestRunResult(BaseModel):
+    """Result of running pytest."""
+
+    success: bool = Field(description="Whether all tests passed")
+    error_output: str = Field(default="", description="Error output if tests failed")

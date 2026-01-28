@@ -58,6 +58,7 @@ dmypy.json
 
 # Project specific
 working/
+logs/
 *.log
 
 # Environment files
