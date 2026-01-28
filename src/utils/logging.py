@@ -42,8 +42,10 @@ def setup_logging(base_dir: Path, ticket: str | None = None) -> Path:
     # Console handler (colored with Rich)
     console_handler = RichHandler(rich_tracebacks=True, markup=True)
 
+    # Set format to just the message - Rich adds level/time, file handler has its own format
     logging.basicConfig(
         level=logging.INFO,
+        format="%(message)s",
         handlers=[_file_handler, console_handler],
         force=True,
     )
