@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -20,7 +21,7 @@ from claude_agent_sdk import (
 
 from agents.base import Agent
 from agents.pr_creation.models import PRCreationResult
-from utils.logging import get_workflow_logger, log_agent_output
+from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -64,15 +65,14 @@ class PRCreationAgent(Agent):
         Returns:
             PRCreationResult with PR information
         """
-        logger = get_workflow_logger()
-        logger.info("[bold cyan]Running PR creation agent...[/bold cyan]")
+        logging.info("[bold cyan]Running PR creation agent...[/bold cyan]")
 
         # Load prompt and create options
         pr_prompt: str = self._load_pr_prompt()
         options: ClaudeAgentOptions = self._create_claude_options()
 
         async with ClaudeSDKClient(options=options) as client:
-            logger.info("[yellow]Creating commit and pull request...[/yellow]")
+            logging.info("[yellow]Creating commit and pull request...[/yellow]")
             await client.query(pr_prompt)
             response_text: str = await self._process_agent_messages_capture(
                 client=client
@@ -86,7 +86,7 @@ class PRCreationAgent(Agent):
             self._commit_sha = self.prowler_repo.head.commit.hexsha
 
         if self._pr_url:
-            logger.success(f"PR created: {self._pr_url}")
+            logging.info(f"[green]✓ PR created: {self._pr_url}[/green]")
             return PRCreationResult(
                 success=True,
                 check_name=self.check_name,
@@ -96,7 +96,7 @@ class PRCreationAgent(Agent):
                 message=f"PR #{self._pr_number} created successfully",
             )
         else:
-            logger.error("Failed to create PR")
+            logging.error("Failed to create PR")
             return PRCreationResult(
                 success=False,
                 check_name=self.check_name,

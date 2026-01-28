@@ -1,344 +1,87 @@
-"""Workflow logging utilities for debugging agent reasoning."""
+"""Simple logging setup - console (with colors) + file output."""
 
 from __future__ import annotations
 
 import logging
 import re
-from abc import ABC, abstractmethod
-from datetime import datetime, timedelta
-from pathlib import Path  # noqa: TC003 (needed at runtime for path operations)
-from typing import ClassVar
+from datetime import datetime
+from pathlib import Path  # noqa: TC003 (used at runtime for path operations)
 
-from rich.console import Console
+from rich.logging import RichHandler
 
-_console = Console()
-
-# Global logger instance for easy access
-_workflow_logger: WorkflowLogger | None = None
+# Module-level file handler for agent output logging
+_file_handler: logging.FileHandler | None = None
 
 
-class BaseLogger(ABC):
-    """Abstract base class for workflow loggers."""
+def setup_logging(base_dir: Path, ticket: str | None = None) -> Path:
+    """
+    Configure logging to output to both console (colored) and file.
 
-    @abstractmethod
-    def info(self, message: str) -> None:
-        """Log an info message."""
+    Args:
+        base_dir: Base directory for the logs folder
+        ticket: Optional ticket key for log filename
 
-    @abstractmethod
-    def success(self, message: str) -> None:
-        """Log a success message."""
+    Returns:
+        Path to the log file
+    """
+    global _file_handler
 
-    @abstractmethod
-    def error(self, message: str) -> None:
-        """Log an error message."""
+    logs_dir = base_dir / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
 
-    @abstractmethod
-    def warning(self, message: str) -> None:
-        """Log a warning message."""
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    filename = f"{timestamp}_{ticket}.log" if ticket else f"{timestamp}.log"
+    log_file = logs_dir / filename
 
-    @abstractmethod
-    def stage(self, stage_name: str) -> None:
-        """Log a stage marker."""
+    # File handler (plain text)
+    _file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    _file_handler.setFormatter(
+        logging.Formatter("%(asctime)s | %(levelname)-8s | %(message)s")
+    )
 
-    @abstractmethod
-    def print(self, message: str) -> None:
-        """Print a message."""
+    # Console handler (colored with Rich)
+    console_handler = RichHandler(rich_tracebacks=True, markup=True)
 
+    logging.basicConfig(
+        level=logging.INFO,
+        handlers=[_file_handler, console_handler],
+        force=True,
+    )
 
-class NullLogger(BaseLogger):
-    """A no-op logger that silently discards all messages."""
+    logging.info("=" * 60)
+    logging.info("WORKFLOW STARTED")
+    logging.info(f"Log file: {log_file}")
+    logging.info("=" * 60)
 
-    def info(self, message: str) -> None:
-        """No-op."""
-
-    def success(self, message: str) -> None:
-        """No-op."""
-
-    def error(self, message: str) -> None:
-        """No-op."""
-
-    def warning(self, message: str) -> None:
-        """No-op."""
-
-    def stage(self, stage_name: str) -> None:
-        """No-op."""
-
-    def print(self, message: str) -> None:
-        """No-op."""
-
-
-# Singleton null logger instance
-_null_logger = NullLogger()
-
-
-def get_workflow_logger() -> BaseLogger:
-    """Get the global workflow logger instance, or a null logger if none is set."""
-    return _workflow_logger if _workflow_logger is not None else _null_logger
-
-
-def set_workflow_logger(logger: WorkflowLogger | None) -> None:
-    """Set the global workflow logger instance."""
-    global _workflow_logger
-    _workflow_logger = logger
+    return log_file
 
 
 def log_agent_output(text: str) -> None:
     """
-    Log agent output to the workflow log file.
+    Log agent output text to the log file only (not console).
 
     Args:
-        text: Agent output text
+        text: Agent output text (may contain Rich markup)
     """
-    if _workflow_logger:
-        _workflow_logger.log_agent_output(text)
+    if _file_handler is None:
+        return
+
+    clean_text = _strip_rich_markup(text)
+    if clean_text.strip():
+        for line in clean_text.splitlines():
+            if line.strip():
+                record = logging.LogRecord(
+                    name="agent",
+                    level=logging.DEBUG,
+                    pathname="",
+                    lineno=0,
+                    msg=f"[AGENT] {line}",
+                    args=(),
+                    exc_info=None,
+                )
+                _file_handler.emit(record)
 
 
-def log_stage(stage_name: str) -> None:
-    """
-    Log a stage marker to the workflow log file.
-
-    Args:
-        stage_name: Name of the stage
-    """
-    if _workflow_logger:
-        _workflow_logger.log_stage(stage_name)
-
-
-def console_error(message: str) -> None:
-    """
-    Print an error message to console only (before logger is initialized).
-
-    Args:
-        message: Error message to display
-    """
-    _console.print(f"[red]✗ {message}[/red]")
-
-
-class WorkflowLogger(BaseLogger):
-    """
-    Logger for workflow runs with file output.
-
-    Creates timestamped log files for debugging agent reasoning.
-    Logs are written to the `logs/` directory.
-    """
-
-    DATE_FORMAT: ClassVar[str] = "%Y-%m-%d_%H%M%S"
-    LOG_FORMAT: ClassVar[str] = "%(asctime)s | %(levelname)-8s | %(message)s"
-
-    def __init__(
-        self,
-        base_dir: Path,
-        jira_ticket: str | None = None,
-    ) -> None:
-        """
-        Initialize the workflow logger.
-
-        Args:
-            base_dir: Base directory for the logs folder
-            jira_ticket: Optional Jira ticket key for log filename
-        """
-        self.logs_dir: Path = base_dir / "logs"
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
-
-        self.jira_ticket: str | None = jira_ticket
-        self.start_time: datetime = datetime.now()
-        self.log_file: Path = self._generate_log_filename()
-        self.logger: logging.Logger = self._setup_logger()
-
-        # Log initial info
-        self.logger.info("=" * 60)
-        self.logger.info("WORKFLOW STARTED")
-        self.logger.info(f"Start time: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        if self.jira_ticket:
-            self.logger.info(f"Jira ticket: {self.jira_ticket}")
-        self.logger.info("=" * 60)
-
-    def _generate_log_filename(self) -> Path:
-        """
-        Generate the log filename with timestamp and optional ticket key.
-
-        Returns:
-            Path to the log file
-        """
-        timestamp: str = self.start_time.strftime(self.DATE_FORMAT)
-
-        if self.jira_ticket:
-            filename: str = f"{timestamp}_{self.jira_ticket}.log"
-        else:
-            filename = f"{timestamp}.log"
-
-        return self.logs_dir / filename
-
-    def _setup_logger(self) -> logging.Logger:
-        """
-        Set up the logger with file handler.
-
-        Returns:
-            Configured logger instance
-        """
-        logger: logging.Logger = logging.getLogger(f"workflow_{id(self)}")
-        logger.setLevel(logging.DEBUG)
-
-        # Remove any existing handlers
-        logger.handlers.clear()
-
-        # File handler
-        file_handler: logging.FileHandler = logging.FileHandler(
-            self.log_file, encoding="utf-8"
-        )
-        file_handler.setLevel(logging.DEBUG)
-
-        # Formatter
-        formatter: logging.Formatter = logging.Formatter(
-            self.LOG_FORMAT, datefmt="%Y-%m-%d %H:%M:%S"
-        )
-        file_handler.setFormatter(formatter)
-
-        logger.addHandler(file_handler)
-
-        return logger
-
-    def _strip_rich_markup(self, text: str) -> str:
-        """
-        Strip Rich console markup from text.
-
-        Args:
-            text: Text with potential Rich markup
-
-        Returns:
-            Plain text without markup
-        """
-        # Remove Rich markup tags like [bold], [red], [/bold], etc.
-        return re.sub(r"\[/?[^\]]+\]", "", text)
-
-    def log_agent_output(self, text: str) -> None:
-        """
-        Log agent output text.
-
-        Args:
-            text: Agent output text (may contain Rich markup)
-        """
-        clean_text: str = self._strip_rich_markup(text)
-        if clean_text.strip():
-            for line in clean_text.splitlines():
-                if line.strip():
-                    self.logger.debug(f"[AGENT] {line}")
-
-    def log_stage(self, stage_name: str) -> None:
-        """
-        Log a stage marker.
-
-        Args:
-            stage_name: Name of the stage
-        """
-        self.logger.info("")
-        self.logger.info("=" * 60)
-        self.logger.info(f"STAGE: {stage_name}")
-        self.logger.info("=" * 60)
-
-    def log_info(self, message: str) -> None:
-        """
-        Log an info message.
-
-        Args:
-            message: Message to log
-        """
-        self.logger.info(message)
-
-    def log_error(self, message: str) -> None:
-        """
-        Log an error message.
-
-        Args:
-            message: Error message to log
-        """
-        self.logger.error(message)
-
-    def info(self, message: str) -> None:
-        """
-        Log an info message to both console (with Rich) and log file.
-
-        Args:
-            message: Message to log
-        """
-        _console.print(message)
-        clean_message = self._strip_rich_markup(message)
-        self.logger.info(clean_message)
-
-    def success(self, message: str) -> None:
-        """
-        Log a success message to both console (with Rich) and log file.
-
-        Args:
-            message: Success message to log
-        """
-        _console.print(f"[green]✓ {message}[/green]")
-        self.logger.info(f"SUCCESS: {message}")
-
-    def error(self, message: str) -> None:
-        """
-        Log an error message to both console (with Rich) and log file.
-
-        Args:
-            message: Error message to log
-        """
-        _console.print(f"[red]✗ {message}[/red]")
-        self.logger.error(message)
-
-    def warning(self, message: str) -> None:
-        """
-        Log a warning message to both console (with Rich) and log file.
-
-        Args:
-            message: Warning message to log
-        """
-        _console.print(f"[yellow]⚠ {message}[/yellow]")
-        self.logger.warning(message)
-
-    def stage(self, stage_name: str) -> None:
-        """
-        Log a stage marker to both console (with Rich) and log file.
-
-        Args:
-            stage_name: Name of the stage
-        """
-        _console.print(f"\n[bold cyan]=== {stage_name} ===[/bold cyan]")
-        self.log_stage(stage_name)
-
-    def print(self, message: str) -> None:
-        """
-        Print a message to both console (with Rich markup) and log file.
-
-        This is a general-purpose method for messages that need Rich formatting
-        but don't fit info/success/error/warning categories.
-
-        Args:
-            message: Message to print (may contain Rich markup)
-        """
-        _console.print(message)
-        clean_message = self._strip_rich_markup(message)
-        if clean_message.strip():
-            self.logger.info(clean_message)
-
-    def finalize(self, success: bool) -> None:
-        """
-        Finalize the log with summary information.
-
-        Args:
-            success: Whether the workflow completed successfully
-        """
-        end_time: datetime = datetime.now()
-        duration: timedelta = end_time - self.start_time
-
-        self.logger.info("")
-        self.logger.info("=" * 60)
-        self.logger.info("WORKFLOW COMPLETE")
-        self.logger.info(f"End time: {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        self.logger.info(f"Duration: {duration}")
-        self.logger.info(f"Success: {success}")
-        self.logger.info("=" * 60)
-
-        # Close all handlers
-        for handler in self.logger.handlers:
-            handler.close()
-            self.logger.removeHandler(handler)
+def _strip_rich_markup(text: str) -> str:
+    """Strip Rich console markup from text."""
+    return re.sub(r"\[/?[^\]]+\]", "", text)

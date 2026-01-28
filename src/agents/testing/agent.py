@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -19,7 +20,7 @@ from claude_agent_sdk import (
 from agents.base import Agent
 from agents.testing.models import TestingResult
 from tools.prowler import run_pytest
-from utils.logging import get_workflow_logger, log_agent_output
+from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -58,8 +59,7 @@ class TestingAgent(Agent):
         Returns:
             TestingResult with testing information
         """
-        logger = get_workflow_logger()
-        logger.info("[bold cyan]Running testing agent...[/bold cyan]")
+        logging.info("[bold cyan]Running testing agent...[/bold cyan]")
 
         service: str = self.check_name.split("_")[0]
         test_file_path: str = self._build_test_file_path(service)
@@ -89,8 +89,7 @@ class TestingAgent(Agent):
 
     async def _generate_tests(self, client: ClaudeSDKClient) -> None:
         """Generate tests using Claude agent."""
-        logger = get_workflow_logger()
-        logger.info("[yellow]Generating tests...[/yellow]")
+        logging.info("[yellow]Generating tests...[/yellow]")
         generate_prompt: str = self._load_generate_prompt()
         await client.query(generate_prompt)
         await self._process_agent_messages(client=client)
@@ -110,14 +109,13 @@ class TestingAgent(Agent):
         Returns:
             True if tests pass, False otherwise.
         """
-        logger = get_workflow_logger()
         prowler_directory: Path = Path(self.prowler_repo.working_dir)
         attempt: int = 0
         success: bool = False
 
         while attempt < self.MAX_TEST_FIX_ATTEMPTS and not success:
             attempt += 1
-            logger.info(
+            logging.info(
                 f"[yellow]Running tests (attempt {attempt}/{self.MAX_TEST_FIX_ATTEMPTS})...[/yellow]"
             )
 
@@ -128,7 +126,7 @@ class TestingAgent(Agent):
             )
 
             if not check_test_result.success:
-                logger.info("[yellow]Check tests failed, attempting fix...[/yellow]")
+                logging.info("[yellow]Check tests failed, attempting fix...[/yellow]")
                 await self._attempt_fix(
                     client, test_file_path, check_test_result.error_output, attempt
                 )
@@ -145,17 +143,17 @@ class TestingAgent(Agent):
 
             if service_test_result.success:
                 success = True
-                logger.success(
-                    f"All tests passed for {self.check_name} and service {service}"
+                logging.info(
+                    f"[green]✓ All tests passed for {self.check_name} and service {service}[/green]"
                 )
             else:
-                logger.info("[yellow]Service tests failed, attempting fix...[/yellow]")
+                logging.info("[yellow]Service tests failed, attempting fix...[/yellow]")
                 await self._attempt_fix(
                     client, test_file_path, service_test_result.error_output, attempt
                 )
 
         if not success:
-            logger.error(f"Tests failed after {self.MAX_TEST_FIX_ATTEMPTS} attempts")
+            logging.error(f"Tests failed after {self.MAX_TEST_FIX_ATTEMPTS} attempts")
 
         return success
 

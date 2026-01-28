@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -26,7 +27,7 @@ from agents.implementation.models import (
     CheckVerificationResult,
 )
 from tools.prowler import mkcheck, verify_check_loaded
-from utils.logging import get_workflow_logger, log_agent_output
+from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -71,8 +72,7 @@ class ChecKreatorAgent(Agent):
         Returns:
             CheckImplementationResult with implementation information
         """
-        logger = get_workflow_logger()
-        logger.info("[bold cyan]Running implementation agent...[/bold cyan]")
+        logging.info("[bold cyan]Running implementation agent...[/bold cyan]")
 
         # Load prompt and create options
         implement_check_prompt: str = self._load_implementation_prompt()
@@ -191,15 +191,14 @@ class ChecKreatorAgent(Agent):
         Returns:
             CheckDiscoveryResult with discovery information
         """
-        logger = get_workflow_logger()
         check_folders: list[Path] = self._get_new_check_folders()
 
         if not check_folders:
-            logger.error("Could not find check name in repository changes")
+            logging.error("Could not find check name in repository changes")
             return CheckDiscoveryResult(success=False)
 
         if len(check_folders) > 1:
-            logger.warning(
+            logging.warning(
                 "Multiple check folders found in repository changes. Selecting the first one..."
             )
 
@@ -207,7 +206,7 @@ class ChecKreatorAgent(Agent):
         check_name: str = check_path.name
         check_provider: str = check_path.parents[2].name
 
-        logger.info(f"[cyan]Found check: {check_name}[/cyan]")
+        logging.info(f"[cyan]Found check: {check_name}[/cyan]")
         return CheckDiscoveryResult(
             success=True, check_name=check_name, check_provider=check_provider
         )
@@ -226,7 +225,6 @@ class ChecKreatorAgent(Agent):
         Returns:
             CheckVerificationResult with verification information
         """
-        logger = get_workflow_logger()
         max_attempts: int = self.MAX_CHECK_VERIFICATION_ATTEMPTS
         attempt: int = 0
         success: bool = False
@@ -234,7 +232,7 @@ class ChecKreatorAgent(Agent):
 
         while attempt < max_attempts and not success:
             attempt += 1
-            logger.info(
+            logging.info(
                 f"[yellow]Verifying check implementation (attempt {attempt}/{max_attempts})...[/yellow]"
             )
 
@@ -247,14 +245,14 @@ class ChecKreatorAgent(Agent):
             success = verification_status.success
             message = verification_status.message
 
-            logger.info(message)
+            logging.info(message)
 
             if not success:
                 fix_prompt: str = self._load_fix_prompt(
                     check_name=check_name, verification_message=message
                 )
 
-                logger.info(
+                logging.info(
                     f"[yellow]Check verification failed. Requesting fixes (attempt {attempt}/{max_attempts})...[/yellow]"
                 )
 
@@ -262,7 +260,7 @@ class ChecKreatorAgent(Agent):
                 await self._process_agent_messages(client=client)
 
         if not success:
-            logger.error(
+            logging.error(
                 f"Failed to create a valid check after {max_attempts} attempts"
             )
 

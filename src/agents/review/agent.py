@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -18,7 +19,7 @@ from claude_agent_sdk import (
 
 from agents.base import Agent
 from agents.review.models import ReviewResult
-from utils.logging import get_workflow_logger, log_agent_output
+from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -55,8 +56,7 @@ class ReviewAgent(Agent):
         Returns:
             ReviewResult with review information
         """
-        logger = get_workflow_logger()
-        logger.info("[bold cyan]Running review agent...[/bold cyan]")
+        logging.info("[bold cyan]Running review agent...[/bold cyan]")
 
         # Load prompt and create options
         review_prompt: str = self._load_review_prompt()
@@ -67,7 +67,7 @@ class ReviewAgent(Agent):
         initial_untracked: set[str] = set(self.prowler_repo.untracked_files)
 
         async with ClaudeSDKClient(options=options) as client:
-            logger.info("[yellow]Reviewing check implementation...[/yellow]")
+            logging.info("[yellow]Reviewing check implementation...[/yellow]")
             await client.query(review_prompt)
             await self._process_agent_messages(client=client)
 
@@ -82,9 +82,9 @@ class ReviewAgent(Agent):
         )
 
         if changes_made:
-            logger.warning("Review made changes - re-testing recommended")
+            logging.warning("Review made changes - re-testing recommended")
         else:
-            logger.success("Review complete - no changes needed")
+            logging.info("[green]✓ Review complete - no changes needed[/green]")
 
         return ReviewResult(
             success=True,
