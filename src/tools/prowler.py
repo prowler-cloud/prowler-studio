@@ -28,6 +28,7 @@ DEFAULT_WORKING_DIR: Path = Path("./working/prowler")
     input_schema={
         "provider": str,
         "check_name": str,
+        "prowler_directory": str,
     },
 )
 async def mkcheck(args: dict[str, Any]) -> dict[str, Any]:
@@ -41,6 +42,7 @@ async def mkcheck(args: dict[str, Any]) -> dict[str, Any]:
         args: Dictionary containing:
             - provider: Cloud provider (e.g., 'gcp', 'aws', 'azure')
             - check_name: Name of the check (without service prefix)
+            - prowler_directory: Path to the Prowler repository (optional, defaults to ./working/prowler)
 
     Returns:
         Dictionary with content and optional error status
@@ -49,7 +51,9 @@ async def mkcheck(args: dict[str, Any]) -> dict[str, Any]:
         # Extract parameters with explicit type hints
         provider: str = args["provider"]
         check_name: str = args["check_name"]
-        prowler_directory: Path = DEFAULT_WORKING_DIR
+        prowler_directory: Path = Path(
+            args.get("prowler_directory") or DEFAULT_WORKING_DIR
+        )
 
         # Build check folder path
         check_folder: Path = (
