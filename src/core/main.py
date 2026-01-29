@@ -93,6 +93,13 @@ def create_check(
             help="Remove worktree after successful PR creation",
         ),
     ] = False,
+    local: Annotated[
+        bool,
+        typer.Option(
+            "--local",
+            help="Keep changes local only (no push, no PR creation)",
+        ),
+    ] = False,
 ) -> None:
     """
     Create a Prowler check from a markdown ticket or Jira URL.
@@ -341,22 +348,30 @@ def create_check(
 
             logging.info("[green]✓ Re-testing completed[/green]")
 
-        # Stage 6: PR Creation
-        logging.info("")
-        logging.info("=" * 60)
-        logging.info("STAGE: Stage 6: PR Creation")
-        logging.info("=" * 60)
-        pr_agent: PRCreationAgent = PRCreationAgent(
-            working_dir=prowler_repo_path,
-            check_name=impl_result.check_name,
-            check_provider=impl_result.check_provider,
-            branch_name=final_branch_name,
-            prowler_repo=repo,
-            jira_url=jira_url,
-            check_ticket=check_ticket_content,
-        )
+        # Stage 6: PR Creation (unless --local)
+        pr_result: PRCreationResult | None = None
+        if not local:
+            logging.info("")
+            logging.info("=" * 60)
+            logging.info("STAGE: Stage 6: PR Creation")
+            logging.info("=" * 60)
+            pr_agent: PRCreationAgent = PRCreationAgent(
+                working_dir=prowler_repo_path,
+                check_name=impl_result.check_name,
+                check_provider=impl_result.check_provider,
+                branch_name=final_branch_name,
+                prowler_repo=repo,
+                jira_url=jira_url,
+                check_ticket=check_ticket_content,
+            )
 
-        pr_result: PRCreationResult = asyncio.run(pr_agent.run())
+            pr_result = asyncio.run(pr_agent.run())
+        else:
+            logging.info("")
+            logging.info("=" * 60)
+            logging.info("STAGE: Stage 6: PR Creation (skipped - local mode)")
+            logging.info("=" * 60)
+            logging.info("[yellow]Local mode: skipping push and PR creation[/yellow]")
 
         # Display final results
         logging.info("")
@@ -364,7 +379,34 @@ def create_check(
         logging.info("STAGE: Final Results")
         logging.info("=" * 60)
 
-        if pr_result.success:
+        if local:
+            # Local mode: no push or PR creation
+            logging.info(
+                "[green]✓ Workflow completed successfully (local mode)![/green]"
+            )
+            logging.info(f"  Check name: {impl_result.check_name}")
+            logging.info(f"  Provider: {impl_result.check_provider}")
+            logging.info(f"  Branch: {final_branch_name}")
+            logging.info(f"  Working directory: {prowler_repo_path}")
+            logging.info("")
+            logging.info("[cyan]When ready to push and create PR:[/cyan]")
+            logging.info(f"  cd {prowler_repo_path}")
+            logging.info(f"  git push -u origin {final_branch_name}")
+            logging.info("  gh pr create")
+
+            # Cleanup worktree if requested (with warning about unpushed changes)
+            if cleanup_worktree and not no_worktree and worktree_path and main_repo:
+                logging.warning(
+                    "[yellow]⚠ Changes have NOT been pushed to remote![/yellow]"
+                )
+                logging.info("[yellow]Cleaning up worktree...[/yellow]")
+                remove_worktree(main_repo, worktree_path)
+                logging.info("[green]✓ Worktree removed[/green]")
+
+            logging.info("=" * 60)
+            logging.info("WORKFLOW COMPLETE")
+            logging.info("=" * 60)
+        elif pr_result and pr_result.success:
             logging.info("[green]✓ Workflow completed successfully![/green]")
             logging.info(f"  Check name: {impl_result.check_name}")
             logging.info(f"  Provider: {impl_result.check_provider}")
@@ -386,7 +428,7 @@ def create_check(
             logging.info(f"  Check name: {impl_result.check_name}")
             logging.info(f"  Provider: {impl_result.check_provider}")
             logging.info(f"  Branch: {final_branch_name}")
-            if pr_result.error:
+            if pr_result and pr_result.error:
                 logging.info(f"  PR Error: {pr_result.error}")
             logging.info("[yellow]You can create the PR manually with:[/yellow]")
             logging.info(f"  cd {prowler_repo_path}")
