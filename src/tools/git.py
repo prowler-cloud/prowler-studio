@@ -1,11 +1,154 @@
 """Git repository tools."""
 
+from pathlib import Path
+
 from git import Repo
 from git.exc import GitCommandError
 from rich import print
 
 # Constants
 DEFAULT_BRANCH: str = "master"
+
+
+def ensure_main_repo_exists(working_dir: Path, repo_url: str) -> Repo:
+    """
+    Clone repo if not exists, return Repo object.
+
+    Args:
+        working_dir: Working directory containing the repo
+        repo_url: Git URL to clone from
+
+    Returns:
+        Repo object for the main repository
+
+    Raises:
+        GitCommandError: If clone fails
+    """
+    repo_path = working_dir / "prowler"
+
+    if repo_path.exists():
+        print(f"[yellow]Using existing Prowler repository at {repo_path}[/yellow]")
+        return Repo(repo_path)
+    else:
+        print("[bold]Cloning Prowler repository...[/bold]")
+        return Repo.clone_from(url=repo_url, to_path=repo_path)
+
+
+def update_main_repo(repo: Repo, base_branch: str = DEFAULT_BRANCH) -> None:
+    """
+    Fetch and update main branch before creating worktree.
+
+    Args:
+        repo: The main Repo object
+        base_branch: Branch to update (default: master)
+    """
+    print(f"[yellow]Updating {base_branch} branch...[/yellow]")
+
+    # Fetch latest from origin
+    origin = repo.remotes.origin
+    origin.fetch()
+
+    # Update local base branch to match remote
+    repo.git.checkout(base_branch)
+    repo.git.pull("origin", base_branch)
+
+    print(f"[green]✓ Updated {base_branch} to latest[/green]")
+
+
+def create_worktree(
+    main_repo: Repo,
+    worktree_path: Path,
+    branch_name: str,
+    base_branch: str = DEFAULT_BRANCH,
+) -> Repo:
+    """
+    Create new worktree with a new branch from base.
+
+    Args:
+        main_repo: The main Repo object
+        worktree_path: Path where worktree will be created
+        branch_name: Name of the new branch to create
+        base_branch: Branch to base the new branch on (default: master)
+
+    Returns:
+        Repo object for the new worktree
+
+    Raises:
+        GitCommandError: If worktree creation fails
+    """
+    # Ensure parent directory exists
+    worktree_path.parent.mkdir(parents=True, exist_ok=True)
+
+    print(f"[yellow]Creating worktree at {worktree_path}...[/yellow]")
+
+    # Create worktree with new branch based on base_branch
+    main_repo.git.worktree("add", "-b", branch_name, str(worktree_path), base_branch)
+
+    print(f"[green]✓ Created worktree with branch '{branch_name}'[/green]")
+
+    return Repo(worktree_path)
+
+
+def remove_worktree(main_repo: Repo, worktree_path: Path) -> None:
+    """
+    Remove worktree and its branch.
+
+    Args:
+        main_repo: The main Repo object
+        worktree_path: Path to the worktree to remove
+    """
+    print(f"[yellow]Removing worktree at {worktree_path}...[/yellow]")
+
+    # Get the branch name before removing worktree
+    try:
+        worktree_repo = Repo(worktree_path)
+        branch_name = worktree_repo.active_branch.name
+    except Exception:
+        branch_name = None
+
+    # Remove the worktree
+    main_repo.git.worktree("remove", str(worktree_path), "--force")
+    print("[green]✓ Removed worktree[/green]")
+
+    # Optionally delete the branch if it exists
+    if branch_name:
+        try:
+            main_repo.git.branch("-D", branch_name)
+            print(f"[green]✓ Deleted branch '{branch_name}'[/green]")
+        except GitCommandError:
+            pass  # Branch may already be deleted or not exist
+
+
+def get_worktree_name(
+    ticket_key: str | None,
+    ticket_file: Path | None,
+    timestamp: int,
+) -> str:
+    """
+    Generate worktree directory name.
+
+    Returns name based on available info:
+    - With Jira: 'prowler-123-1706450000'
+    - With file: '<filename>-1706450000' (e.g., 's3-bucket-check-1706450000')
+    - Neither: 'new-check-1706450000'
+
+    Args:
+        ticket_key: Optional Jira ticket key (e.g., 'PROWLER-123')
+        ticket_file: Optional path to ticket file
+        timestamp: Unix timestamp
+
+    Returns:
+        Worktree directory name
+    """
+    if ticket_key:
+        # Convert PROWLER-123 to prowler-123
+        return f"{ticket_key.lower()}-{timestamp}"
+    elif ticket_file:
+        # Use filename without extension
+        filename = ticket_file.stem.replace("_", "-")
+        return f"{filename}-{timestamp}"
+    else:
+        return f"new-check-{timestamp}"
 
 
 def commit_changes(

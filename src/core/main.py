@@ -15,7 +15,16 @@ from agents.implementation.agent import ChecKreatorAgent
 from agents.pr_creation.agent import PRCreationAgent
 from agents.review.agent import ReviewAgent
 from agents.testing.agent import TestingAgent
-from tools.git import generate_branch_name, prepare_repo_for_work, rename_branch
+from tools.git import (
+    create_worktree,
+    ensure_main_repo_exists,
+    generate_branch_name,
+    get_worktree_name,
+    prepare_repo_for_work,
+    remove_worktree,
+    rename_branch,
+    update_main_repo,
+)
 from tools.jira import parse_jira_url
 from tools.jira_client import JiraClient, JiraClientError, JiraTicketContent
 from tools.prowler import ProwlerToolError, install_prowler_dependencies
@@ -70,6 +79,20 @@ def create_check(
             help="Path to the working directory (default: ./working)",
         ),
     ] = Path("./working"),
+    no_worktree: Annotated[
+        bool,
+        typer.Option(
+            "--no-worktree",
+            help="Legacy mode: work directly on main clone instead of using worktrees",
+        ),
+    ] = False,
+    cleanup_worktree: Annotated[
+        bool,
+        typer.Option(
+            "--cleanup-worktree",
+            help="Remove worktree after successful PR creation",
+        ),
+    ] = False,
 ) -> None:
     """
     Create a Prowler check from a markdown ticket or Jira URL.
@@ -136,34 +159,46 @@ def create_check(
             raise typer.Exit(code=1) from e
 
     # Clone/prepare Prowler repository
-    prowler_repo_path = working_dir / "prowler"
+    main_repo_path = working_dir / "prowler"
+    worktree_path: Path | None = None
+    main_repo: Repo | None = None
 
-    if prowler_repo_path.exists():
-        logging.warning(f"Using existing Prowler repository at {prowler_repo_path}")
-        try:
-            repo = Repo(prowler_repo_path)
-        except InvalidGitRepositoryError as e:
-            logging.error("Directory exists but is not a valid git repository")
-            raise typer.Exit(code=1) from e
-    else:
-        logging.info("[bold]Cloning Prowler repository...[/bold]")
-        try:
-            repo = Repo.clone_from(url=PROWLER_REPO_URL, to_path=prowler_repo_path)
-        except GitError as e:
-            logging.error(f"Git error: {e}")
-            raise typer.Exit(code=1) from e
+    try:
+        main_repo = ensure_main_repo_exists(working_dir, PROWLER_REPO_URL)
+    except InvalidGitRepositoryError as e:
+        logging.error("Directory exists but is not a valid git repository")
+        raise typer.Exit(code=1) from e
+    except GitError as e:
+        logging.error(f"Git error: {e}")
+        raise typer.Exit(code=1) from e
 
     # Determine branch name (use temp branch if not provided)
     temp_branch_name: str | None = None
+    current_timestamp = int(time.time())
     if branch_name is None:
-        temp_branch_name = f"feat/new-check-{int(time.time())}"
+        temp_branch_name = f"feat/new-check-{current_timestamp}"
         effective_branch = temp_branch_name
     else:
         effective_branch = branch_name
 
-    # Prepare branch
+    # Setup repository: worktree mode (default) or legacy mode
     logging.info("[bold]Preparing repository...[/bold]")
-    prepare_repo_for_work(repo, effective_branch)
+
+    if not no_worktree:
+        # Worktree mode: create isolated worktree for this work
+        update_main_repo(main_repo)
+        worktree_name = get_worktree_name(
+            jira_issue_key, ticket_file, current_timestamp
+        )
+        worktree_path = working_dir / "worktrees" / worktree_name
+        repo = create_worktree(main_repo, worktree_path, effective_branch)
+        prowler_repo_path = worktree_path
+        logging.info(f"[cyan]Worktree: {worktree_path}[/cyan]")
+    else:
+        # Legacy mode: work directly on main clone
+        prepare_repo_for_work(main_repo, effective_branch)
+        repo = main_repo
+        prowler_repo_path = main_repo_path
 
     # Setup AI skills for Claude (non-blocking on failure)
     skills_result = setup_prowler_skills(prowler_directory=prowler_repo_path)
@@ -336,6 +371,13 @@ def create_check(
             logging.info(f"  Branch: {final_branch_name}")
             logging.info(f"  PR: {pr_result.pr_url}")
             logging.info(f"  Commit: {pr_result.commit_sha[:8]}")
+
+            # Cleanup worktree if requested
+            if cleanup_worktree and not no_worktree and worktree_path and main_repo:
+                logging.info("[yellow]Cleaning up worktree...[/yellow]")
+                remove_worktree(main_repo, worktree_path)
+                logging.info("[green]✓ Worktree removed[/green]")
+
             logging.info("=" * 60)
             logging.info("WORKFLOW COMPLETE")
             logging.info("=" * 60)

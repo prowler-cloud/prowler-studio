@@ -115,7 +115,7 @@ This check detects security misconfigurations.
 Create the PR using `gh pr create`:
 
 ```bash
-gh pr create --title "feat({{ check_provider }}): add {{ check_name }} security check" --body "$(cat <<'EOF'
+gh pr create --draft --title "feat({{ check_provider }}): add {{ check_name }} security check" --body "$(cat <<'EOF'
 ### Context
 
 [Write 2-3 sentences explaining the security risk this check addresses.
