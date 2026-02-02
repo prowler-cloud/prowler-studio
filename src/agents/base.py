@@ -53,7 +53,9 @@ class Agent(ABC):
             AgentError: If agent execution fails
         """
 
-    async def _process_agent_messages(self, client: "ClaudeSDKClient") -> None:
+    async def _process_agent_messages(
+        self, client: "ClaudeSDKClient", *, capture_text: bool = False
+    ) -> str:
         """
         Process and stream messages from the Claude agent.
 
@@ -62,13 +64,22 @@ class Agent(ABC):
 
         Args:
             client: Claude SDK client instance
+            capture_text: If True, return captured text output
+
+        Returns:
+            Captured text if capture_text=True, empty string otherwise
         """
+        self._tool_names_by_id.clear()  # Reset for new conversation
+        captured: list[str] = []
+
         async for message in client.receive_response():
             if isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock):
                         print(block.text, end="", flush=True)
                         log_agent_output(block.text)
+                        if capture_text:
+                            captured.append(block.text)
                     elif isinstance(block, ToolUseBlock):
                         self._tool_names_by_id[block.id] = block.name
                         log_tool_call(
@@ -89,3 +100,5 @@ class Agent(ABC):
             elif isinstance(message, ResultMessage):
                 print()
                 break
+
+        return "".join(captured) if capture_text else ""
