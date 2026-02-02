@@ -119,6 +119,12 @@ def create_check(
         _console.print("[red]✗ Cannot provide both --ticket and --jira-url[/red]")
         raise typer.Exit(code=1)
 
+    if local and cleanup_worktree:
+        _console.print(
+            "[red]✗ Cannot use --local with --cleanup-worktree (changes would be lost)[/red]"
+        )
+        raise typer.Exit(code=1)
+
     # Validate file path if provided
     if ticket_file:
         ticket_file = ticket_file.resolve()
@@ -393,15 +399,6 @@ def create_check(
             logging.info(f"  cd {prowler_repo_path}")
             logging.info(f"  git push -u origin {final_branch_name}")
             logging.info("  gh pr create")
-
-            # Cleanup worktree if requested (with warning about unpushed changes)
-            if cleanup_worktree and not no_worktree and worktree_path and main_repo:
-                logging.warning(
-                    "[yellow]⚠ Changes have NOT been pushed to remote![/yellow]"
-                )
-                logging.info("[yellow]Cleaning up worktree...[/yellow]")
-                remove_worktree(main_repo, worktree_path)
-                logging.info("[green]✓ Worktree removed[/green]")
 
             logging.info("=" * 60)
             logging.info("WORKFLOW COMPLETE")

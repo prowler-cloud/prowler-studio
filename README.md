@@ -50,7 +50,7 @@ prowler-studio feat/my_new_check -t check_ticket.md -w ./custom_work
 Keep changes local (no push or PR creation):
 
 ```bash
-prowler-studio --ticket check_ticket.md --local
+prowler-studio -b feat/my-check --ticket check_ticket.md --local
 ```
 
 > **Note**: You must provide either `--ticket` or `--jira-url`, not both.
