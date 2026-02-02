@@ -10,17 +10,13 @@ if TYPE_CHECKING:
     from git import Repo
 
 from claude_agent_sdk import (
-    AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
-    ResultMessage,
-    TextBlock,
 )
 
 from agents.base import Agent
 from agents.testing.models import TestingResult
 from tools.prowler import run_pytest
-from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -210,16 +206,3 @@ class TestingAgent(Agent):
             permission_mode="bypassPermissions",
             cwd=str(self.working_dir),
         )
-
-    async def _process_agent_messages(self, client: ClaudeSDKClient) -> None:
-        """Process and stream messages from the Claude agent."""
-        async for message in client.receive_response():
-            if isinstance(message, AssistantMessage):
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        # Use builtin print for real-time streaming
-                        print(block.text, end="", flush=True)
-                        log_agent_output(block.text)
-            elif isinstance(message, ResultMessage):
-                print()  # Newline after streaming
-                break

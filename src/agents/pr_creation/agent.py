@@ -17,11 +17,13 @@ from claude_agent_sdk import (
     ClaudeSDKClient,
     ResultMessage,
     TextBlock,
+    ToolResultBlock,
+    ToolUseBlock,
 )
 
 from agents.base import Agent
 from agents.pr_creation.models import PRCreationResult
-from utils.logging import log_agent_output
+from utils.logging import log_agent_output, log_tool_call
 from utils.prompts import load_prompt
 
 
@@ -131,18 +133,34 @@ class PRCreationAgent(Agent):
         )
 
     async def _process_agent_messages_capture(self, client: ClaudeSDKClient) -> str:
-        """Process agent messages and capture text output."""
+        """Process agent messages, capture text output, and log tool calls."""
         captured_text: list[str] = []
         async for message in client.receive_response():
             if isinstance(message, AssistantMessage):
                 for block in message.content:
                     if isinstance(block, TextBlock):
-                        # Use builtin print for real-time streaming
                         print(block.text, end="", flush=True)
                         log_agent_output(block.text)
                         captured_text.append(block.text)
+                    elif isinstance(block, ToolUseBlock):
+                        self._tool_names_by_id[block.id] = block.name
+                        log_tool_call(
+                            tool_name=block.name,
+                            tool_input=block.input,
+                            tool_use_id=block.id,
+                        )
+                    elif isinstance(block, ToolResultBlock):
+                        tool_name = self._tool_names_by_id.get(
+                            block.tool_use_id, "Unknown"
+                        )
+                        log_tool_call(
+                            tool_name=tool_name,
+                            tool_output=block.content,
+                            is_error=block.is_error or False,
+                            tool_use_id=block.tool_use_id,
+                        )
             elif isinstance(message, ResultMessage):
-                print()  # Newline after streaming
+                print()
                 break
         return "".join(captured_text)
 

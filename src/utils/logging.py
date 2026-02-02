@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from datetime import datetime
 from pathlib import Path  # noqa: TC003 (used at runtime for path operations)
+from typing import Any
 
 from rich.logging import RichHandler
 
@@ -87,3 +89,114 @@ def log_agent_output(text: str) -> None:
 def _strip_rich_markup(text: str) -> str:
     """Strip Rich console markup from text."""
     return re.sub(r"\[/?[^\]]+\]", "", text)
+
+
+def log_tool_call(
+    tool_name: str | None,
+    tool_input: dict[str, Any] | None = None,
+    tool_output: str | list[dict[str, Any]] | None = None,
+    is_error: bool = False,
+    tool_use_id: str | None = None,
+) -> None:
+    """
+    Log tool call information to the log file only (not console).
+
+    Args:
+        tool_name: Name of the tool being called
+        tool_input: Input parameters for the tool (for TOOL CALL)
+        tool_output: Output from the tool (for TOOL RESULT)
+        is_error: Whether the tool result was an error
+        tool_use_id: Unique ID for correlating calls and results
+    """
+    if _file_handler is None:
+        return
+
+    id_suffix = f" (id={tool_use_id})" if tool_use_id else ""
+
+    if tool_input is not None:
+        # Log tool call with input
+        header = f"[TOOL CALL] {tool_name}{id_suffix}"
+        record = logging.LogRecord(
+            name="tool",
+            level=logging.DEBUG,
+            pathname="",
+            lineno=0,
+            msg=header,
+            args=(),
+            exc_info=None,
+        )
+        _file_handler.emit(record)
+
+        # Log the input as formatted JSON
+        try:
+            input_json = json.dumps(tool_input, indent=2)
+            for line in input_json.splitlines():
+                record = logging.LogRecord(
+                    name="tool",
+                    level=logging.DEBUG,
+                    pathname="",
+                    lineno=0,
+                    msg=line,
+                    args=(),
+                    exc_info=None,
+                )
+                _file_handler.emit(record)
+        except (TypeError, ValueError):
+            # Fallback if JSON serialization fails
+            record = logging.LogRecord(
+                name="tool",
+                level=logging.DEBUG,
+                pathname="",
+                lineno=0,
+                msg=str(tool_input),
+                args=(),
+                exc_info=None,
+            )
+            _file_handler.emit(record)
+
+    elif tool_output is not None:
+        # Log tool result
+        status = "ERROR" if is_error else "OK"
+        header = f"[TOOL RESULT] {tool_name} [{status}]"
+        record = logging.LogRecord(
+            name="tool",
+            level=logging.DEBUG,
+            pathname="",
+            lineno=0,
+            msg=header,
+            args=(),
+            exc_info=None,
+        )
+        _file_handler.emit(record)
+
+        # Log the output (truncated if too long)
+        output_str = _format_tool_output(tool_output)
+        max_lines = 50
+        lines = output_str.splitlines()
+        if len(lines) > max_lines:
+            lines = [
+                *lines[:max_lines],
+                f"... (truncated, {len(lines) - max_lines} more lines)",
+            ]
+
+        for line in lines:
+            record = logging.LogRecord(
+                name="tool",
+                level=logging.DEBUG,
+                pathname="",
+                lineno=0,
+                msg=line,
+                args=(),
+                exc_info=None,
+            )
+            _file_handler.emit(record)
+
+
+def _format_tool_output(output: str | list[dict[str, Any]]) -> str:
+    """Format tool output for logging."""
+    if isinstance(output, str):
+        return output
+    try:
+        return json.dumps(output, indent=2)
+    except (TypeError, ValueError):
+        return str(output)
