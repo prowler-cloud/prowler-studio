@@ -25,6 +25,8 @@ from tools.git import (
     rename_branch,
     update_main_repo,
 )
+from tools.github_client import GitHubClient, GitHubClientError, GitHubIssueContent
+from tools.github_issue import GitHubIssueInfo, parse_github_issue_url
 from tools.jira import parse_jira_url
 from tools.jira_client import JiraClient, JiraClientError, JiraTicketContent
 from tools.prowler import ProwlerToolError, install_prowler_dependencies
@@ -71,6 +73,14 @@ def create_check(
             help="Jira ticket URL (e.g., https://mycompany.atlassian.net/browse/PROJ-123)",
         ),
     ] = None,
+    github_url: Annotated[
+        str | None,
+        typer.Option(
+            "--github-url",
+            "-g",
+            help="GitHub issue URL (e.g., https://github.com/owner/repo/issues/123)",
+        ),
+    ] = None,
     working_dir: Annotated[
         Path,
         typer.Option(
@@ -102,21 +112,25 @@ def create_check(
     ] = False,
 ) -> None:
     """
-    Create a Prowler check from a markdown ticket or Jira URL.
+    Create a Prowler check from a markdown ticket, Jira URL, or GitHub issue URL.
 
     This will:
     1. Clone/prepare the Prowler repository
     2. Run the implementation agent to create the check
     3. Verify the check is loaded correctly
 
-    You must provide either --ticket or --jira-url, not both.
+    You must provide exactly one of: --ticket, --jira-url, or --github-url.
     """
     # Validate input: must provide exactly one source
-    if not ticket_file and not jira_url:
-        _console.print("[red]✗ Must provide either --ticket or --jira-url[/red]")
+    input_sources = [ticket_file, jira_url, github_url]
+    provided = sum(1 for s in input_sources if s)
+    if provided == 0:
+        _console.print(
+            "[red]✗ Must provide --ticket, --jira-url, or --github-url[/red]"
+        )
         raise typer.Exit(code=1)
-    if ticket_file and jira_url:
-        _console.print("[red]✗ Cannot provide both --ticket and --jira-url[/red]")
+    if provided > 1:
+        _console.print("[red]✗ Cannot provide multiple input sources[/red]")
         raise typer.Exit(code=1)
 
     if local and cleanup_worktree:
@@ -147,12 +161,25 @@ def create_check(
             _console.print(f"[red]✗ {e}[/red]")
             raise typer.Exit(code=1) from e
 
+    # Parse GitHub URL if provided (validation only, fetch after logger is initialized)
+    github_issue_key: str | None = None
+    github_issue_content: GitHubIssueContent | None = None
+    github_info: GitHubIssueInfo | None = None
+    if github_url:
+        try:
+            github_info = parse_github_issue_url(github_url)
+            github_issue_key = f"{github_info.repo}-{github_info.issue_number}"
+        except ValueError as e:
+            _console.print(f"[red]✗ {e}[/red]")
+            raise typer.Exit(code=1) from e
+
     # Setup working directory
     working_dir = working_dir.resolve()
     working_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize logging
-    log_file = setup_logging(base_dir=working_dir, ticket=jira_issue_key)
+    issue_key = jira_issue_key or github_issue_key
+    log_file = setup_logging(base_dir=working_dir, ticket=issue_key)
     logging.info("")
     logging.info("=" * 60)
     logging.info("STAGE: Prowler Studio - Check Creation")
@@ -169,6 +196,22 @@ def create_check(
             logging.info(f"[green]✓ Fetched: {jira_ticket_content.summary}[/green]")
         except JiraClientError as e:
             logging.error(f"Failed to fetch Jira ticket: {e}")
+            raise typer.Exit(code=1) from e
+
+    # Fetch GitHub issue content (now that logger is available)
+    if github_info and github_issue_key:
+        try:
+            logging.info(f"[cyan]GitHub issue: {github_issue_key}[/cyan]")
+            logging.info("[bold]Fetching GitHub issue content...[/bold]")
+            github_client = GitHubClient()
+            github_issue_content = github_client.fetch_issue(
+                owner=github_info.owner,
+                repo=github_info.repo,
+                issue_number=github_info.issue_number,
+            )
+            logging.info(f"[green]✓ Fetched: {github_issue_content.title}[/green]")
+        except GitHubClientError as e:
+            logging.error(f"Failed to fetch GitHub issue: {e}")
             raise typer.Exit(code=1) from e
 
     # Clone/prepare Prowler repository
@@ -200,9 +243,7 @@ def create_check(
     if not no_worktree:
         # Worktree mode: create isolated worktree for this work
         update_main_repo(main_repo)
-        worktree_name = get_worktree_name(
-            jira_issue_key, ticket_file, current_timestamp
-        )
+        worktree_name = get_worktree_name(issue_key, ticket_file, current_timestamp)
         worktree_path = working_dir / "worktrees" / worktree_name
         repo = create_worktree(main_repo, worktree_path, effective_branch)
         prowler_repo_path = worktree_path
@@ -227,12 +268,14 @@ def create_check(
         raise typer.Exit(code=1) from e
 
     try:
-        # Get ticket content from file or Jira
+        # Get ticket content from file, Jira, or GitHub
         check_ticket_content: str | None = None
         if ticket_file:
             check_ticket_content = ticket_file.read_text()
         elif jira_ticket_content:
             check_ticket_content = jira_ticket_content.to_markdown()
+        elif github_issue_content:
+            check_ticket_content = github_issue_content.to_markdown()
 
         # Stage 1: Check Implementation
         logging.info("")
@@ -261,8 +304,7 @@ def create_check(
         final_branch_name: str
         if temp_branch_name is not None:
             # User didn't provide --branch, rename temp branch to final name
-            ticket_key = jira_issue_key if jira_issue_key else None
-            final_branch_name = generate_branch_name(impl_result.check_name, ticket_key)
+            final_branch_name = generate_branch_name(impl_result.check_name, issue_key)
             rename_branch(repo, temp_branch_name, final_branch_name)
             logging.info(f"[green]✓ Branch renamed to: {final_branch_name}[/green]")
         else:
@@ -361,13 +403,14 @@ def create_check(
             logging.info("=" * 60)
             logging.info("STAGE: Stage 6: PR Creation")
             logging.info("=" * 60)
+            source_url = jira_url or github_url
             pr_agent: PRCreationAgent = PRCreationAgent(
                 working_dir=prowler_repo_path,
                 check_name=impl_result.check_name,
                 check_provider=impl_result.check_provider,
                 branch_name=final_branch_name,
                 prowler_repo=repo,
-                jira_url=jira_url,
+                source_url=source_url,
                 check_ticket=check_ticket_content,
             )
 
