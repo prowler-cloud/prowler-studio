@@ -47,7 +47,25 @@ With custom working directory:
 prowler-studio feat/my_new_check -t check_ticket.md -w ./custom_work
 ```
 
+Keep changes local (no push or PR creation):
+
+```bash
+prowler-studio --ticket check_ticket.md --local
+```
+
 > **Note**: You must provide either `--ticket` or `--jira-url`, not both.
+
+### CLI Options
+
+| Option | Short | Description |
+|--------|-------|-------------|
+| `--branch` | `-b` | Branch name (default: `feat/<ticket>-<check_name>` or `feat/<check_name>`) |
+| `--ticket` | `-t` | Path to the markdown check ticket file |
+| `--jira-url` | `-j` | Jira ticket URL (e.g., `https://mycompany.atlassian.net/browse/PROJ-123`) |
+| `--working-dir` | `-w` | Path to the working directory (default: `./working`) |
+| `--no-worktree` | | Legacy mode: work directly on main clone instead of using worktrees |
+| `--cleanup-worktree` | | Remove worktree after successful PR creation |
+| `--local` | | Keep changes local only (no push, no PR creation) |
 
 ## Project Structure
 
