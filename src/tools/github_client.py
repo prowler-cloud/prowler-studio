@@ -37,6 +37,9 @@ class GitHubIssueContent:
             f"**State:** {self.state}",
         ]
 
+        if self.url:
+            sections.append(f"**URL:** {self.url}")
+
         if self.labels:
             sections.append(f"**Labels:** {', '.join(self.labels)}")
 
@@ -60,18 +63,10 @@ class GitHubClient:
         Initialize the GitHub client.
 
         Args:
-            token: GitHub personal access token (falls back to GITHUB_TOKEN env var)
-
-        Raises:
-            GitHubClientError: If token is missing
+            token: GitHub personal access token (falls back to GITHUB_TOKEN env var).
+                   Optional for public repos (60 req/hr unauthenticated vs 5000 authenticated).
         """
         self.token: str | None = token or os.getenv("GITHUB_TOKEN")
-
-        if not self.token:
-            raise GitHubClientError(
-                "GitHub token required. Set GITHUB_TOKEN environment variable "
-                "or pass token parameter."
-            )
 
     def fetch_issue(
         self, owner: str, repo: str, issue_number: int
@@ -92,9 +87,10 @@ class GitHubClient:
         """
         url: str = f"{self.API_BASE_URL}/repos/{owner}/{repo}/issues/{issue_number}"
         headers: dict[str, str] = {
-            "Authorization": f"Bearer {self.token}",
             "Accept": "application/vnd.github.v3+json",
         }
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
 
         try:
             with httpx.Client() as client:
@@ -110,6 +106,13 @@ class GitHubClient:
                 raise GitHubClientError(
                     "Authentication failed. Check your GITHUB_TOKEN."
                 ) from e
+            elif e.response.status_code == 403:
+                if "rate limit" in e.response.text.lower():
+                    msg = "GitHub API rate limit exceeded."
+                    if not self.token:
+                        msg += " Set GITHUB_TOKEN for higher limits."
+                    raise GitHubClientError(msg) from e
+                raise GitHubClientError(f"Access forbidden: {e.response.text}") from e
             elif e.response.status_code == 404:
                 raise GitHubClientError(
                     f"Issue {owner}/{repo}#{issue_number} not found."

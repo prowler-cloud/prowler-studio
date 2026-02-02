@@ -31,7 +31,7 @@ def parse_github_issue_url(url: str) -> GitHubIssueInfo:
     Raises:
         ValueError: If URL format is invalid
     """
-    pattern = r"^https?://github\.com/([^/]+)/([^/]+)/issues/(\d+)$"
+    pattern = r"^https?://github\.com/([^/]+)/([^/]+)/issues/(\d+)/?(?:[#?].*)?$"
     match = re.match(pattern, url)
     if not match:
         raise ValueError(
