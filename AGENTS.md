@@ -18,6 +18,19 @@ This document outlines the coding standards and best practices for developing ag
 
 ## Architecture Principles
 
+### Base Agent Class
+
+All agents inherit from the `Agent` base class ([src/agents/base.py](src/agents/base.py)), which provides:
+
+- **`working_dir`**: Path to the working directory
+- **`config`**: Agent-specific configuration from kwargs
+- **`_process_agent_messages(client)`**: Shared method for processing Claude SDK responses
+  - Streams `TextBlock` content to console and logs
+  - Logs `ToolUseBlock` inputs at DEBUG level (`[TOOL CALL]`)
+  - Logs `ToolResultBlock` outputs at DEBUG level (`[TOOL RESULT]`)
+
+Agents must implement the abstract `run()` method.
+
 ### Single Responsibility Principle (SRP)
 
 Each method should have **one clear purpose**. If a method does multiple things, break it down.
@@ -94,8 +107,8 @@ class ChecKreatorAgent(Agent):
     def _load_fix_prompt(self, check_name: str, message: str) -> str: ...
     def _create_claude_options(self) -> ClaudeAgentOptions: ...
 
-    # Processing methods
-    async def _process_agent_messages(self, client: ClaudeSDKClient) -> None: ...
+    # Inherited from Agent base class:
+    # async def _process_agent_messages(self, client: ClaudeSDKClient) -> None: ...
 
     # Business logic methods
     def _discover_check_info(self) -> CheckDiscoveryResult: ...
