@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12"
 
 [[package]]
@@ -69,15 +69,14 @@ wheels = [
 
 [[package]]
 name = "claude-agent-sdk"
-version = "0.1.4"
+version = "0.1.49"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
     { name = "mcp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/86/44/f470573bb13fc944955f73745cf96d4205c7e00571b0e4c6c66fb1c6c4ea/claude_agent_sdk-0.1.4.tar.gz", hash = "sha256:06472b1a30b5b7c189edd0b7456a6be72d21baa457977d10a4ef257f484c79b2", size = 48046, upload-time = "2025-10-15T21:35:06.28Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/99/3e/622ee6d7b9932a73a348381718bd3b8e8bdac457293538f4862ba1011223/claude_agent_sdk-0.1.4-py3-none-any.whl", hash = "sha256:4d81ec68dc357b995bfd9c8b904314a8b65fa1de2ef1740eac5e76314310d3f0", size = 35429, upload-time = "2025-10-15T21:35:04.915Z" },
+    { url = "https://files.pythonhosted.org/packages/65/08/0e33ede7b3035ba953f5a59597b8cb94ea2f3fb3124e5d6f6e255bf9c025/claude_agent_sdk-0.1.49-py3-none-macosx_11_0_arm64.whl", hash = "sha256:a869330d4a15b12c96ae24144b8e29999ff25315267f248634986179e9536a04", size = 57620663, upload-time = "2026-03-17T00:44:27.792Z" },
 ]
 
 [[package]]
@@ -476,7 +475,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.8.0" },
-    { name = "claude-agent-sdk", specifier = ">=0.1.4" },
+    { name = "claude-agent-sdk", specifier = ">=0.1.49" },
     { name = "gitpython", specifier = ">=3.1.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "interrogate", marker = "extra == 'dev'", specifier = ">=1.7.0" },
