@@ -10,16 +10,12 @@ if TYPE_CHECKING:
     from git import Repo
 
 from claude_agent_sdk import (
-    AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
-    ResultMessage,
-    TextBlock,
 )
 
 from agents.base import Agent
 from agents.review.models import ReviewResult
-from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -112,19 +108,6 @@ class ReviewAgent(Agent):
             permission_mode="bypassPermissions",
             cwd=str(self.working_dir),
         )
-
-    async def _process_agent_messages(self, client: ClaudeSDKClient) -> None:
-        """Process and stream messages from the Claude agent."""
-        async for message in client.receive_response():
-            if isinstance(message, AssistantMessage):
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        # Use builtin print for real-time streaming
-                        print(block.text, end="", flush=True)
-                        log_agent_output(block.text)
-            elif isinstance(message, ResultMessage):
-                print()  # Newline after streaming
-                break
 
     def _check_modified_files(self) -> bool:
         """Check if there are any modified files related to the check."""

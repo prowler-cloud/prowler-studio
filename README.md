@@ -106,7 +106,7 @@ prowler_studio/
 │   │   └── models.py            # Tool data models
 │   └── utils/                   # Utilities
 │       ├── prompts.py           # Prompt loading utilities
-│       └── logging.py           # Agent output logging
+│       └── logging.py           # Logging utilities (agent output + tool calls)
 └── pyproject.toml               # Project configuration
 ```
 
@@ -159,6 +159,27 @@ Key features:
 
 #### Jira Tools ([src/tools/jira.py](src/tools/jira.py))
 - `parse_jira_url()`: Parse Jira ticket URL into components (site_url, project_key, issue_key)
+
+### Logging & Observability
+
+All workflow runs are logged to timestamped files in the `logs/` directory.
+
+**Log Levels:**
+- **INFO** (console + file): Workflow progress, agent status, success/failure messages
+- **DEBUG** (file only): Agent text output, tool calls with inputs/outputs
+
+**DEBUG-level tool call logging** captures all Claude agent tool usage:
+```
+2025-02-02 10:30:45 | DEBUG    | [TOOL CALL] Read (id=tool_abc123)
+{
+  "file_path": "/path/to/file.py"
+}
+2025-02-02 10:30:46 | DEBUG    | [TOOL RESULT] Read [OK]
+1: def example():
+2:     return "hello"
+```
+
+This is useful for debugging agent behavior and understanding what tools were invoked during a workflow run.
 
 ### Main CLI Orchestration
 

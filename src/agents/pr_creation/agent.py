@@ -11,17 +11,10 @@ from typing import TYPE_CHECKING, Any, ClassVar
 if TYPE_CHECKING:
     from git import Repo
 
-from claude_agent_sdk import (
-    AssistantMessage,
-    ClaudeAgentOptions,
-    ClaudeSDKClient,
-    ResultMessage,
-    TextBlock,
-)
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 
 from agents.base import Agent
 from agents.pr_creation.models import PRCreationResult
-from utils.logging import log_agent_output
 from utils.prompts import load_prompt
 
 
@@ -74,8 +67,8 @@ class PRCreationAgent(Agent):
         async with ClaudeSDKClient(options=options) as client:
             logging.info("[yellow]Creating commit and pull request...[/yellow]")
             await client.query(pr_prompt)
-            response_text: str = await self._process_agent_messages_capture(
-                client=client
+            response_text: str = await self._process_agent_messages(
+                client, capture_text=True
             )
 
         # Extract PR information from response
@@ -129,22 +122,6 @@ class PRCreationAgent(Agent):
             permission_mode="bypassPermissions",
             cwd=str(self.working_dir),
         )
-
-    async def _process_agent_messages_capture(self, client: ClaudeSDKClient) -> str:
-        """Process agent messages and capture text output."""
-        captured_text: list[str] = []
-        async for message in client.receive_response():
-            if isinstance(message, AssistantMessage):
-                for block in message.content:
-                    if isinstance(block, TextBlock):
-                        # Use builtin print for real-time streaming
-                        print(block.text, end="", flush=True)
-                        log_agent_output(block.text)
-                        captured_text.append(block.text)
-            elif isinstance(message, ResultMessage):
-                print()  # Newline after streaming
-                break
-        return "".join(captured_text)
 
     def _extract_pr_info(self, response_text: str) -> None:
         """Extract PR URL and number from response text."""
