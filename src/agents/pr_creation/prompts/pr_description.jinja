@@ -137,10 +137,14 @@ Include what resources are examined and pass/fail conditions.]
    prowler {{ check_provider }} --check {{ check_name }}
    ```
 
-{% if jira_url %}
+{% if source_url %}
 ### Related Issues
 
-{{ jira_url }}
+{% if 'github.com' in source_url %}
+Closes {{ source_url }}
+{% else %}
+{{ source_url }}
+{% endif %}
 {% endif %}
 
 ### Checklist

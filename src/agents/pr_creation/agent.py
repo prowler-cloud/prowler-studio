@@ -36,7 +36,7 @@ class PRCreationAgent(Agent):
         check_provider: str,
         branch_name: str,
         prowler_repo: Repo,
-        jira_url: str | None = None,
+        source_url: str | None = None,
         check_ticket: str | None = None,
         **kwargs: Any,
     ) -> None:
@@ -45,7 +45,7 @@ class PRCreationAgent(Agent):
         self.check_provider: str = check_provider
         self.branch_name: str = branch_name
         self.prowler_repo: Repo = prowler_repo
-        self.jira_url: str | None = jira_url
+        self.source_url: str | None = source_url
         self.check_ticket: str | None = check_ticket
         self._pr_url: str = ""
         self._pr_number: int = 0
@@ -109,7 +109,7 @@ class PRCreationAgent(Agent):
                 "check_name": self.check_name,
                 "check_provider": self.check_provider,
                 "branch_name": self.branch_name,
-                "jira_url": self.jira_url,
+                "source_url": self.source_url,
                 "check_ticket": self.check_ticket,
                 "service": service,
             },

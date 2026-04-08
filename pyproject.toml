@@ -19,6 +19,7 @@ dev = [
     "mypy>=1.13.0",
     "bandit>=1.8.0",
     "interrogate>=1.7.0",
+    "pytest>=8.0.0",
 ]
 
 [project.scripts]
@@ -104,6 +105,11 @@ ignore_missing_imports = true
 [tool.bandit]
 exclude_dirs = [".venv", "tests", "working"]
 skips = ["B101"]  # Skip assert_used (commonly used in tests)
+
+# Pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
 
 # Interrogate configuration - Docstring coverage
 [tool.interrogate]
