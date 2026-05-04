@@ -1,8 +1,21 @@
-# Agent Development Best Practices
+# Agent Development Guide
 
-This document outlines the coding standards and best practices for developing agents in Prowler Studio. Following these guidelines ensures maintainable, scalable, and high-quality code.
+This document covers the architecture of Prowler Studio and the coding standards for developing its agents. Read [System Architecture](#system-architecture) to understand how the pieces fit together; read the development best practices that follow before adding or modifying an agent.
 
 ## Table of Contents
+
+**System Architecture**
+
+- [Overview](#overview)
+- [Project Structure](#project-structure)
+- [Agents](#agents)
+- [ChecKreatorAgent Flow](#checkreatoragent-flow)
+- [Shared Tools](#shared-tools)
+- [Logging & Observability](#logging--observability)
+- [Main CLI Orchestration](#main-cli-orchestration)
+- [Adding a New Agent](#adding-a-new-agent)
+
+**Development Best Practices**
 
 - [Architecture Principles](#architecture-principles)
 - [Code Organization](#code-organization)
@@ -13,6 +26,220 @@ This document outlines the coding standards and best practices for developing ag
 - [Constants Management](#constants-management)
 - [File Structure](#file-structure)
 - [Examples](#examples)
+- [Checklist for New Agents](#checklist-for-new-agents)
+
+---
+
+## System Architecture
+
+### Overview
+
+Prowler Studio uses the Claude Agent SDK to automate the creation of security checks for Prowler. The architecture separates each task (implementation, testing, compliance mapping, review, PR creation) into an independent agent. Agents run sequentially, with built-in verification and error-correction loops between them.
+
+### Project Structure
+
+```
+prowler_studio/
+├── src/
+│   ├── core/
+│   │   ├── main.py              # CLI entry point
+│   │   └── exceptions.py        # Custom exceptions
+│   ├── agents/
+│   │   ├── base.py              # Agent base class
+│   │   ├── implementation/      # ChecKreatorAgent for check creation
+│   │   │   ├── agent.py         # Main agent implementation
+│   │   │   ├── models.py        # Data models
+│   │   │   └── prompts/         # Jinja2 prompt templates
+│   │   ├── testing/             # TestingAgent for test generation
+│   │   ├── review/              # ReviewAgent for code review
+│   │   ├── compliance_mapping/  # ComplianceMappingAgent
+│   │   └── pr_creation/         # PRCreationAgent for PR workflow
+│   ├── tools/                   # Shared tools
+│   │   ├── git.py               # Git operations and worktree management
+│   │   ├── prowler.py           # Prowler-specific tools
+│   │   ├── skills.py            # AI skills setup
+│   │   ├── jira.py              # Jira URL parsing
+│   │   ├── jira_client.py       # Jira API client
+│   │   ├── github_issue.py      # GitHub issue URL parsing
+│   │   ├── github_client.py     # GitHub REST API client
+│   │   └── models.py            # Tool data models
+│   └── utils/                   # Utilities
+│       ├── prompts.py           # Prompt loading utilities
+│       └── logging.py           # Logging utilities (agent output + tool calls)
+└── pyproject.toml               # Project configuration
+```
+
+### Agents
+
+Each agent is a self-contained unit that performs a specific task. Every agent inherits from the `Agent` base class in [src/agents/base.py](src/agents/base.py), implements `async run()`, and returns a typed result object.
+
+**Current Agents:**
+
+- **ChecKreatorAgent** ([src/agents/implementation/agent.py](src/agents/implementation/agent.py)) — Creates Prowler checks from tickets with automated verification.
+- **TestingAgent** ([src/agents/testing/agent.py](src/agents/testing/agent.py)) — Generates and runs tests for checks with an auto-fix loop.
+- **ReviewAgent** ([src/agents/review/agent.py](src/agents/review/agent.py)) — Reviews check implementations for quality and best practices.
+- **ComplianceMappingAgent** ([src/agents/compliance_mapping/agent.py](src/agents/compliance_mapping/agent.py)) — Analyzes checks and adds compliance framework mappings.
+- **PRCreationAgent** ([src/agents/pr_creation/agent.py](src/agents/pr_creation/agent.py)) — Commits changes and creates pull requests.
+
+### ChecKreatorAgent Flow
+
+The implementation agent follows this workflow:
+
+1. **Setup** — Load prompts and configure the Claude Agent SDK with MCP tools.
+2. **Implementation** — Claude agent creates the check based on ticket requirements.
+3. **Discovery** — Automatically detect the created check from git changes.
+4. **Verification Loop** (up to 5 attempts):
+   - Run `prowler <provider> --list-checks` to verify the check loads.
+   - If verification fails, provide error feedback to Claude.
+   - Claude fixes the issues and verification runs again.
+5. **Result** — Return success/failure with check details.
+
+Key features:
+
+- Uses Claude Agent SDK with a custom MCP server that exposes the `mkcheck` tool.
+- Jinja2 templates for prompts in [src/agents/implementation/prompts/](src/agents/implementation/prompts/).
+- Typed result models: `CheckImplementationResult`, `CheckDiscoveryResult`, `CheckVerificationResult`.
+
+### Shared Tools
+
+#### Git Tools ([src/tools/git.py](src/tools/git.py))
+
+- `ensure_main_repo_exists()` — Clone the Prowler repo if it doesn't exist.
+- `update_main_repo()` — Fetch and update the base branch before creating a worktree.
+- `create_worktree()` / `remove_worktree()` — Manage isolated worktrees for parallel work.
+- `get_worktree_name()` / `generate_branch_name()` / `rename_branch()` — Naming helpers.
+- `commit_changes()` / `push_to_remote()` — Commit and push helpers used by PR creation.
+- `prepare_repo_for_work()` — Legacy mode helper: stash changes, switch branches, pull updates.
+
+#### Prowler Tools ([src/tools/prowler.py](src/tools/prowler.py))
+
+- `mkcheck` (MCP tool) — Create check folder structure.
+- `install_prowler_dependencies()` — Install Prowler with poetry.
+- `verify_check_loaded()` — Verify the check appears in `prowler --list-checks`.
+
+#### Skills Tools ([src/tools/skills.py](src/tools/skills.py))
+
+- `setup_prowler_skills()` — Configure AI skills by running `skills/setup.sh --claude`.
+
+#### Jira Tools ([src/tools/jira.py](src/tools/jira.py), [src/tools/jira_client.py](src/tools/jira_client.py))
+
+- `parse_jira_url()` — Parse a Jira ticket URL into components (site_url, project_key, issue_key).
+- `JiraClient.fetch_ticket()` — Fetch ticket content via the Jira REST API and return a `JiraTicketContent` (Markdown-renderable).
+
+#### GitHub Tools ([src/tools/github_issue.py](src/tools/github_issue.py), [src/tools/github_client.py](src/tools/github_client.py))
+
+- `parse_github_issue_url()` — Parse a GitHub issue URL into components (owner, repo, issue_number).
+- `GitHubClient.fetch_issue()` — Fetch issue content via the GitHub REST API and return a `GitHubIssueContent` (Markdown-renderable). Reads `GITHUB_TOKEN` for higher rate limits.
+
+### Logging & Observability
+
+All workflow runs are logged to timestamped files in the `logs/` directory.
+
+**Log Levels:**
+
+- **INFO** (console + file) — Workflow progress, agent status, success/failure messages.
+- **DEBUG** (file only) — Agent text output, tool calls with inputs/outputs.
+
+**DEBUG-level tool call logging** captures all Claude agent tool usage:
+
+```
+2025-02-02 10:30:45 | DEBUG    | [TOOL CALL] Read (id=tool_abc123)
+{
+  "file_path": "/path/to/file.py"
+}
+2025-02-02 10:30:46 | DEBUG    | [TOOL RESULT] Read [OK]
+1: def example():
+2:     return "hello"
+```
+
+This is useful for debugging agent behavior and understanding what tools were invoked during a workflow run.
+
+### Main CLI Orchestration
+
+The CLI in [src/core/main.py](src/core/main.py) orchestrates agent execution through six stages (Stage 6 is skipped in `--local` mode):
+
+```python
+# 0. Prepare Prowler repository (worktree mode by default)
+main_repo = ensure_main_repo_exists(working_dir, PROWLER_REPO_URL)
+update_main_repo(main_repo)
+repo = create_worktree(main_repo, worktree_path, branch_name)
+setup_prowler_skills(repo.working_dir)
+install_prowler_dependencies(repo.working_dir)
+
+# Stage 1: Implementation - Create check from ticket
+impl_agent = ChecKreatorAgent(working_dir=prowler_path, ...)
+impl_result = asyncio.run(impl_agent.run())
+
+# Stage 2: Testing - Generate and run tests
+test_agent = TestingAgent(working_dir=prowler_path, check_name=impl_result.check_name, ...)
+test_result = asyncio.run(test_agent.run())
+
+# Stage 3: Compliance mapping - Add framework mappings
+compliance_agent = ComplianceMappingAgent(working_dir=prowler_path, ...)
+compliance_result = asyncio.run(compliance_agent.run())
+
+# Stage 4: Review - Code review and quality checks
+review_agent = ReviewAgent(working_dir=prowler_path, check_name=impl_result.check_name, ...)
+review_result = asyncio.run(review_agent.run())
+
+# Stage 5: Re-testing (conditional - only if review made changes)
+if review_result.changes_made:
+    retest_result = asyncio.run(test_agent.run())
+
+# Stage 6: PR Creation (skipped if --local)
+if not local:
+    pr_agent = PRCreationAgent(working_dir=prowler_path, branch_name=branch_name, ...)
+    pr_result = asyncio.run(pr_agent.run())
+```
+
+### Adding a New Agent
+
+The example below uses a hypothetical `DocsAgent` that generates documentation for a check. Apply the same pattern for any new agent.
+
+1. **Create agent structure:**
+
+```bash
+mkdir -p src/agents/docs
+touch src/agents/docs/{__init__.py,agent.py,models.py}
+mkdir src/agents/docs/prompts
+```
+
+2. **Implement the agent:**
+
+```python
+from pathlib import Path
+from agents.base import Agent
+from dataclasses import dataclass
+
+@dataclass
+class DocsResult:
+    success: bool
+    docs_path: str
+    message: str = ""
+
+class DocsAgent(Agent):
+    def __init__(self, working_dir: Path, check_name: str, **kwargs):
+        super().__init__(working_dir, **kwargs)
+        self.check_name = check_name
+
+    async def run(self) -> DocsResult:
+        # Agent implementation using Claude Agent SDK
+        # Load prompts, configure Claude options, run agent
+        return DocsResult(success=True, docs_path="docs/checks/my_check.md")
+```
+
+3. **Add to main CLI:**
+
+```python
+from agents.docs.agent import DocsAgent
+
+# After ChecKreatorAgent completes
+docs_agent = DocsAgent(
+    working_dir=prowler_path,
+    check_name=impl_result.check_name,
+)
+docs_result = asyncio.run(docs_agent.run())
+```
 
 ---
 
