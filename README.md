@@ -59,19 +59,19 @@ Sections marked *Optional* can be skipped; everything else helps the agents make
 From a local markdown ticket:
 
 ```bash
-prowler-studio feat/my_new_check --ticket check_ticket.md
+prowler-studio --ticket check_ticket.md
 ```
 
 From a Jira ticket:
 
 ```bash
-prowler-studio feat/my_new_check --jira-url https://mycompany.atlassian.net/browse/PROJ-123
+prowler-studio --jira-url https://mycompany.atlassian.net/browse/PROJ-123
 ```
 
 From a GitHub issue:
 
 ```bash
-prowler-studio feat/my_new_check --github-url https://github.com/owner/repo/issues/123
+prowler-studio --github-url https://github.com/owner/repo/issues/123
 ```
 
 > Provide exactly one of `--ticket`, `--jira-url`, or `--github-url`.
