@@ -1,0 +1,98 @@
+# Prowler Check Implementation Guide
+
+You are tasked with implementing a new security check for Prowler, an open-source security platform that performs security assessments on different providers (AWS, Azure, GCP, Kubernetes, Microsoft365, GitHub, etc.).
+
+## Understanding Prowler Check Structure
+
+A Prowler check is a detection rule that is used to identify a misconfiguration or vulnerability in a cloud resource.
+
+Before implementing, you need to understand how Prowler checks are structured:
+
+1. **Check Folder Structure**: Each check is a folder located in `prowler/providers/{provider}/services/{service}/{service}_{check_name}/`
+2. **Check Files**: In the check folder, you will find the following files:
+   - `{service}_{check_name}.metadata.json`: The metadata file for the check.
+   - `{service}_{check_name}.py`: The code file for the check.
+   - `__init__.py`: Empty file to make the folder a valid Python package.
+
+**NOTE**: You have access to the tool `mkcheck` to create the check folder and files, but everything empty.
+
+## Implementation Steps
+
+### Step 1: Analyze the Check Ticket
+- Read and understand the vulnerability description in `check_ticket.md`
+- Identify the cloud provider (AWS, Azure, GCP, or Kubernetes)
+- Identify the service being checked (e.g., ArtifactRegistry, IAM, S3, etc.)
+- Understand what security misconfiguration needs to be detected
+
+### Step 2: Research Existing Checks
+- Navigate to the Prowler repository and locate similar checks for the same provider and service
+- Study the structure and implementation patterns
+- Look for existing service client implementations in `prowler/providers/{provider}/services/{service}/`
+- Review how similar checks:
+  - Use the service client to fetch data
+  - Process the data
+  - Create findings
+  - Handle exceptions
+
+**IMPORTANT CONSIDERATION**: There are some patterns that are from older checks that are not used anymore. To get the most up to date information, you should view `docs/developer-guide/checks.mdx` for the latest information.
+Some of the key points to consider are:
+- All classes and methods should have a `docstring`
+- Metadata format is in process of being updated, so most of the checked information could have an incorrect format. Visit `docs/developer-guide/check-metadata-guidelines.mdx` for the latest information.
+
+### Step 3: Identify the Service Client
+- Check if a service client already exists for this service in `prowler/providers/{provider}/services/{service}/`
+- If the service client exists, understand its methods and what data it fetches
+- If methods are missing, you may need to extend the service client
+
+### Step 4: Design the Check Logic
+Based on the audit steps in the check ticket, if audit steps are not provided, you should figure out the best way to audit the service based on the documentation and other available information.
+- Map each audit step to Python code
+- Identify what API calls or service client methods are needed
+- Plan how to detect the vulnerability (what conditions to check)
+- Determine what information to include in findings
+
+### Step 5: Implement the Check
+Create the check file with:
+- Proper imports from Prowler's base classes
+- Check metadata (title, description, severity, risk, etc.)
+- The `execute()` method that:
+  - Iterates through resources from the service client
+  - Applies the security logic
+  - Creates PASS or FAIL findings
+  - Includes proper error handling
+
+### Metadata Best Practices
+
+#### CheckTitle Format
+
+The CheckTitle should describe the **security benefit** of the feature, not just its state.
+
+**Pattern**: "[Feature] protects/ensures/prevents [Target] from [Threat/Risk]"
+
+| ❌ Bad (describes state) | ✅ Good (describes benefit) |
+|--------------------------|----------------------------|
+| "MFA is enabled for IAM users" | "MFA protects IAM users from credential theft" |
+| "Encryption is enabled for S3 buckets" | "S3 bucket encryption protects data at rest" |
+| "Logging is enabled for CloudTrail" | "CloudTrail logging ensures audit trail for API activity" |
+| "ZAP is enabled for Microsoft Teams" | "Zero-hour auto purge (ZAP) protects Microsoft Teams from malware and phishing" |
+
+**Guidelines:**
+- Use active verbs: protects, ensures, prevents, detects, monitors
+- Mention the security benefit (what threat is mitigated)
+- Keep it concise but descriptive (under 100 characters)
+
+## References
+
+For any doubts, you can refer to following files in Prowler repository:
+- `prowler/AGENTS.md` - Prowler Core guidelines
+- `docs/developer-guide/checks.mdx` - Prowler Check development guidelines
+
+## Check Ticket
+
+{% if check_ticket %}
+This is the new check ticket that you need to implement:
+
+{{ check_ticket }}
+{% else %}
+**ERROR**: No check ticket content provided. A check ticket is required to implement a new check.
+{% endif %}

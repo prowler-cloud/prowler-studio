@@ -1,0 +1,499 @@
+"""Main CLI for Prowler Studio."""
+
+import asyncio
+import logging
+import time
+from pathlib import Path
+from typing import TYPE_CHECKING, Annotated
+
+import typer
+from git import GitError, InvalidGitRepositoryError, Repo
+from rich.console import Console
+
+from agents.compliance_mapping.agent import ComplianceMappingAgent
+from agents.implementation.agent import ChecKreatorAgent
+from agents.pr_creation.agent import PRCreationAgent
+from agents.review.agent import ReviewAgent
+from agents.testing.agent import TestingAgent
+from tools.git import (
+    create_worktree,
+    ensure_main_repo_exists,
+    generate_branch_name,
+    get_worktree_name,
+    prepare_repo_for_work,
+    remove_worktree,
+    rename_branch,
+    update_main_repo,
+)
+from tools.github_client import GitHubClient, GitHubClientError, GitHubIssueContent
+from tools.github_issue import GitHubIssueInfo, parse_github_issue_url
+from tools.jira import parse_jira_url
+from tools.jira_client import JiraClient, JiraClientError, JiraTicketContent
+from tools.prowler import ProwlerToolError, install_prowler_dependencies
+from tools.skills import setup_prowler_skills
+from utils.logging import setup_logging
+
+_console = Console()
+
+if TYPE_CHECKING:
+    from agents.compliance_mapping.models import ComplianceMappingResult
+    from agents.implementation.models import CheckImplementationResult
+    from agents.pr_creation.models import PRCreationResult
+    from agents.review.models import ReviewResult
+    from agents.testing.models import TestingResult
+
+app = typer.Typer()
+
+PROWLER_REPO_URL = "git@github.com:prowler-cloud/prowler.git"
+
+
+@app.command()
+def create_check(
+    branch_name: Annotated[
+        str | None,
+        typer.Option(
+            "--branch",
+            "-b",
+            help="Branch name (default: feat/<ticket>-<check_name> or feat/<check_name>)",
+        ),
+    ] = None,
+    ticket_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--ticket",
+            "-t",
+            help="Path to the markdown check ticket file",
+        ),
+    ] = None,
+    jira_url: Annotated[
+        str | None,
+        typer.Option(
+            "--jira-url",
+            "-j",
+            help="Jira ticket URL (e.g., https://mycompany.atlassian.net/browse/PROJ-123)",
+        ),
+    ] = None,
+    github_url: Annotated[
+        str | None,
+        typer.Option(
+            "--github-url",
+            "-g",
+            help="GitHub issue URL (e.g., https://github.com/owner/repo/issues/123)",
+        ),
+    ] = None,
+    working_dir: Annotated[
+        Path,
+        typer.Option(
+            "--working-dir",
+            "-w",
+            help="Path to the working directory (default: ./working)",
+        ),
+    ] = Path("./working"),
+    no_worktree: Annotated[
+        bool,
+        typer.Option(
+            "--no-worktree",
+            help="Legacy mode: work directly on main clone instead of using worktrees",
+        ),
+    ] = False,
+    cleanup_worktree: Annotated[
+        bool,
+        typer.Option(
+            "--cleanup-worktree",
+            help="Remove worktree after successful PR creation",
+        ),
+    ] = False,
+    local: Annotated[
+        bool,
+        typer.Option(
+            "--local",
+            help="Keep changes local only (no push, no PR creation)",
+        ),
+    ] = False,
+) -> None:
+    """
+    Create a Prowler check from a markdown ticket, Jira URL, or GitHub issue URL.
+
+    This will:
+    1. Clone/prepare the Prowler repository
+    2. Run the implementation agent to create the check
+    3. Verify the check is loaded correctly
+
+    You must provide exactly one of: --ticket, --jira-url, or --github-url.
+    """
+    # Validate input: must provide exactly one source
+    input_sources = [ticket_file, jira_url, github_url]
+    provided = sum(1 for s in input_sources if s)
+    if provided == 0:
+        _console.print(
+            "[red]✗ Must provide --ticket, --jira-url, or --github-url[/red]"
+        )
+        raise typer.Exit(code=1)
+    if provided > 1:
+        _console.print("[red]✗ Cannot provide multiple input sources[/red]")
+        raise typer.Exit(code=1)
+
+    if local and cleanup_worktree:
+        _console.print(
+            "[red]✗ Cannot use --local with --cleanup-worktree (changes would be lost)[/red]"
+        )
+        raise typer.Exit(code=1)
+
+    # Validate file path if provided
+    if ticket_file:
+        ticket_file = ticket_file.resolve()
+        if not ticket_file.exists():
+            _console.print(f"[red]✗ Ticket file not found: {ticket_file}[/red]")
+            raise typer.Exit(code=1)
+        if not ticket_file.is_file():
+            _console.print(f"[red]✗ Path is not a file: {ticket_file}[/red]")
+            raise typer.Exit(code=1)
+
+    # Parse Jira URL if provided (validation only, fetch after logger is initialized)
+    jira_issue_key: str | None = None
+    jira_ticket_content: JiraTicketContent | None = None
+    jira_info = None
+    if jira_url:
+        try:
+            jira_info = parse_jira_url(jira_url)
+            jira_issue_key = jira_info.issue_key
+        except ValueError as e:
+            _console.print(f"[red]✗ {e}[/red]")
+            raise typer.Exit(code=1) from e
+
+    # Parse GitHub URL if provided (validation only, fetch after logger is initialized)
+    github_issue_key: str | None = None
+    github_issue_content: GitHubIssueContent | None = None
+    github_info: GitHubIssueInfo | None = None
+    if github_url:
+        try:
+            github_info = parse_github_issue_url(github_url)
+            github_issue_key = f"{github_info.repo}-{github_info.issue_number}"
+        except ValueError as e:
+            _console.print(f"[red]✗ {e}[/red]")
+            raise typer.Exit(code=1) from e
+
+    # Setup working directory
+    working_dir = working_dir.resolve()
+    working_dir.mkdir(parents=True, exist_ok=True)
+
+    # Initialize logging
+    issue_key = jira_issue_key or github_issue_key
+    log_file = setup_logging(base_dir=working_dir, ticket=issue_key)
+    logging.info("")
+    logging.info("=" * 60)
+    logging.info("STAGE: Prowler Studio - Check Creation")
+    logging.info("=" * 60)
+    logging.info(f"[cyan]Log file: {log_file}[/cyan]")
+
+    # Fetch Jira ticket content (now that logger is available)
+    if jira_info and jira_issue_key:
+        try:
+            logging.info(f"[cyan]Jira ticket: {jira_issue_key}[/cyan]")
+            logging.info("[bold]Fetching Jira ticket content...[/bold]")
+            jira_client = JiraClient(site_url=jira_info.site_url)
+            jira_ticket_content = jira_client.fetch_ticket(jira_issue_key)
+            logging.info(f"[green]✓ Fetched: {jira_ticket_content.summary}[/green]")
+        except JiraClientError as e:
+            logging.error(f"Failed to fetch Jira ticket: {e}")
+            raise typer.Exit(code=1) from e
+
+    # Fetch GitHub issue content (now that logger is available)
+    if github_info and github_issue_key:
+        try:
+            logging.info(f"[cyan]GitHub issue: {github_issue_key}[/cyan]")
+            logging.info("[bold]Fetching GitHub issue content...[/bold]")
+            github_client = GitHubClient()
+            github_issue_content = github_client.fetch_issue(
+                owner=github_info.owner,
+                repo=github_info.repo,
+                issue_number=github_info.issue_number,
+            )
+            logging.info(f"[green]✓ Fetched: {github_issue_content.title}[/green]")
+        except GitHubClientError as e:
+            logging.error(f"Failed to fetch GitHub issue: {e}")
+            raise typer.Exit(code=1) from e
+
+    # Clone/prepare Prowler repository
+    main_repo_path = working_dir / "prowler"
+    worktree_path: Path | None = None
+    main_repo: Repo | None = None
+
+    try:
+        main_repo = ensure_main_repo_exists(working_dir, PROWLER_REPO_URL)
+    except InvalidGitRepositoryError as e:
+        logging.error("Directory exists but is not a valid git repository")
+        raise typer.Exit(code=1) from e
+    except GitError as e:
+        logging.error(f"Git error: {e}")
+        raise typer.Exit(code=1) from e
+
+    # Determine branch name (use temp branch if not provided)
+    temp_branch_name: str | None = None
+    current_timestamp = int(time.time())
+    if branch_name is None:
+        temp_branch_name = f"feat/new-check-{current_timestamp}"
+        effective_branch = temp_branch_name
+    else:
+        effective_branch = branch_name
+
+    # Setup repository: worktree mode (default) or legacy mode
+    logging.info("[bold]Preparing repository...[/bold]")
+
+    if not no_worktree:
+        # Worktree mode: create isolated worktree for this work
+        update_main_repo(main_repo)
+        worktree_name = get_worktree_name(issue_key, ticket_file, current_timestamp)
+        worktree_path = working_dir / "worktrees" / worktree_name
+        repo = create_worktree(main_repo, worktree_path, effective_branch)
+        prowler_repo_path = worktree_path
+        logging.info(f"[cyan]Worktree: {worktree_path}[/cyan]")
+    else:
+        # Legacy mode: work directly on main clone
+        prepare_repo_for_work(main_repo, effective_branch)
+        repo = main_repo
+        prowler_repo_path = main_repo_path
+
+    # Setup AI skills for Claude (non-blocking on failure)
+    skills_result = setup_prowler_skills(prowler_directory=prowler_repo_path)
+    if not skills_result.success:
+        logging.warning(f"Skills setup incomplete: {skills_result.message}")
+        logging.info("[yellow]  Continuing without full skills integration...[/yellow]")
+
+    # Install Prowler dependencies
+    try:
+        install_prowler_dependencies(prowler_repo_path)
+    except ProwlerToolError as e:
+        logging.error(f"Failed to install Prowler dependencies: {e}")
+        raise typer.Exit(code=1) from e
+
+    try:
+        # Get ticket content from file, Jira, or GitHub
+        check_ticket_content: str | None = None
+        if ticket_file:
+            check_ticket_content = ticket_file.read_text()
+        elif jira_ticket_content:
+            check_ticket_content = jira_ticket_content.to_markdown()
+        elif github_issue_content:
+            check_ticket_content = github_issue_content.to_markdown()
+
+        # Stage 1: Check Implementation
+        logging.info("")
+        logging.info("=" * 60)
+        logging.info("STAGE: Stage 1: Check Implementation")
+        logging.info("=" * 60)
+        implementation_agent: ChecKreatorAgent = ChecKreatorAgent(
+            working_dir=prowler_repo_path,
+            check_ticket=check_ticket_content,
+            prowler_repo=repo,
+        )
+
+        impl_result: CheckImplementationResult = asyncio.run(implementation_agent.run())
+
+        if not impl_result.success:
+            logging.error("Check implementation failed verification")
+            if impl_result.error:
+                logging.error(f"Error: {impl_result.error}")
+            raise typer.Exit(code=1)
+
+        logging.info("[green]✓ Check implementation completed[/green]")
+        logging.info(f"  Check name: {impl_result.check_name}")
+        logging.info(f"  Provider: {impl_result.check_provider}")
+
+        # Rename branch if we used a temporary name
+        final_branch_name: str
+        if temp_branch_name is not None:
+            # User didn't provide --branch, rename temp branch to final name
+            final_branch_name = generate_branch_name(impl_result.check_name, issue_key)
+            rename_branch(repo, temp_branch_name, final_branch_name)
+            logging.info(f"[green]✓ Branch renamed to: {final_branch_name}[/green]")
+        else:
+            # User provided explicit --branch name, use it as-is
+            final_branch_name = branch_name  # type: ignore[assignment]
+
+        # Stage 2: Testing
+        logging.info("")
+        logging.info("=" * 60)
+        logging.info("STAGE: Stage 2: Testing")
+        logging.info("=" * 60)
+        testing_agent: TestingAgent = TestingAgent(
+            working_dir=prowler_repo_path,
+            check_name=impl_result.check_name,
+            check_provider=impl_result.check_provider,
+            prowler_repo=repo,
+            check_ticket=check_ticket_content,
+        )
+
+        test_result: TestingResult = asyncio.run(testing_agent.run())
+
+        if not test_result.success:
+            logging.error("Testing failed")
+            if test_result.error:
+                logging.error(f"Error: {test_result.error}")
+            raise typer.Exit(code=1)
+
+        logging.info("[green]✓ Testing completed[/green]")
+        logging.info(f"  Test file: {test_result.test_file_path}")
+
+        # Stage 3: Compliance Mapping
+        logging.info("")
+        logging.info("=" * 60)
+        logging.info("STAGE: Stage 3: Compliance Mapping")
+        logging.info("=" * 60)
+        compliance_agent: ComplianceMappingAgent = ComplianceMappingAgent(
+            working_dir=prowler_repo_path,
+            check_name=impl_result.check_name,
+            check_provider=impl_result.check_provider,
+            prowler_repo=repo,
+            check_ticket=check_ticket_content,
+        )
+
+        compliance_result: ComplianceMappingResult = asyncio.run(compliance_agent.run())
+
+        if not compliance_result.success:
+            logging.error("Compliance mapping failed")
+            if compliance_result.error:
+                logging.error(f"Error: {compliance_result.error}")
+            raise typer.Exit(code=1)
+
+        logging.info("[green]✓ Compliance mapping completed[/green]")
+        if compliance_result.changes_made:
+            logging.info(f"  Files modified: {compliance_result.mappings_added}")
+
+        # Stage 4: Review
+        logging.info("")
+        logging.info("=" * 60)
+        logging.info("STAGE: Stage 4: Code Review")
+        logging.info("=" * 60)
+        review_agent: ReviewAgent = ReviewAgent(
+            working_dir=prowler_repo_path,
+            check_name=impl_result.check_name,
+            check_provider=impl_result.check_provider,
+            prowler_repo=repo,
+        )
+
+        review_result: ReviewResult = asyncio.run(review_agent.run())
+
+        if not review_result.success:
+            logging.error("Review failed")
+            raise typer.Exit(code=1)
+
+        logging.info("[green]✓ Review completed[/green]")
+
+        # Stage 5: Re-test if review made changes
+        if review_result.changes_made:
+            logging.info("")
+            logging.info("=" * 60)
+            logging.info("STAGE: Stage 5: Re-testing (review made changes)")
+            logging.info("=" * 60)
+            retest_result: TestingResult = asyncio.run(testing_agent.run())
+
+            if not retest_result.success:
+                logging.error("Re-testing failed after review changes")
+                if retest_result.error:
+                    logging.error(f"Error: {retest_result.error}")
+                raise typer.Exit(code=1)
+
+            logging.info("[green]✓ Re-testing completed[/green]")
+
+        # Stage 6: PR Creation (unless --local)
+        pr_result: PRCreationResult | None = None
+        if not local:
+            logging.info("")
+            logging.info("=" * 60)
+            logging.info("STAGE: Stage 6: PR Creation")
+            logging.info("=" * 60)
+            source_url = jira_url or github_url
+            pr_agent: PRCreationAgent = PRCreationAgent(
+                working_dir=prowler_repo_path,
+                check_name=impl_result.check_name,
+                check_provider=impl_result.check_provider,
+                branch_name=final_branch_name,
+                prowler_repo=repo,
+                source_url=source_url,
+                check_ticket=check_ticket_content,
+            )
+
+            pr_result = asyncio.run(pr_agent.run())
+        else:
+            logging.info("")
+            logging.info("=" * 60)
+            logging.info("STAGE: Stage 6: PR Creation (skipped - local mode)")
+            logging.info("=" * 60)
+            logging.info("[yellow]Local mode: skipping push and PR creation[/yellow]")
+
+        # Display final results
+        logging.info("")
+        logging.info("=" * 60)
+        logging.info("STAGE: Final Results")
+        logging.info("=" * 60)
+
+        if local:
+            # Local mode: no push or PR creation
+            logging.info(
+                "[green]✓ Workflow completed successfully (local mode)![/green]"
+            )
+            logging.info(f"  Check name: {impl_result.check_name}")
+            logging.info(f"  Provider: {impl_result.check_provider}")
+            logging.info(f"  Branch: {final_branch_name}")
+            logging.info(f"  Working directory: {prowler_repo_path}")
+            logging.info("")
+            logging.info("[cyan]When ready to push and create PR:[/cyan]")
+            logging.info(f"  cd {prowler_repo_path}")
+            logging.info(f"  git push -u origin {final_branch_name}")
+            logging.info("  gh pr create")
+
+            logging.info("=" * 60)
+            logging.info("WORKFLOW COMPLETE")
+            logging.info("=" * 60)
+        elif pr_result and pr_result.success:
+            logging.info("[green]✓ Workflow completed successfully![/green]")
+            logging.info(f"  Check name: {impl_result.check_name}")
+            logging.info(f"  Provider: {impl_result.check_provider}")
+            logging.info(f"  Branch: {final_branch_name}")
+            logging.info(f"  PR: {pr_result.pr_url}")
+            logging.info(f"  Commit: {pr_result.commit_sha[:8]}")
+
+            # Cleanup worktree if requested
+            if cleanup_worktree and not no_worktree and worktree_path and main_repo:
+                logging.info("[yellow]Cleaning up worktree...[/yellow]")
+                remove_worktree(main_repo, worktree_path)
+                logging.info("[green]✓ Worktree removed[/green]")
+
+            logging.info("=" * 60)
+            logging.info("WORKFLOW COMPLETE")
+            logging.info("=" * 60)
+        else:
+            logging.warning("Workflow completed but PR creation failed")
+            logging.info(f"  Check name: {impl_result.check_name}")
+            logging.info(f"  Provider: {impl_result.check_provider}")
+            logging.info(f"  Branch: {final_branch_name}")
+            if pr_result and pr_result.error:
+                logging.info(f"  PR Error: {pr_result.error}")
+            logging.info("[yellow]You can create the PR manually with:[/yellow]")
+            logging.info(f"  cd {prowler_repo_path}")
+            logging.info(f"  git push -u origin {final_branch_name}")
+            logging.info("  gh pr create")
+            logging.info("=" * 60)
+            logging.info("WORKFLOW COMPLETE")
+            logging.info("=" * 60)
+
+    except typer.Exit:
+        logging.info("=" * 60)
+        logging.info("WORKFLOW COMPLETE")
+        logging.info("=" * 60)
+        raise
+    except Exception as e:
+        logging.error(f"Error: {e}")
+        logging.info("=" * 60)
+        logging.info("WORKFLOW COMPLETE")
+        logging.info("=" * 60)
+        raise typer.Exit(code=1) from e
+
+
+if __name__ == "__main__":
+    try:
+        app()
+    except Exception as e:
+        _console.print(f"[red]✗ Unexpected error: {e}[/red]")
+        raise typer.Exit(code=1) from e

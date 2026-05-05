@@ -1,0 +1,58 @@
+# Fix Failing Tests for Prowler Check
+
+The tests for check '{{ check_name }}' are failing. You need to analyze and fix them.
+
+## Test Failure Information
+
+**Check Name**: `{{ check_name }}`
+**Provider**: `{{ check_provider }}`
+**Test File**: `{{ test_file_path }}`
+**Attempt**: {{ attempt }} of {{ max_attempts }}
+
+## Error Output
+
+```
+{{ error_output }}
+```
+
+## Instructions
+
+1. **Analyze the error** - Understand what's causing the test failure
+2. **Read the test file** at `{{ test_file_path }}`
+3. **Read the check implementation** to understand expected behavior
+4. **Fix the issue** - Common issues include:
+   - Incorrect mock setup
+   - Missing imports inside mock.patch context
+   - Wrong assertion values
+   - Incorrect service client mocking path
+   - Missing resource setup in moto (for AWS)
+5. **Ensure the fix doesn't break other tests**
+
+## Common Fixes
+
+### Import Issues
+```python
+# WRONG - Import outside mock context
+from prowler.providers.aws.services.{service}.{check}.{check} import {check}
+
+# CORRECT - Import inside mock context
+with mock.patch(...):
+    from prowler.providers.aws.services.{service}.{check}.{check} import {check}
+```
+
+### Mock Path Issues
+```python
+# Ensure the mock path matches exactly:
+"prowler.providers.{{ check_provider }}.services.{service}.{{ check_name }}.{{ check_name }}.{service}_client"
+```
+
+### Assertion Issues
+- Verify `status_extended` matches the actual message from the check
+- Verify `resource_id` and `resource_name` match what's created in setup
+
+## References
+
+- **Testing Skill**: `skills/prowler-test-sdk/SKILL.md`
+- **Check Implementation**: `prowler/providers/{{ check_provider }}/services/{service}/{{ check_name }}/{{ check_name }}.py`
+
+Please fix the failing tests and ensure they pass.
